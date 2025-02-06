@@ -12,10 +12,7 @@ import EscapeRoomForm from "./RoomForm";
 
 
 export default function MultiEscapeRoomForm() {
-    const [formCount, setFormCount] = useState(0);
     const [timeRange, setTimeRange] = useState(10);
-    const [startTime, setStartTime] = useState(null);
-    const [endTime, setEndTime] = useState(null);
     const [savedThemeInfo, setSavedThemeInfo] = useState({});
     const [allComb, setAllComb] = useState([]);
 
@@ -86,7 +83,7 @@ export default function MultiEscapeRoomForm() {
         const currentDate = dayjs().format('YYYY-MM-DD')
         let all_case = []
 
-        for (let i = 0; i < formCount; i++) {
+        for (let i = 0; i < 5; i++) {
             const tmp = savedThemeInfo[i]
             const timeCase = tmp['preferredTimes']
 
@@ -111,18 +108,8 @@ export default function MultiEscapeRoomForm() {
         <Container maxWidth="sm">
             <Box sx={{mt: 4, display: 'flex', flexDirection: 'column', gap: 2}}>
                 <Typography variant="h4" component="h1" gutterBottom>
-                    방탈출 연방 계획 도우미
+                    방탈출 연방 계획
                 </Typography>
-
-                <TextField
-                    label="연방 개수 (최대 5)"
-                    variant="outlined"
-                    type="text"
-                    value={Number(formCount)}
-                    onChange={(e) => setFormCount(Math.min(parseInt(e.target.value || 0), 5))}
-                    sx={{mb: 2}}
-                />
-
                 <TextField
                     label="테마 당 시간 간격 (분)"
                     variant="outlined"
@@ -132,28 +119,7 @@ export default function MultiEscapeRoomForm() {
                     sx={{mb: 2}}
                 />
 
-                <Box sx={{display: 'flex', flexDirection: 'row', gap: 2}}>
-                    <TextField
-                        fullWidth
-                        label="테마 시작시간 (난 이때 못일어난다!)"
-                        variant="outlined"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        InputLabelProps={{shrink: true}}
-                    />
-                    <TextField
-                        fullWidth
-                        label="테마 끝시간 (난 이이상 늦어지면 안된다!)"
-                        variant="outlined"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        InputLabelProps={{shrink: true}}
-                    />
-                </Box>
-
-                {[...Array(formCount)].map((_, index) => (
+                {[...Array(5)].map((_, index) => (
                     <EscapeRoomForm key={index} index={index} updateInfo={updateSavedThemeInfo}/>
                 ))}
 

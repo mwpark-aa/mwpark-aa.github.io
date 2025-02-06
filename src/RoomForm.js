@@ -13,7 +13,6 @@ const EscapeRoomForm = ({index, updateInfo}) => {
             setPreferredTime('');
         }
     };
-
     const [error, setError] = useState(false);
 
     const validateTimeFormat = (time) => {
@@ -43,7 +42,7 @@ const EscapeRoomForm = ({index, updateInfo}) => {
             preferredTimes: preferredTimes,
         }
         updateInfo(index, val)
-    }, [roomName, duration, preferredTimes, updateInfo, index]);
+    }, [roomName, duration, preferredTimes, index]);
 
     return (
         <Box sx={{
@@ -60,7 +59,7 @@ const EscapeRoomForm = ({index, updateInfo}) => {
             </Typography>
 
             <TextField
-                label="테마 이름"
+                label="테마 이름 (구분만 가능하게)"
                 variant="outlined"
                 fullWidth
                 value={roomName}
