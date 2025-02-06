@@ -21,15 +21,27 @@ const EscapeRoomForm = ({index, updateInfo}) => {
     };
 
     const handleTimeChange = (e) => {
-        const inputTime = e.target.value;
-        setPreferredTime(inputTime);
+        let input = e.target.value.replace(/\D/g, ""); // 숫자만 허용
 
-        if (inputTime === '' || validateTimeFormat(inputTime)) {
+        if (input.length > 4) {
+            input = input.slice(0, 4); // 4자리까지만 입력 가능
+        }
+
+        let formattedTime = input;
+        if (input.length >= 3) {
+            formattedTime = `${input.slice(0, 2)}:${input.slice(2)}`;
+        }
+
+        setPreferredTime(formattedTime);
+
+        // 시간 형식 검증
+        if (validateTimeFormat(formattedTime)) {
             setError(false);
         } else {
             setError(true);
         }
     };
+
 
     const handleDeleteTime = (timeToDelete) => {
         setPreferredTimes(preferredTimes.filter(time => time !== timeToDelete));
