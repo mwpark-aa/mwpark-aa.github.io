@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {
     Box,
     Button,
@@ -12,7 +12,7 @@ import EscapeRoomForm from "./RoomForm";
 
 
 export default function MultiEscapeRoomForm() {
-    const [formCount, setFormCount] = useState(1);
+    const [formCount, setFormCount] = useState(0);
     const [timeRange, setTimeRange] = useState(10);
     const [startTime, setStartTime] = useState(null);
     const [endTime, setEndTime] = useState(null);
@@ -21,7 +21,6 @@ export default function MultiEscapeRoomForm() {
 
 
     function findNonOverlappingCombinations(intervals) {
-        // Group intervals by name
         const intervalsByName = {};
         intervals.forEach(interval => {
             if (!intervalsByName[interval.name]) {
@@ -30,10 +29,8 @@ export default function MultiEscapeRoomForm() {
             intervalsByName[interval.name].push(interval);
         });
 
-        // Convert grouped intervals to array of name groups
         const nameGroups = Object.values(intervalsByName);
 
-        // Recursive function to generate combinations
         function generateCombinations(currentCombination, remainingGroups) {
             if (remainingGroups.length === 0) {
                 return [currentCombination];
@@ -65,17 +62,13 @@ export default function MultiEscapeRoomForm() {
 
         const validCombinations = allCombinations.filter(combo => combo.length === nameGroups.length);
 
-        // Sort each combination by startTime
         const sortedCombinations = validCombinations.map(combo =>
             combo.sort((a, b) => a.startTime.diff(b.startTime))
         );
 
-        // Sort all combinations based on the earliest startTime in each combination
         sortedCombinations.sort((comboA, comboB) =>
             comboA[0].startTime.diff(comboB[0].startTime)
         );
-
-        // Remove duplicates
         return Array.from(new Set(sortedCombinations.map(JSON.stringify)), JSON.parse);
     }
 

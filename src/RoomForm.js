@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {Box, Button, Chip, TextField, Typography} from "@mui/material";
 
-const EscapeRoomForm = ({ index, updateInfo }) => {
+const EscapeRoomForm = ({index, updateInfo}) => {
     const [roomName, setRoomName] = useState('');
     const [duration, setDuration] = useState('');
     const [preferredTime, setPreferredTime] = useState('');
@@ -43,10 +43,18 @@ const EscapeRoomForm = ({ index, updateInfo }) => {
             preferredTimes: preferredTimes,
         }
         updateInfo(index, val)
-    }, [roomName, duration, preferredTimes]);
+    }, [roomName, duration, preferredTimes, updateInfo, index]);
 
     return (
-        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid #ccc', padding: 2, borderRadius: 2 }}>
+        <Box sx={{
+            mt: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            border: '1px solid #ccc',
+            padding: 2,
+            borderRadius: 2
+        }}>
             <Typography variant="h5" component="h2" gutterBottom>
                 방탈출 예약 정보 #{index + 1}
             </Typography>
@@ -60,7 +68,7 @@ const EscapeRoomForm = ({ index, updateInfo }) => {
             />
 
             <TextField
-                label="소요 시간 (분)"
+                label="테마 시간 (분)"
                 variant="outlined"
                 fullWidth
                 type="text"
@@ -68,7 +76,7 @@ const EscapeRoomForm = ({ index, updateInfo }) => {
                 onChange={(e) => setDuration(e.target.value)}
             />
 
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{display: 'flex', gap: 1}}>
                 <TextField
                     fullWidth
                     label="예약 시간 후보 ( ex 13:30 )"
@@ -84,7 +92,7 @@ const EscapeRoomForm = ({ index, updateInfo }) => {
                 </Button>
             </Box>
 
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1}}>
                 {preferredTimes.map((time, index) => (
                     <Chip
                         key={index}
