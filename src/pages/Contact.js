@@ -1,5 +1,5 @@
 import React from "react";
-import { Container, Typography, Box, Link } from "@mui/material";
+import { Container, Typography, Link } from "@mui/material";
 
 const Contact = () => {
     return (
