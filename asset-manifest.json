@@ -1,8 +1,8 @@
 {
   "files": {
-    "main.js": "/room-escape-planner/static/js/main.0cc1ab7e.js",
-    "index.html": "/room-escape-planner/index.html",
-    "main.0cc1ab7e.js.map": "/room-escape-planner/static/js/main.0cc1ab7e.js.map"
+    "main.js": "/static/js/main.0cc1ab7e.js",
+    "index.html": "/index.html",
+    "main.0cc1ab7e.js.map": "/static/js/main.0cc1ab7e.js.map"
   },
   "entrypoints": [
     "static/js/main.0cc1ab7e.js"
