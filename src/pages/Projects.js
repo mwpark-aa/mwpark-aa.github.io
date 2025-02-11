@@ -4,9 +4,9 @@ import Skills from "../components/Skills";
 import {Box, Grid, useTheme} from "@mui/material";
 
 const skills = {
-    backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask"],
-    devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL"],
-    frontend: ["React", "Vue", "JavaScript", "Node.js"],
+    backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask", "Batch", "Airflow"],
+    devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL", "Shell Script"],
+    frontend: ["React", "Vue", "JavaScript", "Node", "JQuery"],
 };
 
 const categoryColors = {
@@ -21,14 +21,9 @@ const Projects = () => {
     const [highlightedSkill, setHighlightedSkill] = useState(null);
     const [highlightedColor, setHighlightedColor] = useState(null);
 
-    const handleSkillHover = (skill, color) => {
+    const handleSkillClick = (skill, color) => {
         setHighlightedSkill(skill);
         setHighlightedColor(color);
-    };
-
-    const handleSkillLeave = () => {
-        setHighlightedSkill(null);
-        setHighlightedColor(null);
     };
 
     return (
@@ -52,8 +47,7 @@ const Projects = () => {
                     <Skills
                         skills={skills}
                         categoryColors={categoryColors}
-                        onSkillHover={handleSkillHover}
-                        onSkillLeave={handleSkillLeave}
+                        onClick={handleSkillClick}
                     />
                 </Box>
             </Grid>

@@ -10,7 +10,7 @@ const categoryIcons = {
     Frontend: <DesktopWindowsIcon sx={{color: "secondary.main"}}/>,
 };
 
-const Skills = ({skills, categoryColors, onSkillHover, onSkillLeave}) => {
+const Skills = ({skills, categoryColors, onClick}) => {
     const renderSkillCategory = (category, skillList) => (
         <Paper
             elevation={4}
@@ -35,8 +35,7 @@ const Skills = ({skills, categoryColors, onSkillHover, onSkillLeave}) => {
                         key={index}
                         label={skill}
                         color={categoryColors[category]}
-                        onMouseEnter={() => onSkillHover(skill, categoryColors[category])}
-                        onMouseLeave={onSkillLeave}
+                        onClick={() => onClick(skill, categoryColors[category])}
                         size="medium"
                         sx={{
                             cursor: "pointer",
