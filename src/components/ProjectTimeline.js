@@ -17,8 +17,7 @@ const projects = [
         month: "1월",
         title: "기존 시스템 경량화",
         descriptions: [
-            "오랜기간동안 추가만 되어 무거워진 시스템을 필요한 기능만 추출하여 새로운 플랫폼 개발 ",
-            "한눈에 올해 실적, 담당자별 매출, 전일대비 특정 항목을 볼 수 있음"
+            "무거워진 시스템을 필요한 기능만 추출하여 새로운 플랫폼 개발 ",
         ],
         skills: ['Java', 'React', 'Redis', 'Docker', "MySQL", "Kafka", "Node"],
     },
@@ -69,14 +68,10 @@ const projects = [
         month: "5월",
         title: "정산 페이지 이관",
         descriptions: [
-            "FE, BE 가 PHP 원 소스로 통합되어 있던 정산 페이지를 Java, Vue 로 분리",
-            "정산을 개발팀의 개입 전혀없이 가능하도록 모든 부분 자동화",
+            "FE, BE 가 PHP 원 소스로 통합되어 있던 정산 페이지를 Java, Vue 로 분리"
         ],
-        improves: ["조회에 4분정도 걸리던 항목을 10초로 단축"],
+        improves: ["조회에 4분정도 걸리던 항목을 10초로 단축", "정산을 개발팀의 개입 전혀없이 가능하도록 모든 부분 자동화",],
         skills: ['Java', 'Spring', "Vue", "MySQL", "PHP", "JQuery", "Shell Script", "JavaScript"],
-        //      "매 달 수수료율을 하드코딩 방식으로 입력하던 로직을 자동화",
-        //      "매 달 영업팀의 요청에 따라 수정 메일을 보내던 작업을 영업팀이 할 수 있게 자동화",
-        //      "단건 발송이 안되어 수동으로 봬던 부분 또한 영업팀이 가능하게 수정",
     },
     {
         year: "2023",
@@ -97,9 +92,8 @@ const projects = [
             "레거시가 심각한 PHP 코드를 JAVA 로 이관하는 작업",
             "관리 안되는 변수를 이전 히스토리 분석을 통해 전부 ENUM, CONSTANT 로 관리"
         ],
-        improves: ["조회에 30초 걸리던 리포트를 5초까지 단축"],
+        improves: ["조회에 30초 걸리던 리포트를 5초까지 단축", "쿼리 최적화, 서비스 로직 변경"],
         skills: ['Java', 'Spring', "MySQL", "Aerospike", "PHP"],
-        //     DETAILS 넣기  [*쿼리 최적화  *서비스 로직 변경  *병렬 스트림]
     },
     {
         year: "2022",
@@ -153,6 +147,20 @@ const ProjectTimeline = ({highlightedSkill, highlightedColor, skills}) => {
                     },
                 }}
             >
+                <TimelineItem>
+                    <TimelineSeparator>
+                        <TimelineDot
+                            color="primary"
+                            variant='outlined'
+                        />
+                        <TimelineConnector/>
+                    </TimelineSeparator>
+                    <TimelineContent sx={{px: 3}}>
+                        <Typography variant="h6">
+                            현재
+                        </Typography>
+                    </TimelineContent>
+                </TimelineItem>
                 {projects.map((project, index) => (
                     <TimelineItem key={index}>
                         <TimelineSeparator>
