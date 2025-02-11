@@ -1,0 +1,1 @@
+{"version":3,"file":"static/css/main.855b62f1.css","mappings":"AAAA,yBACI,UAII,YAAa,CAHb,QAAS,CAET,eAAgB,CADhB,SAGJ,CACJ","sources":["App.css"],"sourcesContent":["@media (min-width: 992px) {\r\n    html, body {\r\n        margin: 0;\r\n        padding: 0;\r\n        overflow: hidden;\r\n        height: 100vh;\r\n    }\r\n}"],"names":[],"sourceRoot":""}
