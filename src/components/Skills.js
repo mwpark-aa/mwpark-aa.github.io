@@ -3,11 +3,13 @@ import {Box, Chip, Container, Paper, Typography} from "@mui/material";
 import CodeIcon from "@mui/icons-material/Code";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
+import ChatIcon from '@mui/icons-material/Chat';
 
 const categoryIcons = {
     Backend: <CodeIcon sx={{color: "primary.main"}}/>,
     DevOps: <CloudUploadIcon sx={{color: "success.main"}}/>,
     Frontend: <DesktopWindowsIcon sx={{color: "secondary.main"}}/>,
+    Communication: <ChatIcon sx={{color: "warning.main"}}/>,
 };
 
 const Skills = ({skills, categoryColors, onClick}) => {

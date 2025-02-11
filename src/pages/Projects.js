@@ -7,12 +7,14 @@ const skills = {
     backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask", "Batch", "Airflow"],
     devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL", "Shell Script"],
     frontend: ["React", "Vue", "JavaScript", "Node", "JQuery"],
+    communication: ["Slack", "Git", "Atlassian", "Notion"],
 };
 
 const categoryColors = {
     Backend: "primary",
     DevOps: "success",
     Frontend: "secondary",
+    Communication: "warning",
 };
 
 
