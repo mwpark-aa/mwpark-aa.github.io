@@ -1,28 +1,83 @@
-import React from "react";
-import { Container, Grid, Card, CardContent, Typography } from "@mui/material";
+import React, {useState} from "react";
+import ProjectTimeline from "../components/ProjectTimeline";
+import Skills from "../components/Skills";
+import {Box, Grid, useTheme} from "@mui/material";
 
-const projects = [
-    { title: "GitHub Pages 포트폴리오", description: "React와 Material-UI로 제작한 포트폴리오 사이트" },
-    { title: "To-Do App", description: "React Hooks와 Firebase를 활용한 할 일 관리 앱" },
-];
+const skills = {
+    backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask"],
+    devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL"],
+    frontend: ["React", "Vue", "JavaScript", "Node.js"],
+};
+
+const categoryColors = {
+    Backend: "primary",
+    DevOps: "success",
+    Frontend: "secondary",
+};
+
 
 const Projects = () => {
+    const theme = useTheme();
+    const [highlightedSkill, setHighlightedSkill] = useState(null);
+    const [highlightedColor, setHighlightedColor] = useState(null);
+
+    const handleSkillHover = (skill, color) => {
+        setHighlightedSkill(skill);
+        setHighlightedColor(color);
+    };
+
+    const handleSkillLeave = () => {
+        setHighlightedSkill(null);
+        setHighlightedColor(null);
+    };
+
     return (
-        <Container sx={{ mt: 4 }}>
-            <Typography variant="h4" gutterBottom>📌 프로젝트 목록</Typography>
-            <Grid container spacing={3}>
-                {projects.map((project, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={index}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6">{project.title}</Typography>
-                                <Typography>{project.description}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
+        <Grid
+            container
+            spacing={2}
+            sx={{
+                height: {lg: "100vh"},
+                overflow: {lg: "hidden"}
+            }}
+        >
+            <Grid item lg={4} sm={12}>
+                <Box
+                    sx={{
+                        position: "sticky",
+                        top: 0,
+                        overflowY: "hidden",
+                        padding: 2,
+                    }}
+                >
+                    <Skills
+                        skills={skills}
+                        categoryColors={categoryColors}
+                        onSkillHover={handleSkillHover}
+                        onSkillLeave={handleSkillLeave}
+                    />
+                </Box>
             </Grid>
-        </Container>
+
+            <Grid item lg={8} sm={12}>
+                <Box
+                    sx={{
+                        height: {lg: "calc(100vh - 80px)"},
+                        overflowY: {lg: "auto"},
+                        padding: 2,
+                        [theme.breakpoints.down('lg')]: {
+                            height: 'auto',
+                            overflowY: 'visible',
+                        },
+                    }}
+                >
+                    <ProjectTimeline
+                        highlightedSkill={highlightedSkill}
+                        highlightedColor={highlightedColor}
+                        skills={skills}
+                    />
+                </Box>
+            </Grid>
+        </Grid>
     );
 };
 

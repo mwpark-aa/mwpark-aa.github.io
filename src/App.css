@@ -1,0 +1,8 @@
+@media (min-width: 992px) {
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+    }
+}
