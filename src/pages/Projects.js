@@ -3,20 +3,6 @@ import ProjectTimeline from "../components/ProjectTimeline";
 import Skills from "../components/Skills";
 import {Box, Grid, useTheme} from "@mui/material";
 
-const skills = {
-    backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask", "Batch", "Airflow"],
-    devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL", "Shell Script"],
-    frontend: ["React", "Vue", "JavaScript", "Node", "JQuery"],
-    communication: ["Slack", "Git", "Atlassian", "Notion"],
-};
-
-const categoryColors = {
-    Backend: "primary",
-    DevOps: "success",
-    Frontend: "secondary",
-    Communication: "warning",
-};
-
 
 const Projects = () => {
     const theme = useTheme();
@@ -46,11 +32,7 @@ const Projects = () => {
                         padding: 2,
                     }}
                 >
-                    <Skills
-                        skills={skills}
-                        categoryColors={categoryColors}
-                        onClick={handleSkillClick}
-                    />
+                    <Skills onClick={handleSkillClick}/>
                 </Box>
             </Grid>
 
@@ -69,7 +51,6 @@ const Projects = () => {
                     <ProjectTimeline
                         highlightedSkill={highlightedSkill}
                         highlightedColor={highlightedColor}
-                        skills={skills}
                     />
                 </Box>
             </Grid>
