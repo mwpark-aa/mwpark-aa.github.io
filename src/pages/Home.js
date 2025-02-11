@@ -40,7 +40,8 @@ const Home = () => {
         <Container maxWidth="sm">
             <Box sx={{mt: 8, textAlign: "center"}}>
                 <StyledPaper elevation={3}>
-                    <StyledAvatar src="/path-to-your-profile-picture.jpg" alt="Profile Picture"/>
+
+                    <StyledAvatar src="/alcong.jpg"/>
                     <Typography variant="h5" sx={{color: "text.secondary", mb: 4}}>
                         박민우
                     </Typography>
@@ -52,13 +53,17 @@ const Home = () => {
                         📬 Contact
                     </Typography>
                     <Box sx={{display: "flex", flexDirection: "column", alignItems: "left"}}>
-                        <ContactLink href="mailto:parkmin614@gmail.com">
+                        <ContactLink
+                            href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to=parkmin614@gmail.com&su=&body="
+                            target="_blank">
                             <IconButton color="primary" sx={{mr: 1}}>
                                 <EmailIcon/>
                             </IconButton>
                             parkmin614@gmail.com
                         </ContactLink>
-                        <ContactLink href="https://github.com/mwpark-aa" target="_blank">
+                        <ContactLink
+                            href="https://github.com/mwpark-aa"
+                            target="_blank">
                             <IconButton color="primary" sx={{mr: 1}}>
                                 <GitHubIcon/>
                             </IconButton>
