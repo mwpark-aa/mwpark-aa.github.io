@@ -1,14 +1,71 @@
 import React from "react";
-import {Box, Container, Typography} from "@mui/material";
+import {Avatar, Box, Container, Divider, IconButton, Link, Paper, Typography} from "@mui/material";
+import {styled} from "@mui/material/styles";
+import EmailIcon from "@mui/icons-material/Email";
+import GitHubIcon from "@mui/icons-material/GitHub";
+
+const StyledPaper = styled(Paper)(({theme}) => ({
+    padding: theme.spacing(6),
+    borderRadius: theme.shape.borderRadius * 2,
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+    transition: "transform 0.3s ease-in-out",
+    "&:hover": {
+        transform: "translateY(-5px)",
+    },
+}));
+
+const StyledAvatar = styled(Avatar)(({theme}) => ({
+    width: theme.spacing(20),
+    height: theme.spacing(20),
+    margin: "0 auto",
+    marginBottom: theme.spacing(4),
+    border: `4px solid ${theme.palette.primary.main}`,
+}));
+
+const ContactLink = styled(Link)(({theme}) => ({
+    display: "flex",
+    alignItems: "center",
+    color: theme.palette.text.secondary,
+    textDecoration: "none",
+    margin: theme.spacing(1, 0),
+    transition: "color 0.3s ease-in-out",
+    "&:hover": {
+        color: theme.palette.primary.main,
+    },
+}));
 
 const Home = () => {
     return (
-        <Container>
-            <Box sx={{mt: 4, textAlign: "center"}}>
-                <Typography variant="h3">안녕하세요! 👋</Typography>
-                <Typography variant="h5" sx={{mt: 2}}>
-                    HI.
-                </Typography>
+        <Container maxWidth="sm">
+            <Box sx={{mt: 8, textAlign: "center"}}>
+                <StyledPaper elevation={3}>
+                    <StyledAvatar src="/path-to-your-profile-picture.jpg" alt="Profile Picture"/>
+                    <Typography variant="h5" sx={{color: "text.secondary", mb: 4}}>
+                        박민우
+                    </Typography>
+
+                    <Divider sx={{my: 4}}/>
+
+                    <Typography variant="h4" gutterBottom
+                                sx={{color: "primary.main", fontWeight: "medium", textAlign: "left"}}>
+                        📬 Contact
+                    </Typography>
+                    <Box sx={{display: "flex", flexDirection: "column", alignItems: "left"}}>
+                        <ContactLink href="mailto:parkmin614@gmail.com">
+                            <IconButton color="primary" sx={{mr: 1}}>
+                                <EmailIcon/>
+                            </IconButton>
+                            parkmin614@gmail.com
+                        </ContactLink>
+                        <ContactLink href="https://github.com/mwpark-aa" target="_blank">
+                            <IconButton color="primary" sx={{mr: 1}}>
+                                <GitHubIcon/>
+                            </IconButton>
+                            GitHub
+                        </ContactLink>
+                    </Box>
+                </StyledPaper>
             </Box>
         </Container>
     );
