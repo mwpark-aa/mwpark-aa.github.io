@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# 프로젝트 빌드
+echo "프로젝트 빌드 중..."
+npm run build
+
 # 빌드 폴더 이름
 BUILD_FOLDER="build"
 
@@ -7,17 +11,13 @@ BUILD_FOLDER="build"
 TEMP_FOLDER=$(mktemp -d)
 
 # 현재 브랜치 이름 저장
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+CURRENT_BRANCH=$(git branch --show-current)
 
 # build 폴더의 내용을 임시 폴더로 복사
 cp -R $BUILD_FOLDER/* $TEMP_FOLDER
 
 # gh-pages 브랜치로 전환 (없으면 생성)
-if git show-ref --quiet refs/heads/gh-pages; then
-    git checkout gh-pages
-else
-    git checkout --orphan gh-pages
-fi
+git checkout --orphan gh-pages
 
 # 기존 파일 삭제 (숨김 파일 포함)
 git rm -rf .
