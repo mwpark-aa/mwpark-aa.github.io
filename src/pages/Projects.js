@@ -2,6 +2,7 @@ import React, {useState} from "react";
 import ProjectTimeline from "../components/ProjectTimeline";
 import Skills from "../components/Skills";
 import {Box, Grid, useTheme} from "@mui/material";
+import styles from "./no-scroll.css";
 
 
 const Projects = () => {
@@ -15,15 +16,15 @@ const Projects = () => {
     };
 
     return (
-        <Grid
-            container
-            spacing={2}
-            sx={{
-                height: {lg: "100vh"},
-                overflow: {lg: "hidden"}
-            }}
+        <Grid className={styles}
+              container
+              spacing={2}
+              sx={{
+                  height: {lg: "100vh"},
+                  overflow: {lg: "hidden"}
+              }}
         >
-            <Grid item lg={4} sm={12}>
+            <Grid item lg={5} sm={12}>
                 <Box
                     sx={{
                         position: "sticky",
@@ -36,7 +37,7 @@ const Projects = () => {
                 </Box>
             </Grid>
 
-            <Grid item lg={8} sm={12}>
+            <Grid item lg={7} sm={12}>
                 <Box
                     sx={{
                         height: {lg: "calc(100vh - 80px)"},

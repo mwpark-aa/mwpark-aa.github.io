@@ -122,6 +122,13 @@ export const projects = [
     },
 ];
 
+export const experiences = [
+    {title: "제목1", description: "간단 내용1", image: "/alcong.jpg"},
+    {title: "제목2", description: "간단 내용2", image: "/alcong.jpg"},
+    {title: "제목3", description: "간단 내용3", image: "/alcong.jpg"},
+    {title: "제목4", description: "간단 내용4", image: "/alcong.jpg"},
+];
+
 export const skills = {
     backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask", "Batch", "Airflow"],
     devOps: ["Redis", "Aerospike", "Spark", "Docker", "Kafka", "MySQL", "Shell Script"],

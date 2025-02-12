@@ -4,48 +4,8 @@ import {styled} from "@mui/material/styles";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import CallIcon from '@mui/icons-material/Call';
+import {ContactLink, StyledAvatar, StyledPaper, XBox} from "../constants/style";
 
-const StyledPaper = styled(Paper)(({theme}) => ({
-    padding: theme.spacing(6),
-    borderRadius: theme.shape.borderRadius * 2,
-    backgroundColor: theme.palette.background.paper,
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-    transition: "transform 0.3s ease-in-out",
-}));
-
-const StyledAvatar = styled(Avatar)(({theme}) => ({
-    width: theme.spacing(20),
-    height: theme.spacing(20),
-    objectFit: "cover",
-    margin: "0 auto",
-    marginBottom: theme.spacing(4),
-    border: `4px solid ${theme.palette.primary.main}`,
-}));
-
-const ContactLink = styled(Link)(({theme}) => ({
-    display: "flex",
-    alignItems: "center",
-    color: theme.palette.text.secondary,
-    textDecoration: "none",
-    margin: theme.spacing(1, 0),
-    transition: "color 0.3s ease-in-out",
-    "&:hover": {
-        color: theme.palette.primary.main,
-    },
-}));
-
-const XBox = styled(Box)(() => ({
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "red",
-    fontSize: "1.5rem",
-}))
 const Home = () => {
     return (
         <Container maxWidth="sm">

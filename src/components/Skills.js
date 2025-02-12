@@ -19,7 +19,7 @@ const Skills = ({onClick}) => {
             elevation={4}
             sx={{
                 p: 4,
-                mb: 3,
+                mb: 2,
                 borderRadius: 3,
                 backgroundColor: "background.paper",
                 transition: "all 0.3s ease",
