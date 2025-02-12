@@ -29,7 +29,7 @@ cp -R $TEMP_FOLDER/* .
 git add -A
 
 # 변경사항 커밋
-git commit -m "Deploy to GitHub Pages"
+git commit -m "github page 배포"
 
 # gh-pages 브랜치를 원격 저장소로 강제 푸시
 git push origin gh-pages --force
