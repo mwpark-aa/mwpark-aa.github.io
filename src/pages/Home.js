@@ -34,7 +34,7 @@ const ContactLink = styled(Link)(({theme}) => ({
     },
 }));
 
-const XBox = styled(Box)(({theme}) => ({
+const XBox = styled(Box)(() => ({
     position: "absolute",
     top: 0,
     left: 0,
