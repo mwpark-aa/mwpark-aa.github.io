@@ -7,37 +7,39 @@ npm run build
 # 빌드 폴더 이름
 BUILD_FOLDER="build"
 
-# 임시 폴더 생성
-TEMP_FOLDER=$(mktemp -d)
-
 # 현재 브랜치 이름 저장
 CURRENT_BRANCH=$(git branch --show-current)
 
-# build 폴더의 내용을 임시 폴더로 복사
-cp -R $BUILD_FOLDER/* $TEMP_FOLDER
+# 현재 작업 디렉토리 저장
+CURRENT_DIR=$(pwd)
 
-# gh-pages 브랜치로 전환 (없으면 생성)
-git checkout --orphan gh-pages
+# 임시 디렉토리 생성 및 이동
+TEMP_DIR=$(mktemp -d)
+cp -R $BUILD_FOLDER/* $TEMP_DIR
+cd $TEMP_DIR
 
-# 기존 파일 삭제 (숨김 파일 포함)
-git rm -rf .
+# gh-pages 브랜치 생성 또는 업데이트
+if git show-ref --quiet refs/heads/gh-pages; then
+    git checkout gh-pages
+    git rm -rf .
+else
+    git checkout --orphan gh-pages
+    git rm -rf .
+fi
 
-# 임시 폴더의 내용을 현재 디렉토리로 복사
-cp -R $TEMP_FOLDER/* .
-
-# 모든 파일을 스테이징
-git add -A
-
-# 변경사항 커밋
+# 빌드 결과물 복사 및 커밋
+cp -R $CURRENT_DIR/$BUILD_FOLDER/* .
+git add .
 git commit -m "github page 배포"
 
 # gh-pages 브랜치를 원격 저장소로 강제 푸시
 git push origin gh-pages --force
 
-# 원래 브랜치로 돌아가기
+# 원래 디렉토리와 브랜치로 돌아가기
+cd $CURRENT_DIR
 git checkout $CURRENT_BRANCH
 
-# 임시 폴더 삭제
-rm -rf $TEMP_FOLDER
+# 임시 디렉토리 삭제
+rm -rf $TEMP_DIR
 
 echo "배포가 완료되었습니다."
