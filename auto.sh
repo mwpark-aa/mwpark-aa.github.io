@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "NPM INSTALL"
+npm install
+
 # 프로젝트 빌드
 echo "프로젝트 빌드 중..."
 npm run build
