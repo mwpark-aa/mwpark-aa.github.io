@@ -1,32 +1,17 @@
 import React from "react";
-import {Container, Typography, List, ListItem, Divider, Zoom, Fab, Box, Button} from "@mui/material";
+import {Container, Typography, List, ListItem, Divider} from "@mui/material";
 import {CodeBlockBox} from "../../../constants/style";
-import NavigationIcon from '@mui/icons-material/Navigation';
+import FloatingNavigation from "../../../components/FloatingNavigation";
 
 const FirstSpark = () => {
-    const scrollTo = (id) => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.scrollIntoView({behavior: 'smooth'});
-        }
-    };
-
+    const navButtons = [
+        {label: "Spark란?", target: "what-is-spark"},
+        {label: "느낀점", target: "first-impressions"},
+        {label: "어려웠던점", target: "challenges"},
+    ];
     return (
         <Container maxWidth="md" sx={{py: 8}}>
-            <Box
-                sx={{
-                    position: 'fixed',
-                    bottom: 16,
-                    right: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                }}
-            >
-                <Button variant="contained" onClick={() => scrollTo('what-is-spark')}>Spark란?</Button>
-                <Button variant="contained" onClick={() => scrollTo('first-impressions')}>느낀점</Button>
-                <Button variant="contained" onClick={() => scrollTo('challenges')}>어려웠던점</Button>
-            </Box>
+            <FloatingNavigation buttons={navButtons}/>
             <Typography variant="h3" gutterBottom>
                 Spark 첫 사용기
             </Typography>
@@ -42,7 +27,7 @@ const FirstSpark = () => {
                 이번 글에서는 Spark의 기본 개념과 첫 사용 후기를 공유하고자 한다.
             </Typography>
 
-            <Typography variant="h5" gutterBottom>
+            <Typography variant="h5" gutterBottom id="what-is-spark">
                 🚀 Spark란?
             </Typography>
             <Typography variant="body1" paragraph>
@@ -94,6 +79,39 @@ const FirstSpark = () => {
             <Typography variant="body1" paragraph>
                 앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
             </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
+            <Typography variant="body1" paragraph>
+                앞으로 더 다양한 데이터 처리 작업을 Spark를 활용해 수행해볼 계획이다.
+            </Typography>
+
 
         </Container>
     );
