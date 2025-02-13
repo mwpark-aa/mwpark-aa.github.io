@@ -33,9 +33,9 @@ const Skills = ({onClick}) => {
                 </Typography>
             </Box>
             <Box sx={{display: "flex", flexWrap: "wrap", gap: 1}}>
-                {skillList.map((skill, index) => (
+                {skillList.map((skill) => (
                     <Chip
-                        key={index}
+                        key={skill}
                         label={skill}
                         color={categoryColors[category]}
                         onClick={() => onClick(skill)}

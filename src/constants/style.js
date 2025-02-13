@@ -65,3 +65,14 @@ export const XBox = styled(Box)(() => ({
     color: "red",
     fontSize: "1.5rem",
 }))
+
+export const ProjectBox = styled(Box)`
+    height: calc(100vh - 80px);
+    overflow-y: auto;
+    padding: ${({theme}) => theme.spacing(2)}px;
+
+    ${({theme}) => theme.breakpoints.down('lg')} {
+        height: auto;
+        overflow-y: visible;
+    }
+`;

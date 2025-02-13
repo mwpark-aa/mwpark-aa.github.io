@@ -1,7 +1,8 @@
 import React from 'react';
 import {CardContent, Typography, Button, Container, Grid, CardHeader} from "@mui/material";
-import {experiences} from "../constants";
-import {StyledCard, StyledMedia} from "../constants/style";
+import {experiences} from "../../constants";
+import {StyledCard, StyledMedia} from "../../constants/style";
+import {Link} from "react-router-dom";
 
 const TrialAndError = () => {
     return (
@@ -28,8 +29,14 @@ const TrialAndError = () => {
                                     {exp.description}
                                 </Typography>
                             </CardContent>
-                            <Button variant="contained" color="primary" size="large"
-                                    sx={{m: 2, borderRadius: 20, boxShadow: 3, ':hover': {boxShadow: 6}}}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                size="large"
+                                component={Link}
+                                to={'/trial-and-error' + exp.url}
+                                sx={{m: 2, borderRadius: 20, boxShadow: 3, ':hover': {boxShadow: 6}}}
+                            >
                                 자세히 보기
                             </Button>
                         </StyledCard>

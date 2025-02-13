@@ -1,9 +1,9 @@
 import React from "react";
 import {BrowserRouter as Router, Route, Routes} from "react-router-dom";
 import Navbar from "./components/Navbar";
-import Home from "./pages/Home";
-import Projects from "./pages/Projects";
-import TrialAndError from "./pages/TrialAndError";
+import Home from "./pages";
+import Projects from "./pages/projects";
+import TrialAndError from "./pages/trial-and-error";
 
 const App = () => {
     return (

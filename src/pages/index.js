@@ -1,6 +1,5 @@
 import React from "react";
-import {Avatar, Box, Container, Divider, IconButton, Link, Paper, Tooltip, Typography} from "@mui/material";
-import {styled} from "@mui/material/styles";
+import {Box, Container, Divider, IconButton, Tooltip, Typography} from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import CallIcon from '@mui/icons-material/Call';
