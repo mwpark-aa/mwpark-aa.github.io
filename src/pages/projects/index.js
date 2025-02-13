@@ -1,8 +1,7 @@
 import React, {useState} from "react";
 import ProjectTimeline from "../../components/ProjectTimeline";
 import Skills from "../../components/Skills";
-import {Grid} from "@mui/material";
-import styles from "../no-scroll.css";
+import {Container, Grid} from "@mui/material";
 import {ProjectBox} from "../../constants/style";
 
 const Projects = () => {
@@ -19,27 +18,36 @@ const Projects = () => {
     };
 
     return (
-        <Grid
-            className={styles}
-            container
-            spacing={2}
+        <Container
             sx={{
-                height: {lg: "100vh"},
-                overflow: {lg: "hidden"}
+                overflow: "hidden",
+                padding: 0,
             }}
+            maxWidth={false}
         >
-            <Grid item lg={5} sm={12}>
-                <ProjectBox>
-                    <Skills onClick={handleSkillClick}/>
-                </ProjectBox>
+            <Grid container spacing={1} sx={{height: "100vh - 80"}}>
+                <Grid item lg={4} sm={12}>
+                    <ProjectBox
+                        sx={{
+                            height: "100vh - 80",
+                            overflowY: "auto",
+                        }}
+                    >
+                        <Skills onClick={handleSkillClick}/>
+                    </ProjectBox>
+                </Grid>
+                <Grid item lg={8} sm={12}>
+                    <ProjectBox
+                        sx={{
+                            height: "100vh - 80",
+                            overflowY: "auto",
+                        }}
+                    >
+                        <ProjectTimeline selectedSkills={selectedSkills}/>
+                    </ProjectBox>
+                </Grid>
             </Grid>
-
-            <Grid item lg={7} sm={12}>
-                <ProjectBox>
-                    <ProjectTimeline selectedSkills={selectedSkills}/>
-                </ProjectBox>
-            </Grid>
-        </Grid>
+        </Container>
     );
 };
 

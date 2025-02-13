@@ -125,7 +125,7 @@ export const projects = [
 export const experiences = [
     {content: "자동 결제", image: "/kcp.png", url: "/use-kcp"},
     {content: "Spark 첫 사용", image: "/spark.png", url: '/first-spark'},
-    // {content: "제목3", image: "/alcong.jpg", url: '/3'},
+    {content: "제목3", image: "/alcong.jpg", url: '/3'},
     // {content: "제목4", image: "/alcong.jpg", url: '/4'},
 ];
 
