@@ -24,18 +24,23 @@ const Projects = () => {
                   overflow: {lg: "hidden"}
               }}
         >
-            <Grid item lg={5} sm={12}>
-                <Box
-                    sx={{
-                        position: "sticky",
-                        top: 0,
-                        overflowY: "hidden",
-                        padding: 2,
-                    }}
-                >
-                    <Skills onClick={handleSkillClick}/>
-                </Box>
-            </Grid>
+          <Grid item lg={5} sm={12}>
+            <Box
+              sx={{
+                position: "sticky",
+                top: 0,
+                height: {lg: "calc(100vh - 80px)"}, // Subtract padding
+                overflowY: {lg: "auto"},
+                padding: 2,
+                [theme.breakpoints.down('lg')]: {
+                  height: 'auto',
+                  overflowY: 'visible',
+                },
+              }}
+            >
+              <Skills onClick={handleSkillClick}/>
+            </Box>
+          </Grid>
 
             <Grid item lg={7} sm={12}>
                 <Box
