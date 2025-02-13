@@ -1,5 +1,5 @@
 import React from 'react';
-import {CardContent, Typography, Button, Container, Grid, CardHeader} from "@mui/material";
+import {CardContent, Typography, Button, Container, Grid, Box} from "@mui/material";
 import {experiences} from "../../constants";
 import {StyledCard, StyledMedia} from "../../constants/style";
 import {Link} from "react-router-dom";
@@ -11,22 +11,20 @@ const TrialAndError = () => {
                 {experiences.map((exp, index) => (
                     <Grid item key={index} xs={12} sm={6} md={4} lg={4} py={4}>
                         <StyledCard>
-                            <CardHeader
-                                title={
-                                    <Typography variant="h6" component="h2"
-                                                sx={{fontWeight: 'bold', color: 'primary.main'}}>
-                                        {exp.title}
-                                    </Typography>
-                                }
-                                sx={{pb: 0}}
-                            />
+                            <Box sx={{height: '10px', p: 2}}/>
                             <StyledMedia
                                 image={exp.image}
                                 title={exp.title}
                             />
                             <CardContent sx={{pt: 2}}>
-                                <Typography variant="body2" color="text.secondary">
-                                    {exp.description}
+                                <Typography
+                                    variant="h6"
+                                    color="primary.main"
+                                    fontWeight="bold"
+                                    textAlign="center"
+                                    gutterBottom
+                                >
+                                    {exp.content}
                                 </Typography>
                             </CardContent>
                             <Button

@@ -123,10 +123,10 @@ export const projects = [
 ];
 
 export const experiences = [
-    {title: "Spark 첫 사용", description: "처음하기엔 너무 큰 데이터...", image: "/spark.png", url: '/1'},
-    {title: "제목2", description: "간단 내용2", image: "/alcong.jpg", url: "/2"},
-    {title: "제목3", description: "간단 내용3", image: "/alcong.jpg", url: '/3'},
-    {title: "제목4", description: "간단 내용4", image: "/alcong.jpg", url: '/4'},
+    {content: "자동 결제", image: "/kcp.png", url: "/use-kcp"},
+    {content: "Spark 첫 사용", image: "/spark.png", url: '/first-spark'},
+    // {content: "제목3", image: "/alcong.jpg", url: '/3'},
+    // {content: "제목4", image: "/alcong.jpg", url: '/4'},
 ];
 
 export const skills = {
