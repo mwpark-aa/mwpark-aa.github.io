@@ -38,7 +38,7 @@ const Skills = ({onClick}) => {
                         key={index}
                         label={skill}
                         color={categoryColors[category]}
-                        onClick={() => onClick(skill, categoryColors[category])}
+                        onClick={() => onClick(skill)}
                         size="medium"
                         sx={{
                             cursor: "pointer",

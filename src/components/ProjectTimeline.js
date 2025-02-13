@@ -9,11 +9,18 @@ import {
     timelineItemClasses,
     TimelineSeparator
 } from "@mui/lab";
-import {projects, skills} from "../constants";
+import {categoryColors, projects, skills} from "../constants";
 
 
-const ProjectTimeline = ({highlightedSkill, highlightedColor}) => {
+const ProjectTimeline = ({selectedSkills}) => {
     const allSkills = Object.values(skills).flat();
+    const getSkillCategory = (skill) => {
+        for (const [category, skillList] of Object.entries(skills)) {
+            if (skillList.includes(skill)) {
+                return category.charAt(0).toUpperCase() + category.slice(1);
+            }
+        }
+    };
 
     return (
         <Container>
@@ -88,17 +95,17 @@ const ProjectTimeline = ({highlightedSkill, highlightedColor}) => {
                                 </Box>
                                 <Box sx={{marginLeft: 2, marginTop: 1}}>
                                     {allSkills.map((skill, idx) => (
-                                        <Chip
-                                            key={idx}
-                                            label={skill}
-                                            color={highlightedSkill === skill ? highlightedColor : "default"}
-                                            variant={highlightedSkill === skill ? "filled" : "outlined"}
-                                            size="small"
-                                            sx={{
-                                                margin: 0.5,
-                                                display: project.skills.includes(skill) ? 'inline-flex' : 'none',
-                                            }}
-                                        />
+                                      <Chip
+                                        key={idx}
+                                        label={skill}
+                                        color={categoryColors[getSkillCategory(skill)]}
+                                        variant={selectedSkills.includes(skill) ? "filled" : "outlined"}
+                                        size="small"
+                                        sx={{
+                                            margin: 0.5,
+                                            display: project.skills.includes(skill) ? 'inline-flex' : 'none',
+                                        }}
+                                      />
                                     ))}
                                 </Box>
                             </Box>
