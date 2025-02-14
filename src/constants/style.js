@@ -50,6 +50,7 @@ export const StyledMedia = styled(CardMedia)(() => ({
     mx: 2,
     borderRadius: 2,
     boxShadow: 2,
+    objectFir: 'contain',
     transition: 'transform 0.3s ease-in-out',
 }));
 
