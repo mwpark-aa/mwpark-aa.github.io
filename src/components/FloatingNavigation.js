@@ -17,13 +17,7 @@ const float = keyframes`
 const scrollTo = (id) => {
     const element = document.getElementById(id);
     if (element) {
-        const elementRect = element.getBoundingClientRect();
-        const absoluteElementTop = elementRect.top + window.pageYOffset;
-        const middle = absoluteElementTop - (window.innerHeight / 2) + (elementRect.height / 2);
-        window.scrollTo({
-            top: middle,
-            behavior: 'smooth'
-        });
+        element.scrollIntoView({behavior: "smooth", block: "start", inline: "nearest"});
     }
 };
 

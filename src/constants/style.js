@@ -67,16 +67,6 @@ export const XBox = styled(Box)(() => ({
     fontSize: "1.5rem",
 }))
 
-
-export const CodeBlockBox = styled(Box)(() => ({
-    backgroundColor: "#f5f5f5",
-    padding: 2,
-    borderRadius: 1,
-    overflowX: "auto",
-    fontFamily: "monospace",
-}));
-
-
 export const ProjectBox = styled(Box)`
     height: calc(100vh - 80px);
     overflow-y: auto;
