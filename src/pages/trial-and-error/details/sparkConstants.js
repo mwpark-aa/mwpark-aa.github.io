@@ -102,6 +102,6 @@ result.show()
 # |  박민사|     40|
 # +-------+-------+`;
 
-export const SPARK_SESSION_CREATION_CODE = `val spark = SparkSession.builder()
-  .appName("First Spark App")
+export const SPARK_SESSION_CREATION_CODE = `spark = SparkSession.builder()
+  .appName("스파크")
   .getOrCreate()`

@@ -10,7 +10,7 @@ import {
     DATAFRAME_CREATION_CODE,
     DATAFRAME_GROUPING_AGGREGATION_CODE,
     DATAFRAME_SIMPLE_OPERATIONS_CODE,
-    DATAFRAME_SQL_USAGE_CODE, RDD_CREATION_CODE, RDD_SIMPLE_OPERATION_CODE
+    DATAFRAME_SQL_USAGE_CODE, RDD_CREATION_CODE, RDD_SIMPLE_OPERATION_CODE, SPARK_SESSION_CREATION_CODE
 } from "./sparkConstants";
 
 
@@ -65,9 +65,8 @@ const FirstSpark = () => {
             <Typography variant="h5" gutterBottom id="what-is-spark" pb={3} pt={10}>
                 🚀 Spark란?
             </Typography>
-            <Typography variant="body1" paragraph>
-                Spark란 <strong>"클러스터 환경에서 사용하기에 적합한 인메모리 방식의 병렬처리 시스템"</strong> 이다.
-
+            <Typography variant="h6" paragraph>
+                Spark란 <strong>클러스터 환경에서 사용하기에 적합한 인메모리 방식의 병렬처리 시스템</strong> 이다.
                 <Box px={2} py={2}>
                     <Typography sx={{fontSize: 'small'}}>
                         <span style={{color: 'red'}}>*</span> 클러스터 (Cluster) 환경 : 여러 대의 컴퓨터를 묶어서 하나처럼 사용하는 환경 (예:
@@ -85,7 +84,14 @@ const FirstSpark = () => {
                 🔑 주요 개념
             </Typography>
             <List>
-                {/* RDD */}
+                <ListItem>
+                    <ListItemText primary=" ✅ 선언 방법"/>
+                </ListItem>
+                <Box pl={5}>
+                    <CodeBlock language="python">
+                        {SPARK_SESSION_CREATION_CODE}
+                    </CodeBlock>
+                </Box>
                 <ListItem>
                     <ListItemText primary=" ✅ RDD (Resilient Distributed Dataset)"/>
                 </ListItem>
@@ -106,7 +112,7 @@ const FirstSpark = () => {
                                     {RDD_CREATION_CODE}
                                 </CodeBlock>
                             </ExpandableBox>
-                            <ExpandableBox component={ListItem} title={"✔️ 간단 연산"}>\
+                            <ExpandableBox component={ListItem} title={"✔️ 간단 연산"}>
                                 <CodeBlock language={'python'}>
                                     {RDD_SIMPLE_OPERATION_CODE}
                                 </CodeBlock>
@@ -116,17 +122,14 @@ const FirstSpark = () => {
                 </List>
 
                 <ListItem>
-                    <ListItemText primary="✅ DataFrame 및 Dataset"/>
+                    <ListItemText primary="✅ DataFrame 과 Dataset"/>
                 </ListItem>
                 <List sx={{pl: 4}}>
                     <ListItem>
-                        <ListItemText primary="📌 DataFrame: 명명된 열로 구성된 분산 데이터 컬렉션"/>
+                        <ListItemText primary="📌 열(row)에 이름이 있는 데이터 컬렉션"/>
                     </ListItem>
                     <ListItem>
-                        <ListItemText primary="📌 Dataset: DataFrame의 확장으로, 타입 안정성과 객체 지향 프로그래밍 인터페이스 제공"/>
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText primary="📌 RDD보다 높은 수준의 추상화와 최적화 제공"/>
+                        <ListItemText primary="📌 명시적인 스키마를 가지고 있어 데이터의 구조를 이해하기 쉬움"/>
                     </ListItem>
                     <ExpandableBox component={ListItem} title={"🔎 사용 예시"}>
                         <Box>
@@ -145,7 +148,7 @@ const FirstSpark = () => {
                                     {DATAFRAME_GROUPING_AGGREGATION_CODE}
                                 </CodeBlock>
                             </ExpandableBox>
-                            <ExpandableBox component={ListItem} title={"✔️ 그룹화 집계"}>
+                            <ExpandableBox component={ListItem} title={"✔️ SQL 사용"}>
                                 <CodeBlock language={'python'}>
                                     {DATAFRAME_SQL_USAGE_CODE}
                                 </CodeBlock>
@@ -153,42 +156,7 @@ const FirstSpark = () => {
                         </Box>
                     </ExpandableBox>
                 </List>
-
-                <ListItem>
-                    <ListItemText primary="✅ Spark SQL"/>
-                </ListItem>
-                <List sx={{pl: 4}}>
-                    <ListItem>
-                        <ListItemText primary="📌 구조화된 데이터 처리를 위한 Spark 모듈"/>
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText primary="📌 SQL 쿼리를 실행하고 다양한 데이터 소스와 통합 가능"/>
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText primary="📌 DataFrame API와 밀접하게 연관되어 있음"/>
-                    </ListItem>
-                </List>
-
-                <ListItem>
-                    <ListItemText primary="✅ Spark Streaming"/>
-                </ListItem>
-                <List sx={{pl: 4}}>
-                    <ListItem>
-                        <ListItemText primary="📌 실시간 데이터 스트림 처리를 위한 Spark 확장"/>
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText primary="📌 마이크로 배치 처리 모델을 사용하여 연속적인 데이터 스트림 처리"/>
-                    </ListItem>
-                    <ListItem>
-                        <ListItemText primary="📌 RDD와 DataFrame/Dataset API와 통합하여 사용 가능"/>
-                    </ListItem>
-                </List>
             </List>
-            <CodeBlock component="pre">
-                {`val spark = SparkSession.builder()
-  .appName("First Spark App")
-  .getOrCreate()`}
-            </CodeBlock>
 
             {/* 사용 후기 */}
             <Typography variant="h5" gutterBottom sx={{mt: 4}}>
