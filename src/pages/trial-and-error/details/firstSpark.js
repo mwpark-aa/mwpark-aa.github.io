@@ -1,9 +1,6 @@
 import React, {useState} from "react";
-import {Container, Typography, List, ListItem, Divider, ListItemText, Box, Collapse} from "@mui/material";
-import {CodeBlockBox} from "../../../constants/style";
+import {Container, Typography, List, ListItem, Divider, ListItemText, Box} from "@mui/material";
 import FloatingNavigation from "../../../components/FloatingNavigation";
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
 import ExpandableBox from "../../../components/ExpandItem";
 import CodeBlock from "../../../components/CodeBlock";
 import {
@@ -20,11 +17,7 @@ const FirstSpark = () => {
         {label: "Spark 란?", target: "what-is-spark"},
         {label: "어려웠던점", target: "challenges"},
     ];
-    const [open, setOpen] = useState(false);
 
-    const handleClick = () => {
-        setOpen(!open);
-    };
     return (
         <Container maxWidth="md" sx={{py: 8}}>
             <FloatingNavigation buttons={navButtons}/>
@@ -95,7 +88,7 @@ const FirstSpark = () => {
                 <ListItem>
                     <ListItemText primary=" ✅ RDD (Resilient Distributed Dataset)"/>
                 </ListItem>
-                <List sx={{pl: 4}}>
+                <List sx={{pl: {lg: 4}}}>
                     <ListItem>
                         <ListItemText primary="📌 Spark의 기본적인 데이터 추상화 개념"/>
                     </ListItem>
@@ -124,7 +117,7 @@ const FirstSpark = () => {
                 <ListItem>
                     <ListItemText primary="✅ DataFrame 과 Dataset"/>
                 </ListItem>
-                <List sx={{pl: 4}}>
+                <List sx={{pl: {lg: 4}}}>
                     <ListItem>
                         <ListItemText primary="📌 열(row)에 이름이 있는 데이터 컬렉션"/>
                     </ListItem>

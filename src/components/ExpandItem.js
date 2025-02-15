@@ -13,7 +13,7 @@ const ExpandableBox = ({title, children, component: Component = Box, ...props}) 
         <Box>
             <Component {...props}>
                 <Box
-                    style={{
+                    sx={{
                         display: "flex",
                         alignItems: "center",
                         cursor: "pointer",
@@ -22,14 +22,14 @@ const ExpandableBox = ({title, children, component: Component = Box, ...props}) 
                 >
                     <span>{title}</span>
                     {isExpanded ? (
-                        <ExpandLess style={{marginLeft: "8px"}}/>
+                        <ExpandLess sx={{marginLeft: "8px"}}/>
                     ) : (
-                        <ExpandMore style={{marginLeft: "8px"}}/>
+                        <ExpandMore sx={{marginLeft: "8px"}}/>
                     )}
                 </Box>
             </Component>
             <Collapse in={isExpanded}>
-                <Box style={{paddingLeft: "45px", paddingTop: "8px", paddingBottom: "8px"}}>
+                <Box sx={{paddingLeft: {lg: "45px"}, paddingTop: "8px", paddingBottom: "8px"}}>
                     {children}
                 </Box>
             </Collapse>
