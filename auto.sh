@@ -9,6 +9,10 @@ BRANCH="gh-pages"
 REPO_URL=$(git config --get remote.origin.url)
 
 # 빌드 실행
+echo "install npm..."
+npm install
+
+# 빌드 실행
 echo "Running build..."
 npm run build
 
