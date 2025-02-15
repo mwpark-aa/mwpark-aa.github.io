@@ -1,5 +1,5 @@
 import {styled} from "@mui/material/styles";
-import {Avatar, Box, Card, CardMedia, Link, Paper} from "@mui/material";
+import {Avatar, Box, Card, CardMedia, Link, Paper, Typography} from "@mui/material";
 
 export const StyledPaper = styled(Paper)(({theme}) => ({
     padding: theme.spacing(6),
@@ -66,6 +66,13 @@ export const XBox = styled(Box)(() => ({
     color: "red",
     fontSize: "1.5rem",
 }))
+
+export const BackgroundText = styled(Typography)(() => ({
+    lineHeight: 1.6,
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    padding: "12px",
+    borderRadius: "8px"
+}));
 
 export const ProjectBox = styled(Box)`
     height: calc(100vh - 80px);

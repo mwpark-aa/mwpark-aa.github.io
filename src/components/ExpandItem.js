@@ -29,7 +29,7 @@ const ExpandableBox = ({title, children, component: Component = Box, ...props}) 
                 </Box>
             </Component>
             <Collapse in={isExpanded}>
-                <Box sx={{paddingLeft: {lg: "45px"}, paddingTop: "8px", paddingBottom: "8px"}}>
+                <Box sx={{paddingLeft: {lg: "20px"}, paddingTop: "8px", paddingBottom: "8px"}}>
                     {children}
                 </Box>
             </Collapse>
