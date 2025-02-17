@@ -30,7 +30,7 @@ const FirstSpark = () => {
             </Typography>
 
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                202x년 x월 xx일
+                기록일 : 2025년 2월 15일
             </Typography>
 
             <Divider sx={{my: 2}}/>
@@ -163,73 +163,69 @@ const FirstSpark = () => {
                     <ListItemText primary="✅ 실제 환경과 로컬의 차이가 컸다" sx={{fontWeight: "bold"}}/>
                 </ListItem>
                 <List sx={{pl: {lg: 4}}}>
-                    <ExpandableBox component={ListItem} title="📌 예시 파일은 용량이 20MB 정도인 대략 100만 라인의 파일이었다.">
-                        <BackgroundText variant="body2">
-                            <Box>
-                                Spark 의 장점은 대용량 데이터에서 특히 더 드러난다. 작은 크기의 데이터일 경우,
-                                Spark 를 이용해 Schema 설정 → Dataframe 생성 → RDD 변환 및 Partition 계산 과정을 거치기보다,
-                                단순 반복문을 이용하는 것이 더 빠를 수 있다.
-                            </Box>
-                            <Box mt={1}>
-                                20MB 데이터를 처리하는데 Python 코드로는 10초 내외로 끝나는 반면,
-                                Spark 를 사용하면 20초 내외가 걸려 혼란스러움이 있었다.
-                            </Box>
-                        </BackgroundText>
-                    </ExpandableBox>
-                    <ExpandableBox component={ListItem} title="📌 로컬에서 성능 테스트하기가 어렵다.">
-                        <BackgroundText variant="body2">
-                            <Box>
-                                Spark 는 분산 환경에서 성능이 극대화된다. 로컬 환경에서는 CPU 개수의 한계로 인해
-                                성능 문제가 코드 로직 때문인지, 환경 때문인지 구별하기가 어려웠다.
-                            </Box>
-                            <Box mt={1}>
-                                예를 들어, 로컬에서는 실행 시간이 3시간이 넘는 작업이
-                                실서버와 비슷하게 만든 Jupyter Notebook 으로 코드를 비슷하게 옮기자 20분 만에 완료되는 경우가 있었다.
-                                하지만 실서버 배포 후 배치 실행 시 Timeout 문제가 발생했다.
-                            </Box>
-                            <Box mt={1}>
-                                원인은 로직 문제였다. 실서버에서만 가져올 수 있는 데이터를 처리할 때
-                                1억 row 를 O(n²) 복잡도로 처리하면서 성능 이슈가 발생했다.
-                                이를 찾느라 Spark 자원 조정 등 엉뚱한 시도를 하며 시간을 낭비했다.
-                            </Box>
-                            <Box mt={1}>
-                                만약 로컬에서 분산 환경을 비슷하게 재현할 수 있었다면, 시간 낭비, 버그없이 처리 가능했었을것 같다
-                            </Box>
-                        </BackgroundText>
-                    </ExpandableBox>
+                    <ListItemText primary="📌 예시 파일은 용량이 20MB 정도인 대략 100만 라인의 파일이었다." sx={{py: 1}}/>
+                    <BackgroundText variant="body2">
+                        <Box>
+                            Spark 의 장점은 대용량 데이터에서 특히 더 드러난다. 작은 크기의 데이터일 경우,
+                            Spark 를 이용해 Schema 설정 → Dataframe 생성 → RDD 변환 및 Partition 계산 과정을 거치기보다,
+                            단순 반복문을 이용하는 것이 더 빠를 수 있다.
+                        </Box>
+                        <Box mt={1}>
+                            20MB 데이터를 처리하는데 Python 코드로는 10초 내외로 끝나는 반면,
+                            Spark 를 사용하면 20초 내외가 걸려 혼란스러움이 있었다.
+                        </Box>
+                    </BackgroundText>
+                    <ListItemText primary="📌 로컬에서 성능 테스트하기가 어렵다." sx={{py: 1}}/>
+                    <BackgroundText variant="body2">
+                        <Box>
+                            Spark 는 분산 환경에서 성능이 극대화된다. 로컬 환경에서는 CPU 개수의 한계로 인해
+                            성능 문제가 코드 로직 때문인지, 환경 때문인지 구별하기가 어려웠다.
+                        </Box>
+                        <Box mt={1}>
+                            예를 들어, 로컬에서는 실행 시간이 3시간이 넘는 작업이
+                            실서버와 비슷하게 만든 Jupyter Notebook 으로 코드를 비슷하게 옮기자 20분 만에 완료되는 경우가 있었다.
+                            하지만 실서버 배포 후 배치 실행 시 Timeout 문제가 발생했다.
+                        </Box>
+                        <Box mt={1}>
+                            원인은 로직 문제였다. 실서버에서만 가져올 수 있는 데이터를 처리할 때
+                            1억 row 를 O(n²) 복잡도로 처리하면서 성능 이슈가 발생했다.
+                            이를 찾느라 Spark 자원 조정 등 엉뚱한 시도를 하며 시간을 낭비했다.
+                        </Box>
+                        <Box mt={1}>
+                            만약 로컬에서 분산 환경을 비슷하게 재현할 수 있었다면, 시간 낭비, 버그없이 처리 가능했었을것 같다
+                        </Box>
+                    </BackgroundText>
                 </List>
 
                 <ListItem>
                     <ListItemText primary="✅ 단순 이관작업이 아닌 구조 변경과 성능 개선이 목적인 작업이었다" sx={{fontWeight: "bold"}}/>
                 </ListItem>
                 <List sx={{pl: {lg: 4}}}>
-                    <ExpandableBox component={ListItem} title="📌 분산 환경에서는 정렬이 불가능하다">
-                        <BackgroundText variant="body2">
-                            <Box>
-                                배치 실행 시간이 1~2시간 걸리다 보니, 진행도를 확인하기 위해
-                                인덱스를 추가하려 했지만 예상치 못한 문제가 발생했다.
-                            </Box>
-                            <Box mt={1}>
-                                데이터를 Partitioning 하면 순서가 보장되지 않는다. 정렬은 분산 처리 후 집계된 후에 가능하다.
-                                연산 전에 정렬할 수도 있지만, 이 경우 분산 처리가 불가능해진다.
-                            </Box>
-                            <Box mt={1}>
-                                해결책으로 2000만 라인 단위로 나누어 청크별 진행도를 확인하는 방식으로 변경했다.
-                            </Box>
-                        </BackgroundText>
-                    </ExpandableBox>
-                    <ExpandableBox component={ListItem} title="📌 파일의 우선순위">
-                        <BackgroundText variant="body2">
-                            <Box>
-                                기존 방식에서는 파일의 `LastModified` 를 확인해 변경되면 재작업을 수행했다.
-                                하지만 이 방식으로 인해 새로 등록된 파일들이 변경된 기존 파일 때문에 무기한 대기 상태가 되었다.
-                            </Box>
-                            <Box mt={1}>
-                                이로 인해 <strong> 등록한 파일 언제 처리되나요? </strong> 라는 문의가 많아졌고,
-                                해결책으로 기존 파일과 신규 파일의 배치를 분리하여 처리하도록 변경했다.
-                            </Box>
-                        </BackgroundText>
-                    </ExpandableBox>
+                    <ListItemText primary="📌 분산 환경에서는 정렬이 불가능하다" sx={{py: 1}}/>
+                    <BackgroundText variant="body2">
+                        <Box>
+                            배치 실행 시간이 1~2시간 걸리다 보니, 진행도를 확인하기 위해
+                            인덱스를 추가하려 했지만 예상치 못한 문제가 발생했다.
+                        </Box>
+                        <Box mt={1}>
+                            데이터를 Partitioning 하면 순서가 보장되지 않는다. 정렬은 분산 처리 후 집계된 후에 가능하다.
+                            연산 전에 정렬할 수도 있지만, 이 경우 분산 처리가 불가능해진다.
+                        </Box>
+                        <Box mt={1}>
+                            해결책으로 2000만 라인 단위로 나누어 청크별 진행도를 확인하는 방식으로 변경했다.
+                        </Box>
+                    </BackgroundText>
+                    <ListItemText primary="📌 파일의 우선순위" sx={{py: 1}}/>
+                    <BackgroundText variant="body2">
+                        <Box>
+                            기존 방식에서는 파일의 `LastModified` 를 확인해 변경되면 재작업을 수행했다.
+                            하지만 이 방식으로 인해 새로 등록된 파일들이 변경된 기존 파일 때문에 무기한 대기 상태가 되었다.
+                        </Box>
+                        <Box mt={1}>
+                            이로 인해 <strong> 등록한 파일 언제 처리되나요? </strong> 라는 문의가 많아졌고,
+                            해결책으로 기존 파일과 신규 파일의 배치를 분리하여 처리하도록 변경했다.
+                        </Box>
+                    </BackgroundText>
                 </List>
             </List>
         </Container>

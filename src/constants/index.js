@@ -1,3 +1,4 @@
+export const BASIC_DOMAIN = 'https://mwpark-aa.github.io/'
 export const projects = [
     {
         year: "2025",
@@ -129,6 +130,10 @@ export const experiences = [
     // {content: "Docker", image: "/docker.png", url: '/docker'},
     // {content: "제목4", image: "/alcong.jpg", url: '/4'},
 ];
+
+export const toys = [
+    {title: '방탈출 연방 계획 도우미', url: "room-escape-planner"}
+]
 
 export const skills = {
     backend: ["Python", "Java", "PHP", "Spring", "Django", "Flask", "Batch", "Airflow"],

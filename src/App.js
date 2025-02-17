@@ -6,6 +6,7 @@ import Projects from "./pages/projects";
 import TrialAndError from "./pages/trial-and-error";
 import UseKcp from "./pages/trial-and-error/details/useKcp";
 import FirstSpark from "./pages/trial-and-error/details/firstSpark";
+import Toys from "./pages/toys";
 
 const App = () => {
     return (
@@ -15,6 +16,7 @@ const App = () => {
                 <Route path="/" element={<Home/>}/>
                 <Route path="/projects" element={<Projects/>}/>
                 <Route path="/trial-and-error" element={<TrialAndError/>}/>
+                <Route path="/toys" element={<Toys/>}/>
                 <Route path="/trial-and-error/use-kcp" element={<UseKcp/>}/>
                 <Route path="/trial-and-error/first-spark" element={<FirstSpark/>}/>
             </Routes>
