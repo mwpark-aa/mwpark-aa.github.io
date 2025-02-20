@@ -124,7 +124,7 @@ export const projects = [
 ];
 
 export const experiences = [
-    // {content: "자동 결제", image: "/kcp.png", url: "/use-kcp"},
+    {content: "자동 결제", image: "/kcp.png", url: "/use-kcp"},
     {content: "Spark 첫 사용", image: "/spark.png", url: '/first-spark'},
     // {content: "Kafka", image: "/kafka.png", url: '/kafka'},
     // {content: "Docker", image: "/docker.png", url: '/docker'},
