@@ -115,23 +115,6 @@ const useKcp = () => {
                     당시 KCP 와의 연동을 작업중이었는데, 회사의 Key 를 받기위해 PG 사와 직접 메일로 소통을했다.
                 </Typography>
             </Box>
-            <Typography variant="h4" gutterBottom pb={3} pt={10} id={'challenges'}>
-                😨 어려웠던 점
-            </Typography>
-
-            <List>
-                <ListItem>
-                    <ListItemText primary="✅ 실제 결제라는 사실에 대한 부담감이 컸다" sx={{fontWeight: "bold"}}/>
-                </ListItem>
-                <BackgroundText variant="body2">
-                    <Box>
-                        인턴 첫 과제로 회사의 매출에 영향을 줄 수 있는 작업을 준다는 사실이 너무 부담스러웠다.
-                    </Box>
-                    <Box mt={1}>
-                        생각보다 처리해야하는 예외 작업이 너무 많았고, 기능을 테스트하기가 어려웠다.
-                    </Box>
-                </BackgroundText>
-            </List>
         </Container>
     )
 }
