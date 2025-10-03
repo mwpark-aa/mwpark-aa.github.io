@@ -7,6 +7,7 @@ import TrialAndError from "./pages/trial-and-error";
 import UseKcp from "./pages/trial-and-error/details/useKcp";
 import FirstSpark from "./pages/trial-and-error/details/firstSpark";
 import Toys from "./pages/toys";
+import Documents from "./pages/documents";
 
 const App = () => {
     return (
@@ -16,6 +17,7 @@ const App = () => {
                 <Route path="/" element={<Home/>}/>
                 <Route path="/projects" element={<Projects/>}/>
                 <Route path="/toys" element={<Toys/>}/>
+                <Route path="/documents" element={<Documents/>}/>
             </Routes>
         </Router>
     );
