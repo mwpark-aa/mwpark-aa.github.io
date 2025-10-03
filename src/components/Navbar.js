@@ -9,8 +9,8 @@ const Navbar = () => {
                 <Toolbar>
                     <Button color="inherit" component={Link} to="/">홈</Button>
                     <Button color="inherit" component={Link} to="/projects"> 프로젝트 </Button>
-                    <Button color="inherit" component={Link} to="/trial-and-error"> 시행착오 </Button>
-                    <Button color="inherit" component={Link} to="/toys"> 장난감 </Button>
+                    {/*<Button color="inherit" component={Link} to="/trial-and-error"> 시행착오 </Button>*/}
+                    {/*<Button color="inherit" component={Link} to="/toys"> 장난감 </Button>*/}
                 </Toolbar>
             </AppBar>
             <Toolbar/>
