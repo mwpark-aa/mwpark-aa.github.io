@@ -74,7 +74,7 @@ export default function Dashboard() {
                   {totalCount}
                 </Box>
                 {' '}
-                건 수집됨
+                {searchQuery ? '건 검색됨' : '건 수집됨'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 12 }}>·</Typography>
               <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
@@ -230,7 +230,7 @@ export default function Dashboard() {
             sx={{
               width: { xs: '100%', lg: 300 },
               flexShrink: 0,
-              display: { xs: 'block', lg: 'block' },
+              display: { xs: 'none', lg: 'block' },
             }}
           >
             <Box sx={{ position: { xs: 'static', lg: 'sticky' }, top: 80 }}>

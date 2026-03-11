@@ -46,6 +46,7 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
             letterSpacing: '0.05em',
             flexShrink: 0,
             userSelect: 'none',
+            display: { xs: 'none', sm: 'inline' },
           }}
         >
           ⚡ Minwoo
@@ -119,61 +120,6 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
           })}
         </Box>
 
-        {/* RIGHT: Live indicator */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            background: '#18181b',
-            border: '1px solid #27272a',
-            borderRadius: '999px',
-            px: 1.5,
-            py: 0.75,
-            flexShrink: 0,
-          }}
-        >
-          <Box
-            className="pulse-dot"
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: '#10b981',
-              flexShrink: 0,
-            }}
-          />
-          <Typography
-            component="span"
-            sx={{
-              fontSize: 12,
-              color: '#fafafa',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              display: { xs: 'none', sm: 'inline' },
-            }}
-          >
-            Live
-          </Typography>
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={totalCount}
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              transition={{ duration: 0.2 }}
-              style={{
-                display: 'inline-block',
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: '#10b981',
-                fontWeight: 600,
-              }}
-            >
-              {totalCount}
-            </motion.span>
-          </AnimatePresence>
-        </Box>
       </Toolbar>
     </AppBar>
   )
