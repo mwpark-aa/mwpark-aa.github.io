@@ -73,13 +73,21 @@ export default function SourceMonitor({ sources, items = [] }: SourceMonitorProp
       aria-label="수집 현황"
       elevation={0}
       sx={{
-        background: '#18181b',
-        border: '1px solid #27272a',
-        borderRadius: 3,
-        p: 2,
+        background: 'rgba(24,24,27,0.8)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(39,39,42,0.8)',
+        borderRadius: 4,
+        p: 2.5,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 2.5,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          borderColor: 'rgba(16, 185, 129, 0.4)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+          transform: 'translateY(-4px)',
+        },
       }}
     >
       {/* Intelligence Stats - Moved inside SourceMonitor */}

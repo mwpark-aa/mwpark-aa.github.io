@@ -9,7 +9,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import Navigation from '../Navigation/Navigation'
 import SearchBar from '../SearchBar/SearchBar'
 import FeedCard from '../FeedCard/FeedCard'
-import SourceMonitor from '../SourceMonitor/SourceMonitor'
+import Sidebar from '../Sidebar/Sidebar'
 import { useFeed } from '../../hooks/useFeed'
 import type { Category } from '../../types'
 
@@ -42,13 +42,14 @@ export default function Dashboard() {
       />
 
       {/* Main content */}
-      <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 3 } }}>
+      <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 3 }, minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
             display: 'flex',
             flexDirection: { xs: 'column-reverse', md: 'row' },
             gap: 3,
-            alignItems: 'flex-start',
+            flexGrow: 1,
+            alignItems: 'stretch',
           }}
         >
           {/* LEFT: Main feed column */}
@@ -225,17 +226,7 @@ export default function Dashboard() {
           </Box>
 
           {/* RIGHT: Sidebar — hidden on mobile/tablet */}
-          <Box
-            sx={{
-              width: { xs: '100%', lg: 300 },
-              flexShrink: 0,
-              display: { xs: 'none', lg: 'block' },
-            }}
-          >
-            <Box sx={{ position: { xs: 'static', lg: 'sticky' }, top: 80 }}>
-              <SourceMonitor sources={sources} items={items} />
-            </Box>
-          </Box>
+          <Sidebar sources={sources} items={items} />
         </Box>
       </Container>
     </Box>
