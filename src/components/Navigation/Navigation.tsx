@@ -4,16 +4,25 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import { motion } from 'framer-motion'
-import type { Category } from '../../types'
+import NewspaperOutlinedIcon from '@mui/icons-material/NewspaperOutlined'
+import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
+import type { Category, AppPage } from '../../types'
 
 const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs']
 
 interface NavigationProps {
+  activePage: AppPage
+  onPageChange: (p: AppPage) => void
   activeCategory: Category
   onCategoryChange: (c: Category) => void
 }
 
-export default function Navigation({ activeCategory, onCategoryChange }: NavigationProps) {
+const PAGE_TABS: { key: AppPage; label: string; Icon: React.ElementType }[] = [
+  { key: 'feed', label: '피드', Icon: NewspaperOutlinedIcon },
+  { key: 'local', label: '근처', Icon: LocationOnOutlinedIcon },
+]
+
+export default function Navigation({ activePage, onPageChange, activeCategory, onCategoryChange }: NavigationProps) {
   return (
     <AppBar
       position="sticky"
@@ -27,34 +36,99 @@ export default function Navigation({ activeCategory, onCategoryChange }: Navigat
       <Toolbar
         sx={{
           display: 'flex',
-          justifyContent: { xs: 'space-between', sm: 'center' },
+          justifyContent: 'space-between',
           alignItems: 'center',
           px: { xs: 1.5, sm: 3 },
           minHeight: { xs: 56, sm: 64 },
           gap: { xs: 1, sm: 2 },
-          position: 'relative',
         }}
       >
-        {/* LEFT: Logo - Positioned absolute on larger screens to keep tabs centered */}
+        {/* LEFT: Logo */}
         <Typography
           component="span"
           sx={{
             fontFamily: 'monospace',
             color: '#10b981',
             fontWeight: 700,
-            fontSize: { xs: 16, sm: 18 },
+            fontSize: { xs: 15, sm: 18 },
             letterSpacing: '0.05em',
             flexShrink: 0,
             userSelect: 'none',
-            display: { xs: 'none', sm: 'inline' },
-            position: { sm: 'absolute' },
-            left: { sm: 24, md: 32 },
           }}
         >
           ⚡ Minwoo
         </Typography>
 
-        {/* CENTER: Category filter pills */}
+        {/* CENTER: Category filter pills — only on feed */}
+        {activePage === 'feed' && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              background: '#18181b',
+              border: '1px solid #27272a',
+              borderRadius: 2,
+              p: '4px',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap',
+              flex: '0 1 auto',
+              mx: 2,
+              '&::-webkit-scrollbar': { display: 'none' },
+              msOverflowStyle: 'none',
+              scrollbarWidth: 'none',
+            }}
+          >
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat
+              return (
+                <Box key={cat} sx={{ position: 'relative' }}>
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-active-bg"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: 8,
+                        background: '#10b981',
+                        zIndex: 0,
+                      }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    />
+                  )}
+                  <Button
+                    onClick={() => onCategoryChange(cat)}
+                    disableRipple={false}
+                    aria-pressed={isActive}
+                    sx={{
+                      position: 'relative',
+                      zIndex: 1,
+                      px: { xs: 1.5, sm: 2 },
+                      py: 0.75,
+                      borderRadius: 2,
+                      fontSize: { xs: 11, sm: 13 },
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? '#09090b' : '#71717a',
+                      background: 'transparent',
+                      textTransform: 'none',
+                      transition: 'color 0.15s ease',
+                      minWidth: 'auto',
+                      lineHeight: 1.4,
+                      '&:hover': {
+                        color: isActive ? '#09090b' : '#fafafa',
+                        background: 'transparent',
+                      },
+                    }}
+                  >
+                    {cat}
+                  </Button>
+                </Box>
+              )
+            })}
+          </Box>
+        )}
+
+        {/* RIGHT: Page switcher */}
         <Box
           sx={{
             display: 'flex',
@@ -64,64 +138,57 @@ export default function Navigation({ activeCategory, onCategoryChange }: Navigat
             border: '1px solid #27272a',
             borderRadius: 2,
             p: '4px',
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-            flex: { xs: 1, sm: '0 1 auto' },
-            mx: { xs: 0, sm: 2 },
-            '&::-webkit-scrollbar': { display: 'none' },
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none',
+            flexShrink: 0,
           }}
         >
-          {CATEGORIES.map((cat) => {
-            const isActive = activeCategory === cat
+          {PAGE_TABS.map(({ key, label, Icon }) => {
+            const isActive = activePage === key
             return (
-              <Box key={cat} sx={{ position: 'relative' }}>
+              <Box key={key} sx={{ position: 'relative' }}>
                 {isActive && (
                   <motion.span
-                    layoutId="nav-active-bg"
+                    layoutId="page-active-bg"
                     style={{
                       position: 'absolute',
                       inset: 0,
                       borderRadius: 8,
-                      background: '#10b981',
+                      background: '#3b82f6',
                       zIndex: 0,
                     }}
                     transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                   />
                 )}
                 <Button
-                  onClick={() => onCategoryChange(cat)}
-                  disableRipple={false}
-                  aria-pressed={isActive}
-                  aria-label={`Filter by ${cat}`}
+                  onClick={() => onPageChange(key)}
+                  startIcon={<Icon sx={{ fontSize: '14px !important' }} />}
                   sx={{
                     position: 'relative',
                     zIndex: 1,
-                    px: { xs: 1.5, sm: 2 },
+                    px: { xs: 1.2, sm: 1.5 },
                     py: 0.75,
                     borderRadius: 2,
-                    fontSize: { xs: 11, sm: 13 },
+                    fontSize: { xs: 11, sm: 12 },
                     fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#09090b' : '#71717a',
+                    color: isActive ? '#fff' : '#71717a',
                     background: 'transparent',
                     textTransform: 'none',
                     transition: 'color 0.15s ease',
                     minWidth: 'auto',
                     lineHeight: 1.4,
+                    gap: 0.5,
+                    '& .MuiButton-startIcon': { mr: 0.5 },
                     '&:hover': {
-                      color: isActive ? '#09090b' : '#fafafa',
+                      color: isActive ? '#fff' : '#fafafa',
                       background: 'transparent',
                     },
                   }}
                 >
-                  {cat}
+                  {label}
                 </Button>
               </Box>
             )
           })}
         </Box>
-
       </Toolbar>
     </AppBar>
   )

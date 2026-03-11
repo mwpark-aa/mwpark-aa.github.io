@@ -19,3 +19,20 @@ export interface DataSource {
   lastCrawled: string
   itemsCollected: number
 }
+
+export type AppPage = 'feed' | 'local'
+
+export interface LocalActivity {
+  emoji: string
+  name: string
+  desc: string
+}
+
+export interface LocalPlace {
+  name: string
+  category: string
+  rating: number
+  desc: string
+  tip: string
+  address: string
+}

@@ -6,15 +6,17 @@ import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import { AnimatePresence, motion } from 'framer-motion'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import Navigation from '../Navigation/Navigation'
 import SearchBar from '../SearchBar/SearchBar'
 import FeedCard from '../FeedCard/FeedCard'
 import Sidebar from '../Sidebar/Sidebar'
 import { useFeed } from '../../hooks/useFeed'
 import type { Category } from '../../types'
 
-export default function Dashboard() {
-  const [activeCategory, setActiveCategory] = useState<Category>('All')
+interface DashboardProps {
+  activeCategory: Category
+}
+
+export default function Dashboard({ activeCategory }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [committedQuery, setCommittedQuery] = useState('')
 
@@ -35,12 +37,6 @@ export default function Dashboard() {
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#09090b' }}>
-      {/* Sticky navigation */}
-      <Navigation
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-      />
-
       {/* Main content */}
       <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 3 }, minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
         <Box

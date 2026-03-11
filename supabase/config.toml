@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.backfill-embeddings]
 verify_jwt = false
+
+[functions.local-recommend]
+verify_jwt = false
