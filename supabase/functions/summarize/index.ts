@@ -137,10 +137,10 @@ serve(async (req) => {
           .maybeSingle()
 
         if (existingFeedItem) {
-          // Already in feed_items — mark raw as processed and skip Grok call
+          // 이미 feed_items에 존재 — raw_articles에서 삭제
           await supabase
             .from('raw_articles')
-            .update({ processed: true, processed_at: new Date().toISOString() })
+            .delete()
             .eq('id', article.id)
           skipped++
           processed++
@@ -184,10 +184,10 @@ serve(async (req) => {
 
         inserted++
 
-        // d. Mark raw_articles row as processed
+        // d. 처리 완료된 raw_articles 행 삭제
         await supabase
           .from('raw_articles')
-          .update({ processed: true, processed_at: new Date().toISOString() })
+          .delete()
           .eq('id', article.id)
 
         processed++
