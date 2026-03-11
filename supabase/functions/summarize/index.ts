@@ -27,35 +27,31 @@ interface GrokResult {
 
 // ─── Grok summarization ────────────────────────────────────────────────────
 
+const GROQ_BASE = 'https://api.groq.com'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
 async function summarizeWithGrok(
   article: RawArticleRow,
   apiKey: string,
 ): Promise<GrokResult | null> {
   try {
-    const prompt = `기사를 분석해서 JSON만 응답 (마크다운 없이):
-제목: ${article.original_title}
-${article.snippet ? `내용: ${article.snippet.slice(0, 300)}` : ''}
-
-{"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"|"Hot Deals","readTime":"X min read"}`
-
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+    const prompt = `
+    기사를 분석해서 JSON만 응답 (마크다운 없이):
+    제목: ${article.original_title} 
+    ${article.snippet ? `내용: ${article.snippet.slice(0, 300)}` : ''}
+    {"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"|"Hot Deals","readTime":"X min read"}
+    `
+    const response = await fetch(`${GROQ_BASE}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'grok-2-1212',
-        temperature: 0.2,
-        max_tokens: 400,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+          model: GROQ_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+          max_tokens: 1024,
+          response_format: { type: "json_object" },
       }),
-    })
+      signal: AbortSignal.timeout(30_000),
+    });
 
     if (!response.ok) {
       console.error(

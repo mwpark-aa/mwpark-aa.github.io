@@ -110,11 +110,13 @@ create table public.data_sources (
 
 ```sql
 insert into public.data_sources (id, name, url) values
-  ('hacker-news', 'Hacker News', 'https://hacker-news.firebaseio.com/v0/topstories.json'),
-  ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/'),
-  ('reddit-ml', 'Reddit r/MachineLearning', 'https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day'),
-  ('openai-blog', 'OpenAI Blog', 'https://openai.com/news/rss'),
-  ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending');
+                                                   ('hacker-news', 'Hacker News', 'https://hacker-news.firebaseio.com/v0/topstories.json'),
+                                                   ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/'),
+                                                   ('reddit-ml', 'Reddit r/MachineLearning', 'https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day'),
+                                                   ('openai-blog', 'OpenAI Blog', 'https://openai.com/news/rss'),
+                                                   ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending'),
+                                                   ('huggingface-blog', 'Hugging Face Blog', 'https://huggingface.co/blog/feed.xml'),
+                                                   ('google-deepmind', 'Google DeepMind', 'https://deepmind.google/blog/rss.xml');
 ```
 
 ---
@@ -364,7 +366,9 @@ insert into public.data_sources (id, name, url) values
   ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/'),
   ('reddit-ml', 'Reddit r/MachineLearning', 'https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day'),
   ('openai-blog', 'OpenAI Blog', 'https://openai.com/news/rss'),
-  ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending');
+  ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending'),
+  ('huggingface-blog', 'Hugging Face Blog', 'https://huggingface.co/blog/feed.xml'),
+  ('google-deepmind', 'Google DeepMind', 'https://deepmind.google/blog/rss.xml');
 
 -- RLS
 alter table public.feed_items enable row level security;
