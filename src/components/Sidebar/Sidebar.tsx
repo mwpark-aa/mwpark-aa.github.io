@@ -1,13 +1,13 @@
 import Box from '@mui/material/Box'
 import SourceMonitor from '../SourceMonitor/SourceMonitor'
-import type { DataSource, FeedItem } from '../../types'
+import type { DataSource } from '../../types'
 
 interface SidebarProps {
   sources: DataSource[]
-  items: FeedItem[]
+  categoryTotals: Record<string, number>
 }
 
-export default function Sidebar({ sources, items }: SidebarProps) {
+export default function Sidebar({ sources, categoryTotals }: SidebarProps) {
   return (
     <Box
       sx={{
@@ -26,7 +26,7 @@ export default function Sidebar({ sources, items }: SidebarProps) {
           zIndex: 10,
         }}
       >
-        <SourceMonitor sources={sources} items={items} />
+        <SourceMonitor sources={sources} categoryTotals={categoryTotals} />
       </Box>
     </Box>
   )

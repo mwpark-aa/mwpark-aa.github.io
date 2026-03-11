@@ -4,11 +4,11 @@ import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
-import type { DataSource, SourceStatus, FeedItem } from '../../types'
+import type { DataSource, SourceStatus } from '../../types'
 
 interface SourceMonitorProps {
   sources: DataSource[]
-  items?: FeedItem[]
+  categoryTotals?: Record<string, number>
 }
 
 const statusConfig: Record<
@@ -45,26 +45,14 @@ function formatRelativeTime(isoString: string): string {
   return `${hours}시간 전`
 }
 
-export default function SourceMonitor({ sources, items = [] }: SourceMonitorProps) {
+export default function SourceMonitor({ sources, categoryTotals = {} }: SourceMonitorProps) {
   const visibleSources = sources.filter((s) => s.itemsCollected > 0)
   const activeCount = visibleSources.filter((s) => s.status === 'active').length
 
   const stats = [
-    {
-      label: 'AI Trends',
-      value: items.filter((i) => i.category === 'AI Trends').length,
-      color: '#10b981',
-    },
-    {
-      label: 'Tech Blogs',
-      value: items.filter((i) => i.category === 'Tech Blogs').length,
-      color: '#3b82f6',
-    },
-    {
-      label: 'Hot Deals',
-      value: items.filter((i) => i.category === 'Hot Deals').length,
-      color: '#f59e0b',
-    },
+    { label: 'AI Trends', value: categoryTotals['AI Trends'] ?? 0, color: '#10b981' },
+    { label: 'Tech Blogs', value: categoryTotals['Tech Blogs'] ?? 0, color: '#3b82f6' },
+    { label: 'Hot Deals', value: categoryTotals['Hot Deals'] ?? 0, color: '#f59e0b' },
   ] as const
 
   return (

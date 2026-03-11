@@ -9,6 +9,8 @@ const PAGE_SIZE = 20
 export function useFeed(category: Category) {
   const [items, setItems] = useState<FeedItem[]>([])
   const [sources, setSources] = useState<DataSource[]>([])
+  const [total, setTotal] = useState(0)
+  const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +38,12 @@ export function useFeed(category: Category) {
       if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         setItems(mockFeedItems)
         setSources(mockDataSources)
+        setTotal(mockFeedItems.length)
+        setCategoryTotals({
+          'AI Trends': mockFeedItems.filter((i) => i.category === 'AI Trends').length,
+          'Tech Blogs': mockFeedItems.filter((i) => i.category === 'Tech Blogs').length,
+          'Hot Deals': mockFeedItems.filter((i) => i.category === 'Hot Deals').length,
+        })
         setLoading(false)
         setLoadingMore(false)
         setHasMore(false)
@@ -66,6 +74,8 @@ export function useFeed(category: Category) {
 
           setItems(feedData.items)
           setSources(sourcesData)
+          setTotal(feedData.total)
+          if (feedData.categoryCounts) setCategoryTotals(feedData.categoryCounts)
           setHasMore(feedData.offset + feedData.limit < feedData.total)
         } else {
           const feedRes = await fetchFeed
@@ -73,12 +83,14 @@ export function useFeed(category: Category) {
           const feedData = await feedRes.json()
 
           setItems((prev) => [...prev, ...feedData.items])
+          setTotal(feedData.total)
           setHasMore(feedData.offset + feedData.limit < feedData.total)
         }
       } catch (err) {
         console.error('Failed to fetch from Supabase, using mock data:', err)
         setItems(mockFeedItems)
         setSources(mockDataSources)
+        setTotal(mockFeedItems.length)
         setError('실시간 데이터를 불러오지 못했습니다. 샘플 데이터를 표시합니다.')
         setHasMore(false)
       } finally {
@@ -94,5 +106,5 @@ export function useFeed(category: Category) {
     setOffset((prev) => prev + PAGE_SIZE)
   }, [])
 
-  return { items, sources, loading, loadingMore, hasMore, loadMore, error }
+  return { items, sources, total, categoryTotals, loading, loadingMore, hasMore, loadMore, error }
 }

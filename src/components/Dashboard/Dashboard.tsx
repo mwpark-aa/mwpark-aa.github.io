@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { items, sources, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
+  const { items, sources, total, categoryTotals, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
   const { results: vectorResults, loading: vectorLoading } = useVectorSearch(searchQuery, activeCategory)
 
   const filteredItems = useMemo(() => {
@@ -39,7 +39,8 @@ export default function Dashboard() {
   const isVectorActive = searchQuery.trim().length > 0 && vectorResults !== null
   const displayedItems = isVectorActive ? vectorResults! : filteredItems
 
-  const totalCount = displayedItems.length
+  // 검색 중엔 결과 개수, 평상시엔 API의 전체 개수
+  const totalCount = searchQuery.trim() ? displayedItems.length : total
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#09090b' }}>
@@ -271,7 +272,7 @@ export default function Dashboard() {
           </Box>
 
           {/* RIGHT: Sidebar — hidden on mobile/tablet */}
-          <Sidebar sources={sources} items={items} />
+          <Sidebar sources={sources} categoryTotals={categoryTotals} />
         </Box>
       </Container>
     </Box>

@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     const limit = Math.min(parseInt(limitParam ?? '20', 10) || 20, 50)
-    const threshold = parseFloat(thresholdParam ?? '0.5') || 0.5
+    const threshold = parseFloat(thresholdParam ?? '0.65') || 0.65
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

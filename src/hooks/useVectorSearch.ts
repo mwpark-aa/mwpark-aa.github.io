@@ -68,7 +68,7 @@ export function useVectorSearch(query: string, category: Category): VectorSearch
       setError(null)
 
       try {
-        const params = new URLSearchParams({ q: trimmed, limit: '20' })
+        const params = new URLSearchParams({ q: trimmed, limit: '20', threshold: '0.8' })
         if (category !== 'All') {
           params.set('category', category)
         }
@@ -89,7 +89,8 @@ export function useVectorSearch(query: string, category: Category): VectorSearch
         }
 
         const data = (await response.json()) as { items: FeedItem[]; query: string }
-        setResults(data.items)
+        // 결과가 없으면 null로 두어 keyword fallback 활성화
+        setResults(data.items.length > 0 ? data.items : null)
         setError(null)
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
