@@ -1,0 +1,181 @@
+import Paper from '@mui/material/Paper'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Chip from '@mui/material/Chip'
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
+import type { DataSource, SourceStatus } from '../../types'
+
+interface SourceMonitorProps {
+  sources: DataSource[]
+}
+
+const statusConfig: Record<
+  SourceStatus,
+  { dotColor: string; pulse: boolean; chipColor: 'success' | 'warning' | 'error'; label: string }
+> = {
+  active: {
+    dotColor: '#10b981',
+    pulse: true,
+    chipColor: 'success',
+    label: '수집중',
+  },
+  pending: {
+    dotColor: '#f59e0b',
+    pulse: false,
+    chipColor: 'warning',
+    label: '대기중',
+  },
+  error: {
+    dotColor: '#ef4444',
+    pulse: false,
+    chipColor: 'error',
+    label: '오류',
+  },
+}
+
+function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime()
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return `${seconds}초 전`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}분 전`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}시간 전`
+}
+
+export default function SourceMonitor({ sources }: SourceMonitorProps) {
+  const activeCount = sources.filter((s) => s.status === 'active').length
+
+  return (
+    <Paper
+      component="aside"
+      aria-label="수집 현황"
+      elevation={0}
+      sx={{
+        background: '#18181b',
+        border: '1px solid #27272a',
+        borderRadius: 3,
+        p: 2,
+      }}
+    >
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FiberManualRecordIcon sx={{ color: '#10b981', fontSize: 16 }} />
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 600, color: '#fafafa', fontSize: 13 }}
+          >
+            수집 현황
+          </Typography>
+        </Box>
+        <Typography
+          variant="caption"
+          sx={{ color: '#71717a', fontFamily: 'monospace', fontSize: 11 }}
+        >
+          {activeCount}/{sources.length} 수집중
+        </Typography>
+      </Box>
+
+      {/* Source list */}
+      <Box component="ul" role="list" sx={{ listStyle: 'none', p: 0, m: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {sources.map((source) => {
+          const config = statusConfig[source.status]
+          return (
+            <Box
+              key={source.id}
+              component="li"
+              sx={{
+                py: 1.25,
+                px: 1.5,
+                borderRadius: 2,
+                background: 'rgba(9,9,11,0.6)',
+                border: '1px solid rgba(39,39,42,0.6)',
+                transition: 'border-color 0.15s ease',
+                '&:hover': {
+                  borderColor: '#3f3f46',
+                },
+              }}
+            >
+              {/* Name row + status chip */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  <Box
+                    className={config.pulse ? 'pulse-dot' : undefined}
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: config.dotColor,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: '#fafafa',
+                      fontWeight: 500,
+                      fontSize: 12,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {source.name}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={config.label}
+                  color={config.chipColor}
+                  sx={{
+                    height: 18,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                    '& .MuiChip-label': { px: 0.75 },
+                  }}
+                />
+              </Box>
+
+              {/* Stats row */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pl: 2.25 }}>
+                <Typography variant="caption" sx={{ color: '#71717a', fontSize: 11 }}>
+                  {source.status === 'error' ? (
+                    <Box component="span" sx={{ color: '#ef4444' }}>—</Box>
+                  ) : (
+                    <>
+                      <Box component="span" sx={{ color: '#a1a1aa', fontFamily: 'monospace' }}>
+                        {source.itemsCollected}
+                      </Box>
+                      {'건'}
+                    </>
+                  )}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#71717a', fontSize: 11 }}>
+                  {formatRelativeTime(source.lastCrawled)}
+                </Typography>
+              </Box>
+            </Box>
+          )
+        })}
+      </Box>
+
+      {/* Footer */}
+      <Typography
+        variant="caption"
+        sx={{
+          display: 'block',
+          color: '#71717a',
+          textAlign: 'center',
+          fontSize: 11,
+          mt: 2,
+          pt: 1.5,
+          borderTop: '1px solid #27272a',
+        }}
+      >
+        5분마다 자동 갱신
+      </Typography>
+    </Paper>
+  )
+}
