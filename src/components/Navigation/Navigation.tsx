@@ -28,14 +28,15 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
       <Toolbar
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: { xs: 'space-between', sm: 'center' },
           alignItems: 'center',
           px: { xs: 1.5, sm: 3 },
           minHeight: { xs: 56, sm: 64 },
           gap: { xs: 1, sm: 2 },
+          position: 'relative',
         }}
       >
-        {/* LEFT: Logo */}
+        {/* LEFT: Logo - Positioned absolute on larger screens to keep tabs centered */}
         <Typography
           component="span"
           sx={{
@@ -47,6 +48,8 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
             flexShrink: 0,
             userSelect: 'none',
             display: { xs: 'none', sm: 'inline' },
+            position: { sm: 'absolute' },
+            left: { sm: 24, md: 32 },
           }}
         >
           ⚡ Minwoo
