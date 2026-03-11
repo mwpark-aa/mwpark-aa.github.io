@@ -71,11 +71,8 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // pgvector는 '[x1,x2,...]' 문자열 형식으로 받아야 타입 변환이 정상 동작
-    const embeddingStr = `[${embedding.join(',')}]`
-
     const { data, error } = await supabase.rpc('search_feed_items', {
-      query_embedding: embeddingStr,
+      query_embedding: embedding,
       match_threshold: threshold,
       match_count: limit,
       filter_category: category,

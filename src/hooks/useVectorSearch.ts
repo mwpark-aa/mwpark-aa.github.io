@@ -34,7 +34,7 @@ export function useVectorSearch(committedQuery: string, category: Category): Vec
 
     setLoading(true)
 
-    const params = new URLSearchParams({ q: trimmed, limit: '20', threshold: '0.8' })
+    const params = new URLSearchParams({ q: trimmed, threshold: '0' })
     if (category !== 'All') params.set('category', category)
 
     fetch(`${SUPABASE_URL}/functions/v1/search?${params.toString()}`, {
