@@ -29,16 +29,12 @@ serve(async (req) => {
       })
     }
 
-    // Map snake_case DB columns to camelCase for frontend
     const sources = (data ?? []).map((row) => ({
       id: row.id,
       name: row.name,
-      url: row.url,
       status: row.status,
       lastCrawled: row.last_crawled,
       itemsCollected: row.items_collected,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
     }))
 
     return new Response(JSON.stringify(sources), {

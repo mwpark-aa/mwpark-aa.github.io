@@ -44,7 +44,8 @@ function formatRelativeTime(isoString: string): string {
 }
 
 export default function SourceMonitor({ sources }: SourceMonitorProps) {
-  const activeCount = sources.filter((s) => s.status === 'active').length
+  const visibleSources = sources.filter((s) => s.itemsCollected > 0)
+  const activeCount = visibleSources.filter((s) => s.status === 'active').length
 
   return (
     <Paper
@@ -73,13 +74,13 @@ export default function SourceMonitor({ sources }: SourceMonitorProps) {
           variant="caption"
           sx={{ color: '#71717a', fontFamily: 'monospace', fontSize: 11 }}
         >
-          {activeCount}/{sources.length} 수집중
+          {activeCount}/{visibleSources.length} 수집중
         </Typography>
       </Box>
 
       {/* Source list */}
       <Box component="ul" role="list" sx={{ listStyle: 'none', p: 0, m: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {sources.map((source) => {
+        {visibleSources.map((source) => {
           const config = statusConfig[source.status]
           return (
             <Box
