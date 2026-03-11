@@ -46,7 +46,11 @@ function formatRelativeTime(isoString: string): string {
 }
 
 export default function FeedCard({ item, index }: FeedCardProps) {
-  const catConfig = categoryConfig[item.category]
+  const catConfig = categoryConfig[item.category] || {
+    color: '#71717a',
+    background: 'rgba(113, 113, 122, 0.1)',
+    label: item.category || 'Unknown'
+  }
 
   return (
     <motion.div

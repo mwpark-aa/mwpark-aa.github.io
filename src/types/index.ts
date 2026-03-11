@@ -22,17 +22,13 @@ export interface DataSource {
 
 export type AppPage = 'feed' | 'local'
 
-export interface LocalActivity {
-  emoji: string
-  name: string
-  desc: string
-}
-
 export interface LocalPlace {
   name: string
   category: string
-  rating: number
-  desc: string
-  tip: string
+  distance: string   // e.g. "150m" or "1.2km"
   address: string
+  phone: string
+  placeUrl: string   // kakao map deep link
+  comment?: string   // AI curation one-liner, may be absent
+  rating?: number    // AI-estimated rating (1.0–5.0)
 }

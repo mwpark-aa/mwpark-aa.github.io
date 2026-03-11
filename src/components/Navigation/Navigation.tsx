@@ -18,8 +18,8 @@ interface NavigationProps {
 }
 
 const PAGE_TABS: { key: AppPage; label: string; Icon: React.ElementType }[] = [
-  { key: 'feed', label: '피드', Icon: NewspaperOutlinedIcon },
   { key: 'local', label: '근처', Icon: LocationOnOutlinedIcon },
+  { key: 'feed', label: '피드', Icon: NewspaperOutlinedIcon },
 ]
 
 export default function Navigation({ activePage, onPageChange, activeCategory, onCategoryChange }: NavigationProps) {

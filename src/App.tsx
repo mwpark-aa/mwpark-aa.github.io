@@ -5,7 +5,7 @@ import LocalExplorer from './components/LocalExplorer/LocalExplorer'
 import type { Category, AppPage } from './types'
 
 export default function App() {
-  const [activePage, setActivePage] = useState<AppPage>('feed')
+  const [activePage, setActivePage] = useState<AppPage>('local')
   const [activeCategory, setActiveCategory] = useState<Category>('All')
 
   return (
