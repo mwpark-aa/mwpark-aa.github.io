@@ -44,9 +44,25 @@ export default function Dashboard() {
 
       {/* Main content */}
       <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 3 } }}>
-        <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column-reverse', md: 'row' },
+            gap: 3,
+            alignItems: 'flex-start',
+          }}
+        >
           {/* LEFT: Main feed column */}
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box
+            sx={{
+              flex: 1,
+              width: '100%',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+            }}
+          >
             {/* Search bar */}
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
 
@@ -95,11 +111,11 @@ export default function Dashboard() {
               </Box>
             )}
 
-            {/* Feed grid */}
             <Box
               role="feed"
               aria-label="지식 피드"
               aria-live="polite"
+              sx={{ flexGrow: 1 }}
             >
               {loading ? (
                 // Loading skeleton — 4 placeholder cards
@@ -212,12 +228,12 @@ export default function Dashboard() {
           {/* RIGHT: Sidebar — hidden on mobile/tablet */}
           <Box
             sx={{
-              width: 300,
+              width: { xs: '100%', lg: 300 },
               flexShrink: 0,
-              display: { xs: 'none', lg: 'block' },
+              display: { xs: 'block', lg: 'block' },
             }}
           >
-            <Box sx={{ position: 'sticky', top: 80 }}>
+            <Box sx={{ position: { xs: 'static', lg: 'sticky' }, top: 80 }}>
               <SourceMonitor sources={sources} />
 
               {/* Intelligence Stats widget */}

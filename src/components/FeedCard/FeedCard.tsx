@@ -63,7 +63,7 @@ export default function FeedCard({ item, index }: FeedCardProps) {
         delay: index * 0.08,
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minHeight: '320px' }}
     >
       <Card
         component="article"
@@ -74,6 +74,8 @@ export default function FeedCard({ item, index }: FeedCardProps) {
           borderRadius: 3,
           boxShadow: 'none',
           height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
           transition: 'all 0.2s ease',
           '&:hover': {
             borderColor: '#52525b',
@@ -84,10 +86,11 @@ export default function FeedCard({ item, index }: FeedCardProps) {
       >
         <CardContent
           sx={{
-            p: 2.5,
-            '&:last-child': { pb: 2.5 },
+            p: { xs: 2, sm: 2.5 },
+            '&:last-child': { pb: { xs: 2, sm: 2.5 } },
             display: 'flex',
             flexDirection: 'column',
+            flexGrow: 1,
             height: '100%',
           }}
         >
@@ -129,6 +132,7 @@ export default function FeedCard({ item, index }: FeedCardProps) {
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
+                minHeight: '2.8em',
               }}
             >
               {item.title}

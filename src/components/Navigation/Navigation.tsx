@@ -30,9 +30,9 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          px: { xs: 2, md: 3 },
+          px: { xs: 1.5, sm: 3 },
           minHeight: { xs: 56, sm: 64 },
-          gap: 2,
+          gap: { xs: 1, sm: 2 },
         }}
       >
         {/* LEFT: Logo */}
@@ -42,13 +42,13 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
             fontFamily: 'monospace',
             color: '#10b981',
             fontWeight: 700,
-            fontSize: 18,
+            fontSize: { xs: 16, sm: 18 },
             letterSpacing: '0.05em',
             flexShrink: 0,
             userSelect: 'none',
           }}
         >
-          ⚡ Minwoo Crawl
+          ⚡ Minwoo
         </Typography>
 
         {/* CENTER: Category filter pills */}
@@ -61,6 +61,13 @@ export default function Navigation({ activeCategory, onCategoryChange, totalCoun
             border: '1px solid #27272a',
             borderRadius: 2,
             p: '4px',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            flex: { xs: 1, sm: '0 1 auto' },
+            mx: { xs: 0, sm: 2 },
+            '&::-webkit-scrollbar': { display: 'none' },
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none',
           }}
         >
           {CATEGORIES.map((cat) => {
