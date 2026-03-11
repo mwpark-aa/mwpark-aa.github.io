@@ -124,7 +124,10 @@ async function curateAndComment(
 ${list}
 
 가장 추천할 장소 최대 10개를 골라 예상 별점(1.0~5.0)을 달아주세요.
-규칙: 한글만 사용, 한자 금지, 마크다운 없이 순수 JSON만 출력.
+규칙: 
+- 화장실, 주차장, 관리소, 단순 부대시설 등은 추천에서 제외하세요.
+- 장소 이름과 카테고리 정보를 분석하여 "${label}" 활동 목적에 정말 부합하는 장소만 선정하세요.
+- 한글만 사용, 한자 금지, 마크다운 없이 순수 JSON만 출력.
 형식: {"picks":[{"index":1,"rating":4.5},{"index":3,"rating":4.2}]}`
 
   const res = await fetch(`${GROQ_BASE}/chat/completions`, {
