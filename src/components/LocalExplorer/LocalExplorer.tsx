@@ -12,7 +12,7 @@ import StarIcon from '@mui/icons-material/Star'
 import PlaceIcon from '@mui/icons-material/Place'
 import TipsAndUpdatesOutlinedIcon from '@mui/icons-material/TipsAndUpdatesOutlined'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import type { LocalActivity, LocalPlace } from '../../types'
+import type { LocalPlace } from '../../types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -24,6 +24,29 @@ interface GeoInfo {
   lng: number
   address: string
 }
+
+interface ActivityDef {
+  emoji: string
+  name: string
+  desc: string
+}
+
+const FIXED_ACTIVITIES: ActivityDef[] = [
+  { emoji: '🍚', name: '밥집', desc: '맛집 탐방' },
+  { emoji: '☕', name: '카페', desc: '커피 한 잔의 여유' },
+  { emoji: '🍨', name: '디저트', desc: '달콤한 디저트 카페' },
+  { emoji: '🍺', name: '술집/바', desc: '분위기 좋은 한 잔' },
+  { emoji: '🌿', name: '산책', desc: '공원과 자연 즐기기' },
+  { emoji: '📸', name: '사진 명소', desc: '포토스팟 찾기' },
+  { emoji: '📚', name: '독서', desc: '조용한 독서 공간' },
+  { emoji: '🎮', name: '오락', desc: '게임과 엔터테인먼트' },
+  { emoji: '🧗', name: '액티비티', desc: '클라이밍·사격·볼링' },
+  { emoji: '🎬', name: '영화', desc: '최신 영화 관람' },
+  { emoji: '🛍', name: '쇼핑', desc: '동네 쇼핑 탐방' },
+  { emoji: '🎨', name: '전시/문화', desc: '갤러리와 문화 체험' },
+  { emoji: '💆', name: '힐링', desc: '스파·마사지·찜질방' },
+  { emoji: '🎵', name: '음악/노래', desc: '노래방 또는 라이브바' },
+]
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -40,25 +63,8 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
-async function fetchActivities(geo: GeoInfo): Promise<LocalActivity[]> {
-  const params = new URLSearchParams({
-    mode: 'activities',
-    lat: String(geo.lat),
-    lng: String(geo.lng),
-    address: geo.address,
-  })
-  const res = await fetch(
-    `${SUPABASE_URL}/functions/v1/local-recommend?${params}`,
-    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } },
-  )
-  if (!res.ok) throw new Error(`활동 추천 실패: ${res.status}`)
-  const data = await res.json()
-  return data.activities ?? []
-}
-
 async function fetchPlaces(geo: GeoInfo, activity: string): Promise<LocalPlace[]> {
   const params = new URLSearchParams({
-    mode: 'places',
     lat: String(geo.lat),
     lng: String(geo.lng),
     address: geo.address,
@@ -75,7 +81,7 @@ async function fetchPlaces(geo: GeoInfo, activity: string): Promise<LocalPlace[]
 
 function StarRating({ rating }: { rating: number }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, flexShrink: 0 }}>
       <StarIcon sx={{ fontSize: 13, color: '#f59e0b' }} />
       <Typography variant="caption" sx={{ color: '#f59e0b', fontWeight: 600, fontSize: 12 }}>
         {rating.toFixed(1)}
@@ -91,8 +97,8 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.07 }}
-      style={{ height: '100%' }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.4) }}
+      style={{ height: '100%', width: '100%' }}
     >
       <Box
         sx={{
@@ -101,6 +107,7 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
           borderRadius: 3,
           p: 2.5,
           height: '100%',
+          minHeight: 220,
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
@@ -113,10 +120,19 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
       >
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-          <Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
-              sx={{ color: '#fafafa', fontWeight: 600, fontSize: 15, lineHeight: 1.3 }}
+              sx={{
+                color: '#fafafa',
+                fontWeight: 600,
+                fontSize: 15,
+                lineHeight: 1.3,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              }}
             >
               {place.name}
             </Typography>
@@ -127,12 +143,24 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
           <StarRating rating={place.rating} />
         </Box>
 
-        {/* Description */}
-        <Typography variant="body2" sx={{ color: '#a1a1aa', fontSize: 13, lineHeight: 1.6, flexGrow: 1 }}>
+        {/* Description — fixed 2-line clamp */}
+        <Typography
+          variant="body2"
+          sx={{
+            color: '#a1a1aa',
+            fontSize: 13,
+            lineHeight: 1.6,
+            flexGrow: 1,
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
           {place.desc}
         </Typography>
 
-        {/* Tip */}
+        {/* Tip — fixed height */}
         <Box
           sx={{
             background: 'rgba(59,130,246,0.06)',
@@ -142,19 +170,40 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
             display: 'flex',
             gap: 0.8,
             alignItems: 'flex-start',
+            minHeight: 44,
           }}
         >
           <TipsAndUpdatesOutlinedIcon sx={{ fontSize: 14, color: '#3b82f6', mt: 0.1, flexShrink: 0 }} />
-          <Typography variant="caption" sx={{ color: '#93c5fd', fontSize: 12, lineHeight: 1.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#93c5fd',
+              fontSize: 12,
+              lineHeight: 1.5,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
             {place.tip}
           </Typography>
         </Box>
 
         {/* Address + map link */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-            <PlaceIcon sx={{ fontSize: 12, color: '#52525b' }} />
-            <Typography variant="caption" sx={{ color: '#52525b', fontSize: 11 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, minWidth: 0 }}>
+            <PlaceIcon sx={{ fontSize: 12, color: '#52525b', flexShrink: 0 }} />
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#52525b',
+                fontSize: 11,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {place.address}
             </Typography>
           </Box>
@@ -172,10 +221,11 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
               py: 0.3,
               minWidth: 'auto',
               borderRadius: 1.5,
+              flexShrink: 0,
               '&:hover': { background: 'rgba(59,130,246,0.08)' },
             }}
           >
-            지도 보기 →
+            지도 →
           </Button>
         </Box>
       </Box>
@@ -186,7 +236,6 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
 export default function LocalExplorer() {
   const [step, setStep] = useState<Step>('init')
   const [geo, setGeo] = useState<GeoInfo | null>(null)
-  const [activities, setActivities] = useState<LocalActivity[]>([])
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
   const [places, setPlaces] = useState<LocalPlace[]>([])
   const [loading, setLoading] = useState(false)
@@ -206,22 +255,9 @@ export default function LocalExplorer() {
       async (pos) => {
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
-
         const address = await reverseGeocode(lat, lng)
-        const geoInfo: GeoInfo = { lat, lng, address }
-        setGeo(geoInfo)
-        setLoading(true)
-
-        try {
-          const acts = await fetchActivities(geoInfo)
-          setActivities(acts)
-          setStep('activities')
-        } catch (err) {
-          setError('활동 목록을 불러오지 못했습니다. 다시 시도해주세요.')
-          setStep('init')
-        } finally {
-          setLoading(false)
-        }
+        setGeo({ lat, lng, address })
+        setStep('activities')
       },
       (err) => {
         const msg =
@@ -247,7 +283,7 @@ export default function LocalExplorer() {
       try {
         const ps = await fetchPlaces(geo, activityName)
         setPlaces(ps)
-      } catch (err) {
+      } catch {
         setError('장소를 불러오지 못했습니다. 다시 시도해주세요.')
       } finally {
         setLoading(false)
@@ -266,7 +302,6 @@ export default function LocalExplorer() {
   const handleReset = useCallback(() => {
     setStep('init')
     setGeo(null)
-    setActivities([])
     setSelectedActivity(null)
     setPlaces([])
     setError(null)
@@ -276,6 +311,7 @@ export default function LocalExplorer() {
     <Box sx={{ minHeight: 'calc(100vh - 64px)', background: '#09090b' }}>
       <Container maxWidth="lg" sx={{ py: 4, px: { xs: 2, md: 3 } }}>
         <AnimatePresence mode="wait">
+
           {/* ─── INIT ─── */}
           {step === 'init' && (
             <motion.div
@@ -427,10 +463,9 @@ export default function LocalExplorer() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Location header */}
               <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <LocationOnIcon sx={{ fontSize: 16, color: '#3b82f6' }} />
+                  <LocationOnIcon sx={{ fontSize: 14, color: '#3b82f6' }} />
                   <Typography variant="caption" sx={{ color: '#3b82f6', fontSize: 13, fontWeight: 500 }}>
                     {geo?.address}
                   </Typography>
@@ -444,7 +479,6 @@ export default function LocalExplorer() {
                       px: 0.8,
                       py: 0.2,
                       minWidth: 'auto',
-                      ml: 0.5,
                       '&:hover': { color: '#a1a1aa' },
                     }}
                   >
@@ -455,73 +489,55 @@ export default function LocalExplorer() {
                   지금 이 근처에서 뭐 할까요?
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#52525b', fontSize: 12 }}>
-                  원하는 활동을 선택하면 AI가 장소를 추천해드려요
+                  원하는 카테고리를 선택하면 AI가 장소를 추천해드려요
                 </Typography>
               </Box>
 
-              {/* Activity pills */}
-              {loading ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                  {[...Array(6)].map((_, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                        height: 40,
-                        width: 90 + (i % 3) * 20,
-                        background: '#18181b',
-                        border: '1px solid #27272a',
-                        borderRadius: 5,
-                      }}
-                    />
-                  ))}
-                </Box>
-              ) : (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                  {activities.map((act, i) => (
+              <Grid container spacing={1.5}>
+                {FIXED_ACTIVITIES.map((act, i) => (
+                  <Grid item xs={6} sm={4} md={3} key={act.name}>
                     <motion.div
-                      key={act.name}
-                      initial={{ opacity: 0, scale: 0.9 }}
+                      initial={{ opacity: 0, scale: 0.92 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.06, duration: 0.2 }}
+                      transition={{ delay: i * 0.04, duration: 0.2 }}
+                      style={{ height: '100%' }}
                     >
                       <Box
                         onClick={() => handleSelectActivity(act.name)}
                         sx={{
                           display: 'flex',
-                          flexDirection: 'column',
                           alignItems: 'center',
-                          gap: 0.5,
+                          gap: 1.5,
                           background: '#18181b',
                           border: '1px solid #27272a',
-                          borderRadius: 3,
-                          px: 2.5,
-                          py: 2,
+                          borderRadius: 2.5,
+                          px: 2,
+                          py: 1.8,
                           cursor: 'pointer',
+                          height: '100%',
                           transition: 'all 0.15s ease',
-                          minWidth: 88,
                           '&:hover': {
                             borderColor: '#3b82f6',
                             background: 'rgba(59,130,246,0.06)',
                             transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 16px rgba(59,130,246,0.15)',
+                            boxShadow: '0 4px 16px rgba(59,130,246,0.12)',
                           },
                         }}
                       >
-                        <Typography sx={{ fontSize: 24 }}>{act.emoji}</Typography>
-                        <Typography variant="body2" sx={{ color: '#fafafa', fontWeight: 600, fontSize: 13 }}>
-                          {act.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: '#52525b', fontSize: 10, textAlign: 'center', lineHeight: 1.3 }}
-                        >
-                          {act.desc}
-                        </Typography>
+                        <Typography sx={{ fontSize: 22, lineHeight: 1 }}>{act.emoji}</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#fafafa', fontWeight: 600, fontSize: 13, lineHeight: 1.2 }}>
+                            {act.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#52525b', fontSize: 11 }}>
+                            {act.desc}
+                          </Typography>
+                        </Box>
                       </Box>
                     </motion.div>
-                  ))}
-                </Box>
-              )}
+                  </Grid>
+                ))}
+              </Grid>
             </motion.div>
           )}
 
@@ -534,7 +550,6 @@ export default function LocalExplorer() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Back + header */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
                 <Button
                   startIcon={<ArrowBackIcon sx={{ fontSize: '14px !important' }} />}
@@ -554,19 +569,22 @@ export default function LocalExplorer() {
                   돌아가기
                 </Button>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <LocationOnIcon sx={{ fontSize: 14, color: '#3b82f6' }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <LocationOnIcon sx={{ fontSize: 13, color: '#3b82f6' }} />
                     <Typography variant="caption" sx={{ color: '#3b82f6', fontSize: 12 }}>
                       {geo?.address}
                     </Typography>
                   </Box>
                   <Typography variant="h6" sx={{ color: '#fafafa', fontWeight: 700, fontSize: { xs: 16, sm: 20 } }}>
-                    근처 <Box component="span" sx={{ color: '#3b82f6' }}>{selectedActivity}</Box> 추천
+                    근처{' '}
+                    <Box component="span" sx={{ color: '#3b82f6' }}>
+                      {selectedActivity}
+                    </Box>{' '}
+                    추천
                   </Typography>
                 </Box>
               </Box>
 
-              {/* Error */}
               {error && (
                 <Box
                   sx={{
@@ -584,10 +602,9 @@ export default function LocalExplorer() {
                 </Box>
               )}
 
-              {/* Loading skeleton */}
               {loading ? (
                 <Grid container spacing={2}>
-                  {[...Array(5)].map((_, i) => (
+                  {[...Array(12)].map((_, i) => (
                     <Grid item xs={12} sm={6} md={4} key={i}>
                       <Box
                         sx={{
@@ -595,7 +612,7 @@ export default function LocalExplorer() {
                           border: '1px solid #27272a',
                           borderRadius: 3,
                           p: 2.5,
-                          height: 200,
+                          height: 220,
                         }}
                       >
                         <Box sx={{ background: '#27272a', borderRadius: 1, height: 18, width: '60%', mb: 1.5 }} />
@@ -623,7 +640,6 @@ export default function LocalExplorer() {
                 </Grid>
               )}
 
-              {/* Retry */}
               {!loading && places.length === 0 && !error && (
                 <Box sx={{ textAlign: 'center', py: 8 }}>
                   <Typography variant="body2" sx={{ color: '#52525b' }}>
@@ -638,7 +654,6 @@ export default function LocalExplorer() {
                 </Box>
               )}
 
-              {/* AI disclaimer */}
               {!loading && places.length > 0 && (
                 <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
                   <Chip
@@ -656,6 +671,7 @@ export default function LocalExplorer() {
               )}
             </motion.div>
           )}
+
         </AnimatePresence>
       </Container>
     </Box>
