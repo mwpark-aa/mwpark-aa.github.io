@@ -62,7 +62,7 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      는console.error(`Groq API error: ${response.status} ${response.statusText}`)
+      console.error(`Groq API error: ${response.status} ${response.statusText}`)
       return new Response(
         JSON.stringify({ error: `Groq API error: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
