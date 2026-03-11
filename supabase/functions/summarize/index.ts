@@ -27,7 +27,7 @@ interface GrokResult {
 
 // ─── Grok summarization ────────────────────────────────────────────────────
 
-const GROQ_BASE = 'https://api.groq.com'
+const GROQ_BASE = 'https://api.groq.com/openai/v1'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
 async function summarizeWithGrok(
   article: RawArticleRow,
