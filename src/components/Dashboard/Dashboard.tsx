@@ -4,13 +4,16 @@ import Container from '@mui/material/Container'
 import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
 import { AnimatePresence, motion } from 'framer-motion'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import Navigation from '../Navigation/Navigation'
 import SearchBar from '../SearchBar/SearchBar'
 import FeedCard from '../FeedCard/FeedCard'
 import Sidebar from '../Sidebar/Sidebar'
 import { useFeed } from '../../hooks/useFeed'
+import { useVectorSearch } from '../../hooks/useVectorSearch'
 import type { Category } from '../../types'
 
 export default function Dashboard() {
@@ -18,6 +21,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const { items, sources, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
+  const { results: vectorResults, loading: vectorLoading } = useVectorSearch(searchQuery, activeCategory)
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items
@@ -31,7 +35,11 @@ export default function Dashboard() {
     )
   }, [items, searchQuery])
 
-  const totalCount = filteredItems.length
+  // Prefer vector results when available; fall back to keyword-filtered items
+  const isVectorActive = searchQuery.trim().length > 0 && vectorResults !== null
+  const displayedItems = isVectorActive ? vectorResults! : filteredItems
+
+  const totalCount = displayedItems.length
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#09090b' }}>
@@ -69,12 +77,26 @@ export default function Dashboard() {
             {/* Stats bar */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TrendingUpIcon sx={{ fontSize: 14, color: '#10b981' }} />
-              <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
+              <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box component="span" sx={{ color: '#a1a1aa', fontWeight: 500 }}>
                   {totalCount}
                 </Box>
                 {' '}
-                {searchQuery ? '건 검색됨' : '건 수집됨'}
+                {isVectorActive ? (
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    건 유사 검색됨
+                    <AutoAwesomeIcon sx={{ fontSize: 11, color: '#3b82f6', verticalAlign: 'middle' }} />
+                  </Box>
+                ) : (
+                  searchQuery ? '건 검색됨' : '건 수집됨'
+                )}
+                {vectorLoading && searchQuery && (
+                  <CircularProgress
+                    size={12}
+                    thickness={5}
+                    sx={{ color: '#3b82f6', ml: 0.5, verticalAlign: 'middle' }}
+                  />
+                )}
               </Typography>
               <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 12 }}>·</Typography>
               <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
@@ -149,9 +171,9 @@ export default function Dashboard() {
                 </Grid>
               ) : (
                 <AnimatePresence mode="popLayout">
-                  {filteredItems.length > 0 ? (
+                  {displayedItems.length > 0 ? (
                     <Grid container spacing={2}>
-                      {filteredItems.map((item, index) => (
+                      {displayedItems.map((item, index) => (
                         <Grid item xs={12} sm={6} key={item.id} sx={{ display: 'flex', width: '100%' }}>
                           <FeedCard item={item} index={index} />
                         </Grid>

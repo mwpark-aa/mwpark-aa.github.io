@@ -161,7 +161,7 @@ serve(async (req) => {
         }
 
         // c. Insert into feed_items
-        const { error: insertError } = await supabase
+        const { data: insertedRow, error: insertError } = await supabase
           .from('feed_items')
           .insert({
             category: result.category,
@@ -171,6 +171,8 @@ serve(async (req) => {
             source_name: article.source_name,
             collected_at: new Date().toISOString(),
           })
+          .select('id')
+          .single()
 
         if (insertError) {
           console.error(
@@ -183,6 +185,44 @@ serve(async (req) => {
         }
 
         inserted++
+
+        // c-2. 임베딩 생성 및 저장 (실패해도 전체 흐름은 계속)
+        try {
+          const embedText = `${result.koreanTitle} ${result.summary.join(' ')}`
+          const embedRes = await fetch(
+            `${SUPABASE_URL}/functions/v1/embed`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({ text: embedText }),
+              signal: AbortSignal.timeout(30_000),
+            },
+          )
+
+          if (embedRes.ok) {
+            const { embedding } = await embedRes.json() as { embedding: number[] }
+            const { error: embedUpdateError } = await supabase
+              .from('feed_items')
+              .update({ embedding })
+              .eq('id', insertedRow.id)
+
+            if (embedUpdateError) {
+              console.error(
+                `embedding update error for id=${insertedRow.id}:`,
+                embedUpdateError.message,
+              )
+            }
+          } else {
+            console.error(
+              `embed function returned ${embedRes.status} for id=${insertedRow.id}`,
+            )
+          }
+        } catch (embedErr) {
+          console.error(`embed call failed for id=${insertedRow.id}:`, embedErr)
+        }
 
         // d. 처리 완료된 raw_articles 행 삭제
         await supabase

@@ -16,7 +16,7 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
       size="medium"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="검색어를 입력하세요... (예: 'GPT-5 벤치마크 결과')"
+      placeholder="검색 (의미 기반 유사 검색)"
       inputProps={{
         'aria-label': '피드 검색',
       }}

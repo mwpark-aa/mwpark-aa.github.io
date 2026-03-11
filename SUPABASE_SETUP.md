@@ -183,7 +183,74 @@ select cron.schedule('cleanup-old-feed-items', '0 3 * * *', 'select cleanup_old_
 
 ---
 
-## 6. Edge Functions 배포
+## 6. 벡터 임베딩 설정
+
+### pgvector 활성화 및 컬럼 추가
+
+```sql
+-- pgvector 활성화
+create extension if not exists vector;
+
+-- embedding 컬럼 추가 (384차원 — Supabase gte-small)
+alter table public.feed_items add column if not exists embedding vector(384);
+
+-- HNSW 인덱스 (근사 최근접 검색)
+create index if not exists feed_items_embedding_idx
+  on public.feed_items
+  using hnsw (embedding vector_cosine_ops)
+  with (m = 16, ef_construction = 64);
+```
+
+### search_feed_items RPC 함수
+
+```sql
+create or replace function search_feed_items(
+  query_embedding vector(384),
+  match_threshold float default 0.5,
+  match_count int default 20,
+  filter_category text default null
+)
+returns table (
+  id uuid,
+  category text,
+  title text,
+  summary text[],
+  source_url text,
+  source_name text,
+  collected_at timestamptz,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    id,
+    category,
+    title,
+    summary,
+    source_url,
+    source_name,
+    collected_at,
+    1 - (embedding <=> query_embedding) as similarity
+  from public.feed_items
+  where
+    embedding is not null
+    and 1 - (embedding <=> query_embedding) > match_threshold
+    and (filter_category is null or category = filter_category)
+  order by embedding <=> query_embedding
+  limit match_count;
+$$;
+```
+
+### embed + search Edge Functions 배포
+
+```bash
+supabase functions deploy embed
+supabase functions deploy search
+```
+
+---
+
+## 7. Edge Functions 배포
 
 ### CLI 설치 및 프로젝트 연결
 
@@ -248,7 +315,7 @@ supabase functions invoke summarize
 
 ---
 
-## 7. API 키 및 환경변수
+## 8. API 키 및 환경변수
 
 ### 키 확인 위치
 
@@ -317,7 +384,7 @@ Repository → **Settings** → **Secrets and variables** → **Actions** → **
 
 ---
 
-## 8. 프론트엔드 연동
+## 9. 프론트엔드 연동
 
 현재 프로젝트는 `src/hooks/useFeed.ts` 훅을 통해 Edge Function을 호출합니다.
 
@@ -433,3 +500,6 @@ $$ language plpgsql;
 - [ ] `.gitignore`에 `.env` 포함 여부 확인
 - [ ] `supabase functions invoke crawl` 로 첫 크롤링 테스트
 - [ ] `supabase functions invoke summarize` 로 첫 요약 테스트
+- [ ] pgvector 익스텐션 + embedding 컬럼 + HNSW 인덱스 SQL 실행
+- [ ] search_feed_items RPC 함수 SQL 실행
+- [ ] embed + search Edge Functions 배포

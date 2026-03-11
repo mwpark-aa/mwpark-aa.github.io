@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.summarize]
 verify_jwt = false
+
+[functions.embed]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
