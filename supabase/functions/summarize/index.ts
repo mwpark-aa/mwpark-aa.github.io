@@ -22,7 +22,6 @@ interface GrokResult {
   koreanTitle: string
   summary: string[]
   category: 'AI Trends' | 'Tech Blogs' | 'Hot Deals'
-  readTime: string
 }
 
 // ─── Grok summarization ────────────────────────────────────────────────────
@@ -38,7 +37,7 @@ async function summarizeWithGrok(
     기사를 분석해서 JSON만 응답 (마크다운 없이):
     제목: ${article.original_title} 
     ${article.snippet ? `내용: ${article.snippet.slice(0, 300)}` : ''}
-    {"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"|"Hot Deals","readTime":"X min read"}
+    {"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"|"Hot Deals"}
     `
     const response = await fetch(`${GROQ_BASE}/chat/completions`, {
       method: "POST",
@@ -76,7 +75,7 @@ async function summarizeWithGrok(
       typeof result.koreanTitle !== 'string' ||
       !Array.isArray(result.summary) ||
       !['AI Trends', 'Tech Blogs', 'Hot Deals'].includes(result.category) ||
-      typeof result.readTime !== 'string'
+      !result.category
     ) {
       console.error('Grok returned unexpected shape:', result)
       return null
@@ -170,7 +169,6 @@ serve(async (req) => {
             summary: result.summary,
             source_url: article.source_url,
             source_name: article.source_name,
-            read_time: result.readTime,
             collected_at: new Date().toISOString(),
           })
 

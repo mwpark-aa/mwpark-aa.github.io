@@ -131,11 +131,13 @@ async function crawlTechCrunch(): Promise<RawArticle[]> {
 async function crawlRedditML(): Promise<RawArticle[]> {
   const articles: RawArticle[] = []
   try {
+    // Reddit JSON API — old.reddit.com 엔드포인트가 봇 차단 덜 함
     const res = await fetch(
-      "https://www.reddit.com/r/MachineLearning/top.json?limit=15&t=day",
+      "https://old.reddit.com/r/MachineLearning/top.json?limit=15&t=day",
       {
         headers: {
-          'User-Agent': 'grok-intelligence-bot/1.0',
+          'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0; +https://github.com/mwpark-aa)',
+          'Accept': 'application/json',
         },
       },
     )
@@ -146,26 +148,90 @@ async function crawlRedditML(): Promise<RawArticle[]> {
     for (const child of children) {
       const post = child?.data
       if (!post) continue
-      if ((post.score ?? 0) < 100) continue
+      if ((post.score ?? 0) < 50) continue
 
       const url = post.url?.startsWith('http')
         ? post.url
         : `https://www.reddit.com${post.permalink}`
 
-      const snippet = post.selftext
-        ? post.selftext.slice(0, 400)
-        : ''
-
       articles.push({
         sourceId: 'reddit-ml',
         sourceName: 'Reddit r/MachineLearning',
         originalTitle: post.title,
-        snippet,
+        snippet: post.selftext ? post.selftext.slice(0, 400) : '',
         sourceUrl: url,
       })
     }
   } catch (err) {
     console.error("crawlRedditML error:", err)
+  }
+  return articles
+}
+
+async function crawlHuggingFace(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
+  try {
+    const res = await fetch("https://huggingface.co/blog/feed.xml", {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)' },
+    })
+    if (!res.ok) throw new Error(`HuggingFace feed: ${res.status}`)
+    const xml = await res.text()
+
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g
+    let match: RegExpExecArray | null
+    let count = 0
+
+    while ((match = itemRegex.exec(xml)) !== null && count < 8) {
+      const block = match[1]
+      const titleMatch = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/)
+      const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/) ?? block.match(/<link\s[^>]*href="([^"]+)"/)
+      const descMatch = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/)
+
+      const title = titleMatch?.[1]?.trim()
+      const url = linkMatch?.[1]?.trim()
+      const snippet = descMatch?.[1] ? unescapeHtml(stripHtml(descMatch[1])).trim().slice(0, 400) : ''
+
+      if (title && url) {
+        articles.push({ sourceId: 'huggingface-blog', sourceName: 'Hugging Face Blog', originalTitle: title, snippet, sourceUrl: url })
+        count++
+      }
+    }
+  } catch (err) {
+    console.error("crawlHuggingFace error:", err)
+  }
+  return articles
+}
+
+async function crawlDeepMind(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
+  try {
+    const res = await fetch("https://deepmind.google/blog/rss.xml", {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)' },
+    })
+    if (!res.ok) throw new Error(`DeepMind feed: ${res.status}`)
+    const xml = await res.text()
+
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g
+    let match: RegExpExecArray | null
+    let count = 0
+
+    while ((match = itemRegex.exec(xml)) !== null && count < 8) {
+      const block = match[1]
+      const titleMatch = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ?? block.match(/<title>([\s\S]*?)<\/title>/)
+      const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/) ?? block.match(/<link\s[^>]*href="([^"]+)"/)
+      const descMatch = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ?? block.match(/<description>([\s\S]*?)<\/description>/)
+
+      const title = titleMatch?.[1]?.trim()
+      const url = linkMatch?.[1]?.trim()
+      const snippet = descMatch?.[1] ? unescapeHtml(stripHtml(descMatch[1])).trim().slice(0, 400) : ''
+
+      if (title && url) {
+        articles.push({ sourceId: 'google-deepmind', sourceName: 'Google DeepMind', originalTitle: title, snippet, sourceUrl: url })
+        count++
+      }
+    }
+  } catch (err) {
+    console.error("crawlDeepMind error:", err)
   }
   return articles
 }
@@ -188,16 +254,20 @@ serve(async (req) => {
 
   try {
     // 1. Crawl all sources in parallel (no Grok calls here)
-    const [hnArticles, tcArticles, redditArticles] = await Promise.all([
+    const [hnArticles, tcArticles, redditArticles, hfArticles, dmArticles] = await Promise.all([
       crawlHackerNews(),
       crawlTechCrunch(),
       crawlRedditML(),
+      crawlHuggingFace(),
+      crawlDeepMind(),
     ])
 
     const allArticles: RawArticle[] = [
       ...hnArticles,
       ...tcArticles,
       ...redditArticles,
+      ...hfArticles,
+      ...dmArticles,
     ]
     crawled = allArticles.length
 
@@ -245,19 +315,32 @@ serve(async (req) => {
       }
     }
 
-    // 3. Update data_sources status
-    const sourceIds = ['hacker-news', 'techcrunch', 'reddit-ml']
+    // 3. Update data_sources: status + last_crawled + items_collected (전체 누적 카운트)
+    const sourceNameMap: Record<string, string> = {
+      'hacker-news': 'Hacker News',
+      'techcrunch': 'TechCrunch',
+      'reddit-ml': 'Reddit r/MachineLearning',
+      'huggingface-blog': 'Hugging Face Blog',
+      'google-deepmind': 'Google DeepMind',
+    }
+    const sourceIds = Object.keys(sourceNameMap)
     await Promise.all(
-      sourceIds.map((sourceId) =>
-        supabase
+      sourceIds.map(async (sourceId) => {
+        const { count } = await supabase
+          .from('feed_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('source_name', sourceNameMap[sourceId])
+
+        return supabase
           .from('data_sources')
           .update({
             status: 'active',
             last_crawled: new Date().toISOString(),
+            items_collected: count ?? 0,
             updated_at: new Date().toISOString(),
           })
           .eq('id', sourceId)
-      ),
+      }),
     )
 
     return new Response(

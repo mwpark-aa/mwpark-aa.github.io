@@ -8,7 +8,6 @@ export interface FeedItem {
   sourceUrl: string
   sourceName: string
   collectedAt: string
-  readTime: string
 }
 
 export type SourceStatus = 'active' | 'pending' | 'error'

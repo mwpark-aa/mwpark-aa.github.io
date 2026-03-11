@@ -13,7 +13,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://news.ycombinator.com',
     sourceName: 'Hacker News',
     collectedAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
-    readTime: '4 min read',
   },
   {
     id: 'ai-002',
@@ -27,7 +26,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://www.anthropic.com/news',
     sourceName: 'Anthropic Blog',
     collectedAt: new Date(Date.now() - 1000 * 60 * 37).toISOString(),
-    readTime: '5 min read',
   },
   {
     id: 'ai-003',
@@ -41,7 +39,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://www.reddit.com/r/MachineLearning/',
     sourceName: 'Reddit r/MachineLearning',
     collectedAt: new Date(Date.now() - 1000 * 60 * 92).toISOString(),
-    readTime: '6 min read',
   },
   {
     id: 'ai-004',
@@ -55,7 +52,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://arxiv.org',
     sourceName: 'ArXiv',
     collectedAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    readTime: '7 min read',
   },
   {
     id: 'tech-001',
@@ -69,7 +65,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://vercel.com/blog',
     sourceName: 'Vercel Blog',
     collectedAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    readTime: '3 min read',
   },
   {
     id: 'tech-002',
@@ -83,7 +78,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://linear.app/blog',
     sourceName: 'Linear Blog',
     collectedAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
-    readTime: '8 min read',
   },
   {
     id: 'tech-003',
@@ -97,7 +91,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://shopify.engineering',
     sourceName: 'Shopify Engineering',
     collectedAt: new Date(Date.now() - 1000 * 60 * 145).toISOString(),
-    readTime: '10 min read',
   },
   {
     id: 'deal-001',
@@ -111,7 +104,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://aws.amazon.com/activate/',
     sourceName: 'AWS',
     collectedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-    readTime: '2 min read',
   },
   {
     id: 'deal-002',
@@ -125,7 +117,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://www.jetbrains.com/store/promotions/',
     sourceName: 'JetBrains',
     collectedAt: new Date(Date.now() - 1000 * 60 * 32).toISOString(),
-    readTime: '1 min read',
   },
   {
     id: 'deal-003',
@@ -139,7 +130,6 @@ export const feedItems: FeedItem[] = [
     sourceUrl: 'https://github.blog',
     sourceName: 'GitHub Blog',
     collectedAt: new Date(Date.now() - 1000 * 60 * 68).toISOString(),
-    readTime: '3 min read',
   },
 ]
 

@@ -63,7 +63,7 @@ export default function FeedCard({ item, index }: FeedCardProps) {
         delay: index * 0.08,
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
-      style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
     >
       <Card
         component="article"
@@ -112,12 +112,6 @@ export default function FeedCard({ item, index }: FeedCardProps) {
                 <AccessTimeIcon sx={{ fontSize: 12, color: '#71717a' }} />
                 <Typography variant="caption" sx={{ color: '#71717a', fontSize: 11 }}>
                   {formatRelativeTime(item.collectedAt)}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 11 }}>
-                  ·
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#71717a', fontSize: 11 }}>
-                  {item.readTime}
                 </Typography>
               </Box>
             </Box>

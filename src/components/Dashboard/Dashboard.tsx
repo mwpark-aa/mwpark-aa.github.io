@@ -105,7 +105,7 @@ export default function Dashboard() {
                 // Loading skeleton — 4 placeholder cards
                 <Grid container spacing={2}>
                   {[...Array(4)].map((_, i) => (
-                    <Grid item xs={12} md={6} key={i}>
+                    <Grid item xs={12} sm={6} key={i}>
                       <Box
                         sx={{
                           background: '#18181b',
@@ -136,7 +136,7 @@ export default function Dashboard() {
                   {filteredItems.length > 0 ? (
                     <Grid container spacing={2}>
                       {filteredItems.map((item, index) => (
-                        <Grid item xs={12} md={6} key={item.id} sx={{ display: 'flex' }}>
+                        <Grid item xs={12} sm={6} key={item.id} sx={{ display: 'flex', width: '100%' }}>
                           <FeedCard item={item} index={index} />
                         </Grid>
                       ))}

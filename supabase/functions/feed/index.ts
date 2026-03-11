@@ -50,7 +50,6 @@ serve(async (req) => {
       sourceUrl: row.source_url,
       sourceName: row.source_name,
       collectedAt: row.collected_at,
-      readTime: row.read_time,
     }))
 
     return new Response(JSON.stringify(items), {
