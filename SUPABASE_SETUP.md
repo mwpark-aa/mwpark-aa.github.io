@@ -1,0 +1,353 @@
+# Supabase 설정 가이드 — Grok Intelligence Engine
+
+## 아키텍처 개요
+
+```
+브라우저 (GitHub Pages)
+    │  VITE_SUPABASE_ANON_KEY (공개 가능 — RLS로 보호됨)
+    ▼
+Supabase Edge Functions (Deno 런타임)
+    ├── /functions/v1/feed      → feed_items 조회
+    ├── /functions/v1/sources   → data_sources 조회
+    └── /functions/v1/crawl     → 크롤링 + Grok 요약 + DB 저장
+              │
+              │  GROK_API_KEY (Supabase Secrets — 서버에만 존재)
+              │  SUPABASE_SERVICE_ROLE_KEY (자동 주입)
+              ▼
+         Supabase PostgreSQL
+```
+
+별도 백엔드 서버 없음. 모든 민감한 키는 Supabase Secrets에만 저장됩니다.
+
+---
+
+## 1. Supabase 프로젝트 생성
+
+1. [https://supabase.com](https://supabase.com) 접속 후 로그인
+2. **"New project"** 클릭
+3. 입력 항목:
+   - **Name**: `grok-intelligence`
+   - **Database Password**: 강력한 비밀번호 (따로 보관)
+   - **Region**: Northeast Asia (Tokyo) 권장
+4. **"Create new project"** — 초기화 1~2분 소요
+
+---
+
+## 2. 테이블 생성 SQL
+
+SQL Editor에서 아래 SQL을 실행합니다.
+
+### feed_items
+
+```sql
+create table public.feed_items (
+  id uuid default gen_random_uuid() primary key,
+  category text not null check (category in ('AI Trends', 'Tech Blogs', 'Hot Deals')),
+  title text not null,
+  summary text[] not null,
+  source_url text not null unique,
+  source_name text not null,
+  collected_at timestamptz default now(),
+  read_time text not null default '3 min read',
+  created_at timestamptz default now()
+);
+```
+
+| 컬럼 | 설명 |
+|------|------|
+| `id` | 자동 생성 UUID |
+| `category` | `AI Trends` / `Tech Blogs` / `Hot Deals` |
+| `summary` | Grok이 생성한 한글 요약 3개 (배열) |
+| `source_url` | 원본 URL (중복 방지용 unique 키) |
+
+### data_sources
+
+```sql
+create table public.data_sources (
+  id text primary key,
+  name text not null,
+  url text not null,
+  status text not null default 'pending' check (status in ('active', 'pending', 'error')),
+  last_crawled timestamptz,
+  items_collected integer default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+```
+
+### 시드 데이터
+
+```sql
+insert into public.data_sources (id, name, url) values
+  ('hacker-news', 'Hacker News', 'https://hacker-news.firebaseio.com/v0/topstories.json'),
+  ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/'),
+  ('reddit-ml', 'Reddit r/MachineLearning', 'https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day'),
+  ('openai-blog', 'OpenAI Blog', 'https://openai.com/news/rss'),
+  ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending');
+```
+
+---
+
+## 3. RLS (Row Level Security) 설정
+
+> **중요**: RLS 없이는 anon 키로 모든 데이터에 무제한 접근이 가능합니다. 반드시 설정하세요.
+
+```sql
+-- feed_items: 읽기 공개 / 쓰기는 서비스 키(Edge Function)만
+alter table public.feed_items enable row level security;
+
+create policy "Anyone can read feed items"
+  on public.feed_items for select using (true);
+
+create policy "Service role can insert feed items"
+  on public.feed_items for insert with check (true);
+
+-- data_sources: 읽기 공개 / 업데이트는 서비스 키(Edge Function)만
+alter table public.data_sources enable row level security;
+
+create policy "Anyone can read data sources"
+  on public.data_sources for select using (true);
+
+create policy "Service role can update data sources"
+  on public.data_sources for update using (true);
+```
+
+| 테이블 | SELECT | INSERT / UPDATE |
+|--------|--------|-----------------|
+| `feed_items` | 누구나 | Edge Function (service_role) |
+| `data_sources` | 누구나 | Edge Function (service_role) |
+
+---
+
+## 4. 인덱스
+
+```sql
+create index feed_items_category_idx on public.feed_items(category);
+create index feed_items_collected_at_idx on public.feed_items(collected_at desc);
+create index feed_items_source_url_idx on public.feed_items(source_url);
+```
+
+---
+
+## 5. 자동 정리 함수 (30일 이상 항목 삭제)
+
+```sql
+create or replace function cleanup_old_feed_items()
+returns void as $$
+begin
+  delete from public.feed_items
+  where collected_at < now() - interval '30 days';
+end;
+$$ language plpgsql;
+```
+
+수동 실행: `select cleanup_old_feed_items();`
+
+Pro 플랜에서 자동 스케줄:
+```sql
+select cron.schedule('cleanup-old-feed-items', '0 3 * * *', 'select cleanup_old_feed_items()');
+```
+
+---
+
+## 6. Edge Functions 배포
+
+### CLI 설치 및 프로젝트 연결
+
+```bash
+brew install supabase/tap/supabase
+
+supabase login
+supabase link --project-ref your-project-ref   # 프로젝트 ref: Dashboard → Settings → General
+```
+
+### Grok API 키 등록 (서버에만 저장, 절대 노출 안 됨)
+
+```bash
+supabase secrets set GROK_API_KEY=xai-your-key-here
+```
+
+### Functions 배포
+
+```bash
+supabase functions deploy crawl
+supabase functions deploy feed
+supabase functions deploy sources
+```
+
+### 크롤링 스케줄 설정
+
+Supabase Dashboard → **Edge Functions** → `crawl` → **Schedule**
+
+```
+Cron expression: 0 */2 * * *   (2시간마다 자동 크롤링)
+```
+
+### 수동 크롤링 실행
+
+```bash
+supabase functions invoke crawl
+```
+
+---
+
+## 7. API 키 및 환경변수
+
+### 키 확인 위치
+
+Dashboard → **Settings** → **API**
+
+### anon key vs service_role key
+
+| 구분 | anon key | service_role key |
+|------|----------|------------------|
+| 용도 | 프론트엔드 | Edge Functions (자동 주입) |
+| RLS 적용 | 적용됨 | 우회함 (전체 권한) |
+| 공개 여부 | 공개 가능 | **절대 공개 금지** |
+
+### 프론트엔드 `.env` 파일 (프로젝트 루트)
+
+```env
+VITE_SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+> `VITE_` 접두사: Vite가 브라우저 번들에 포함시키는 환경변수. service_role key에는 절대 사용 금지.
+
+### GitHub Actions로 배포 시 (키 소스 노출 방지)
+
+`.github/workflows/deploy.yml` 파일이 이미 프로젝트에 포함되어 있습니다.
+`main` 브랜치에 push하면 자동으로 빌드 → `gh-pages` 브랜치 배포가 실행됩니다.
+
+```yaml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+```
+
+**Secrets 등록 방법:**
+Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+| Secret 이름 | 값 |
+|-------------|-----|
+| `VITE_SUPABASE_URL` | `https://xxxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | `eyJhbGci...` |
+
+> `GITHUB_TOKEN`은 GitHub이 자동으로 주입하므로 별도 등록 불필요.
+
+---
+
+## 8. 프론트엔드 연동
+
+현재 프로젝트는 `src/hooks/useFeed.ts` 훅을 통해 Edge Function을 호출합니다.
+
+환경변수가 설정되지 않으면 자동으로 `mockData` 폴백 동작합니다.
+
+```ts
+// src/hooks/useFeed.ts 사용 예시 (Dashboard.tsx에서 이미 연결됨)
+const { items, sources, loading, error } = useFeed(activeCategory)
+```
+
+Edge Function 직접 호출 구조:
+```
+GET /functions/v1/feed?category=AI+Trends&limit=20
+GET /functions/v1/sources
+POST /functions/v1/crawl
+```
+
+---
+
+## 전체 SQL (한 번에 실행)
+
+```sql
+-- 테이블
+create table public.feed_items (
+  id uuid default gen_random_uuid() primary key,
+  category text not null check (category in ('AI Trends', 'Tech Blogs', 'Hot Deals')),
+  title text not null,
+  summary text[] not null,
+  source_url text not null unique,
+  source_name text not null,
+  collected_at timestamptz default now(),
+  read_time text not null default '3 min read',
+  created_at timestamptz default now()
+);
+
+create table public.data_sources (
+  id text primary key,
+  name text not null,
+  url text not null,
+  status text not null default 'pending' check (status in ('active', 'pending', 'error')),
+  last_crawled timestamptz,
+  items_collected integer default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 시드
+insert into public.data_sources (id, name, url) values
+  ('hacker-news', 'Hacker News', 'https://hacker-news.firebaseio.com/v0/topstories.json'),
+  ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/'),
+  ('reddit-ml', 'Reddit r/MachineLearning', 'https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day'),
+  ('openai-blog', 'OpenAI Blog', 'https://openai.com/news/rss'),
+  ('arxiv-ai', 'ArXiv CS.AI', 'https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending');
+
+-- RLS
+alter table public.feed_items enable row level security;
+create policy "Anyone can read feed items" on public.feed_items for select using (true);
+create policy "Service role can insert feed items" on public.feed_items for insert with check (true);
+
+alter table public.data_sources enable row level security;
+create policy "Anyone can read data sources" on public.data_sources for select using (true);
+create policy "Service role can update data sources" on public.data_sources for update using (true);
+
+-- 인덱스
+create index feed_items_category_idx on public.feed_items(category);
+create index feed_items_collected_at_idx on public.feed_items(collected_at desc);
+create index feed_items_source_url_idx on public.feed_items(source_url);
+
+-- 정리 함수
+create or replace function cleanup_old_feed_items()
+returns void as $$
+begin
+  delete from public.feed_items where collected_at < now() - interval '30 days';
+end;
+$$ language plpgsql;
+```
+
+---
+
+## 설정 완료 체크리스트
+
+- [ ] Supabase 프로젝트 생성
+- [ ] SQL Editor에서 전체 SQL 실행
+- [ ] `supabase link` 프로젝트 연결
+- [ ] `supabase secrets set GROK_API_KEY=...`
+- [ ] Edge Functions 3개 배포 (crawl / feed / sources)
+- [ ] Dashboard에서 crawl 스케줄 설정 (`0 */2 * * *`)
+- [ ] 프론트엔드 `.env` 파일 작성
+- [ ] `.gitignore`에 `.env` 포함 여부 확인
+- [ ] `supabase functions invoke crawl` 로 첫 크롤링 테스트

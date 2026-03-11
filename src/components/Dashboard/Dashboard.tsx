@@ -10,30 +10,26 @@ import Navigation from '../Navigation/Navigation'
 import SearchBar from '../SearchBar/SearchBar'
 import FeedCard from '../FeedCard/FeedCard'
 import SourceMonitor from '../SourceMonitor/SourceMonitor'
-import { feedItems, dataSources } from '../../data/mockData'
-import type { Category, FeedItem } from '../../types'
+import { useFeed } from '../../hooks/useFeed'
+import type { Category } from '../../types'
 
 export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const { items, sources, loading, error } = useFeed(activeCategory)
+
   const filteredItems = useMemo(() => {
-    const matchCategory = (cat: FeedItem['category']) =>
-      activeCategory === 'All' || cat === activeCategory
+    if (!searchQuery.trim()) return items
 
-    const matchSearch = (item: (typeof feedItems)[number]) => {
-      if (!searchQuery.trim()) return true
-      const q = searchQuery.toLowerCase().trim()
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.summary.some((s) => s.toLowerCase().includes(q)) ||
-        item.sourceName.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-      )
-    }
-
-    return feedItems.filter((item) => matchCategory(item.category) && matchSearch(item))
-  }, [activeCategory, searchQuery])
+    const q = searchQuery.toLowerCase().trim()
+    return items.filter((item) =>
+      item.title.toLowerCase().includes(q) ||
+      item.summary.some((s) => s.toLowerCase().includes(q)) ||
+      item.sourceName.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q)
+    )
+  }, [items, searchQuery])
 
   const totalCount = filteredItems.length
 
@@ -81,85 +77,135 @@ export default function Dashboard() {
               )}
             </Box>
 
+            {/* Error banner */}
+            {error && (
+              <Box
+                sx={{
+                  background: 'rgba(245,158,11,0.1)',
+                  border: '1px solid rgba(245,158,11,0.2)',
+                  borderRadius: 2,
+                  p: 1.5,
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <Typography variant="caption" sx={{ color: '#f59e0b' }}>{error}</Typography>
+              </Box>
+            )}
+
             {/* Feed grid */}
             <Box
               role="feed"
               aria-label="지식 피드"
               aria-live="polite"
             >
-              <AnimatePresence mode="popLayout">
-                {filteredItems.length > 0 ? (
-                  <Grid container spacing={2}>
-                    {filteredItems.map((item, index) => (
-                      <Grid item xs={12} md={6} key={item.id} sx={{ display: 'flex' }}>
-                        <FeedCard item={item} index={index} />
-                      </Grid>
-                    ))}
-                  </Grid>
-                ) : (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0, scale: 0.97 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.97 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <Box
-                      role="status"
-                      aria-label="결과 없음"
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        py: 12,
-                        gap: 1.5,
-                        textAlign: 'center',
-                      }}
-                    >
+              {loading ? (
+                // Loading skeleton — 4 placeholder cards
+                <Grid container spacing={2}>
+                  {[...Array(4)].map((_, i) => (
+                    <Grid item xs={12} md={6} key={i}>
                       <Box
                         sx={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: '50%',
                           background: '#18181b',
                           border: '1px solid #27272a',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          borderRadius: 3,
+                          p: 2.5,
+                          height: 260,
                         }}
                       >
-                        <TrendingUpIcon sx={{ fontSize: 20, color: '#3f3f46' }} />
-                      </Box>
-                      <Typography variant="body2" sx={{ color: '#71717a', fontWeight: 500 }}>
-                        결과 없음
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{ color: '#3f3f46', maxWidth: 280, display: 'block', lineHeight: 1.6 }}
-                      >
-                        검색어를 바꾸거나 다른 카테고리를 선택해보세요.
-                      </Typography>
-                      {searchQuery && (
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={() => setSearchQuery('')}
+                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 20, width: '30%', mb: 2 }} />
+                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 16, width: '90%', mb: 1 }} />
+                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 16, width: '70%', mb: 2 }} />
+                        <Box
                           sx={{
-                            mt: 1,
-                            color: '#10b981',
-                            textTransform: 'none',
-                            fontSize: 12,
-                            '&:hover': { background: 'rgba(16,185,129,0.08)' },
+                            background: 'rgba(16,185,129,0.05)',
+                            border: '1px solid rgba(16,185,129,0.15)',
+                            borderRadius: 2,
+                            p: 1.5,
+                            height: 80,
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  {filteredItems.length > 0 ? (
+                    <Grid container spacing={2}>
+                      {filteredItems.map((item, index) => (
+                        <Grid item xs={12} md={6} key={item.id} sx={{ display: 'flex' }}>
+                          <FeedCard item={item} index={index} />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <motion.div
+                      key="empty"
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.97 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <Box
+                        role="status"
+                        aria-label="결과 없음"
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          py: 12,
+                          gap: 1.5,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            background: '#18181b',
+                            border: '1px solid #27272a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                         >
-                          검색 초기화
-                        </Button>
-                      )}
-                    </Box>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                          <TrendingUpIcon sx={{ fontSize: 20, color: '#3f3f46' }} />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: '#71717a', fontWeight: 500 }}>
+                          결과 없음
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: '#3f3f46', maxWidth: 280, display: 'block', lineHeight: 1.6 }}
+                        >
+                          검색어를 바꾸거나 다른 카테고리를 선택해보세요.
+                        </Typography>
+                        {searchQuery && (
+                          <Button
+                            variant="text"
+                            size="small"
+                            onClick={() => setSearchQuery('')}
+                            sx={{
+                              mt: 1,
+                              color: '#10b981',
+                              textTransform: 'none',
+                              fontSize: 12,
+                              '&:hover': { background: 'rgba(16,185,129,0.08)' },
+                            }}
+                          >
+                            검색 초기화
+                          </Button>
+                        )}
+                      </Box>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
             </Box>
           </Box>
 
@@ -172,7 +218,7 @@ export default function Dashboard() {
             }}
           >
             <Box sx={{ position: 'sticky', top: 80 }}>
-              <SourceMonitor sources={dataSources} />
+              <SourceMonitor sources={sources} />
 
               {/* Intelligence Stats widget */}
               <Box
@@ -195,17 +241,17 @@ export default function Dashboard() {
                     [
                       {
                         label: 'AI Trends',
-                        value: feedItems.filter((i) => i.category === 'AI Trends').length,
+                        value: items.filter((i) => i.category === 'AI Trends').length,
                         color: '#10b981',
                       },
                       {
                         label: 'Tech Blogs',
-                        value: feedItems.filter((i) => i.category === 'Tech Blogs').length,
+                        value: items.filter((i) => i.category === 'Tech Blogs').length,
                         color: '#3b82f6',
                       },
                       {
                         label: 'Hot Deals',
-                        value: feedItems.filter((i) => i.category === 'Hot Deals').length,
+                        value: items.filter((i) => i.category === 'Hot Deals').length,
                         color: '#f59e0b',
                       },
                     ] as const

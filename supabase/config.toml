@@ -1,0 +1,19 @@
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[functions.crawl]
+verify_jwt = false
+
+[functions.feed]
+verify_jwt = false
+
+[functions.sources]
+verify_jwt = false

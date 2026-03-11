@@ -3,7 +3,7 @@
 # deploy.sh
 
 # 설정
-BUILD_DIR="build"
+BUILD_DIR="dist"
 TEMP_DIR=".gh-pages-temp"
 BRANCH="gh-pages"
 REPO_URL=$(git config --get remote.origin.url)
