@@ -28,9 +28,8 @@ export interface LocalPlace {
   distance: string   // e.g. "150m" or "1.2km"
   address: string
   phone: string
-  placeUrl: string   // kakao map deep link
   rating?: number    // AI-estimated rating (1.0–5.0)
-  imageUrl?: string  // Kakao Static Map or representative image
-  x: string          // longitude for fallback image
-  y: string          // latitude for fallback image
+  x: string          // longitude for reference
+  y: string          // latitude for reference
+  tags?: string[]    // AI-generated tags
 }

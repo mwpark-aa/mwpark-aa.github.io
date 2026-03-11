@@ -93,6 +93,7 @@ async function fetchPlaces(
   }
 }
 
+
 function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
   return (
     <motion.div
@@ -115,42 +116,9 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
           '&:hover': {
             borderColor: '#3b82f6',
             boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            '& .place-image': {
-              transform: 'scale(1.05)',
-            }
           },
         }}
       >
-        {/* Image / Map Thumbnail */}
-        {place.imageUrl && (
-          <Box sx={{ position: 'relative', width: '100%', pt: '56.25%', overflow: 'hidden', background: '#27272a' }}>
-            <Box
-              component="img"
-              src={place.imageUrl}
-              alt={place.name}
-              className="place-image"
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                transition: 'transform 0.4s ease',
-              }}
-              onError={(e: any) => {
-                // If the searched image fails, fallback to static map
-                const staticMapFallback = `https://map2.daum.net/map/staticmap?mx=${place.x}&my=${place.y}&w=400&h=300&level=3&iw=400&ih=300&map_type=TYPE_MAP&map_attribute=ROADMAP&q=${encodeURIComponent(place.name)}`;
-                if (e.target.src !== staticMapFallback) {
-                  e.target.src = staticMapFallback;
-                } else {
-                  e.target.style.display = 'none';
-                }
-              }}
-            />
-          </Box>
-        )}
-
         <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
           {/* Header: name + distance badge */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
@@ -199,10 +167,34 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
             )}
           </Box>
 
-          {/* Category */}
-          <Typography variant="caption" sx={{ color: '#52525b', fontSize: 12 }}>
-            {place.category}
-          </Typography>
+          {/* Category & Tags */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+            <Typography variant="caption" sx={{ color: '#52525b', fontSize: 12 }}>
+              {place.category}
+            </Typography>
+            {place.tags && place.tags.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {place.tags.map((tag, i) => (
+                  <Typography
+                    key={i}
+                    variant="caption"
+                    sx={{
+                      px: 1,
+                      py: 0.4,
+                      borderRadius: '4px',
+                      background: 'rgba(59,130,246,0.05)',
+                      color: '#60a5fa',
+                      fontSize: 10,
+                      fontWeight: 600,
+                      border: '1px solid rgba(59,130,246,0.1)',
+                    }}
+                  >
+                    #{tag}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </Box>
 
           {/* Spacer */}
           <Box sx={{ flexGrow: 1 }} />
@@ -909,7 +901,7 @@ export default function LocalExplorer() {
 
               {loading ? (
                 <Grid container spacing={2}>
-                  {[...Array(12)].map((_, i) => (
+                  {[...Array(6)].map((_, i) => (
                     <Grid item xs={12} sm={6} md={4} key={i}>
                       <Box
                         sx={{
@@ -942,13 +934,13 @@ export default function LocalExplorer() {
               {!loading && places.length === 0 && !error && (
                 <Box sx={{ textAlign: 'center', py: 8 }}>
                   <Typography variant="body2" sx={{ color: '#52525b', mb: 1 }}>
-                    {kakaoCount === 0 
-                      ? '해당 지역에 검색 결과가 없습니다.' 
+                    {kakaoCount === 0
+                      ? '해당 지역에 검색 결과가 없습니다.'
                       : '검색 결과는 있으나, 추천할 만한 장소를 찾지 못했습니다.'}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#3f3f46', display: 'block', mb: 2 }}>
-                    {kakaoCount === 0 
-                      ? '탐색 반경을 넓히거나 다른 키워드로 검색해보세요.' 
+                    {kakaoCount === 0
+                      ? '탐색 반경을 넓히거나 다른 키워드로 검색해보세요.'
                       : '반경을 조정하거나 잠시 후 다시 시도해주세요.'}
                   </Typography>
                   <Button

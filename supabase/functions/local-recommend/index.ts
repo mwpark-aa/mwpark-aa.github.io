@@ -40,10 +40,10 @@ interface CuratedPlace {
   distance: string
   address: string
   phone: string
-  placeUrl: string
-  comment: string
   rating: number
-  imageUrl?: string
+  x: string
+  y: string
+  tags?: string[]
 }
 
 function lastPartOfCategory(cat: string): string {
@@ -83,36 +83,11 @@ JSON으로만 응답: {"keyword":"키워드"}`
   return result.keyword ?? query
 }
 
-async function fetchPlaceImage(placeName: string, apiKey: string): Promise<string | undefined> {
-  try {
-    const url = new URL('https://dapi.kakao.com/v2/search/image')
-    url.searchParams.set('query', placeName)
-    url.searchParams.set('size', '1')
-
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `KakaoAK ${apiKey}`,
-      },
-      signal: AbortSignal.timeout(5_000),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      return data?.documents?.[0]?.image_url
-    }
-  } catch (err) {
-    console.error(`Error fetching image for ${placeName}:`, err)
-  }
-  return undefined
-}
-
 async function curateAndComment(
   places: KakaoPlace[],
   label: string,
   address: string,
   grokKey: string,
-  kakaoKey: string,
 ): Promise<CuratedPlace[]> {
   if (places.length === 0) return []
 
@@ -123,12 +98,13 @@ async function curateAndComment(
   const prompt = `${address}에서 "${label}" 관련 장소들입니다:
 ${list}
 
-가장 추천할 장소 최대 10개를 골라 예상 별점(1.0~5.0)을 달아주세요.
+가장 추천할 장소 최대 10개를 골라 예상 별점(1.0~5.0)과 해당 장소의 특징을 잘 나타내는 짧은 키워드 2-3개를 달아주세요.
 규칙: 
 - 화장실, 주차장, 관리소, 단순 부대시설 등은 추천에서 제외하세요.
 - 장소 이름과 카테고리 정보를 분석하여 "${label}" 활동 목적에 정말 부합하는 장소만 선정하세요.
+- 키워드는 장소의 분위기나 장점을 나타내는 2~5글자 내외의 명사형으로 작성하세요.
 - 한글만 사용, 한자 금지, 마크다운 없이 순수 JSON만 출력.
-형식: {"picks":[{"index":1,"rating":4.5},{"index":3,"rating":4.2}]}`
+형식: {"picks":[{"index":1,"rating":4.5,"tags":["조용한","분위기맛집"]},{"index":3,"rating":4.2,"tags":["산책로","전망좋은"]}]}`
 
   const res = await fetch(`${GROQ_BASE}/chat/completions`, {
     method: 'POST',
@@ -145,31 +121,24 @@ ${list}
   const data = await res.json()
   const raw = data?.choices?.[0]?.message?.content ?? '{}'
   const result = JSON.parse(raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
-  const picks: { index: number; rating: number }[] = result.picks ?? []
+  const picks: { index: number; rating: number; tags?: string[] }[] = result.picks ?? []
 
-  const curated = await Promise.all(
-    picks.map(async ({ index, rating }) => {
-      const p = places[index - 1]
-      if (!p) return null
+  const curated = picks.map(({ index, rating, tags }) => {
+    const p = places[index - 1]
+    if (!p) return null
 
-      // 카카오 이미지 검색 시도
-      const searchedImage = await fetchPlaceImage(p.place_name, kakaoKey)
-      const staticMapUrl = `https://map2.daum.net/map/staticmap?mx=${p.x}&my=${p.y}&w=400&h=300&level=3&iw=400&ih=300&map_type=TYPE_MAP&map_attribute=ROADMAP&q=${encodeURIComponent(p.place_name)}`
-
-      return {
-        name: p.place_name,
-        category: lastPartOfCategory(p.category_name),
-        distance: formatDistance(p.distance),
-        address: p.road_address_name || p.address_name,
-        phone: p.phone ?? '',
-        placeUrl: p.place_url,
-        rating: typeof rating === 'number' ? Math.round(rating * 10) / 10 : 4.0,
-        imageUrl: searchedImage || staticMapUrl,
-        x: p.x,
-        y: p.y,
-      }
-    })
-  )
+    return {
+      name: p.place_name,
+      category: lastPartOfCategory(p.category_name),
+      distance: formatDistance(p.distance),
+      address: p.road_address_name || p.address_name,
+      phone: p.phone ?? '',
+      rating: typeof rating === 'number' ? Math.round(rating * 10) / 10 : 4.0,
+      x: p.x,
+      y: p.y,
+      tags: tags || [],
+    }
+  })
 
   return curated.filter(Boolean) as CuratedPlace[]
 }
@@ -257,7 +226,12 @@ serve(async (req) => {
 
     // Step 3 — AI curation + comment
     const label = query || activity!
-    const places = await curateAndComment(kakaoPlaces, label, address, GROK_API_KEY, KAKAO_API_KEY)
+    const places = await curateAndComment(
+      kakaoPlaces,
+      label,
+      address,
+      GROK_API_KEY,
+    )
 
     // Step 4 — return result
     return new Response(
