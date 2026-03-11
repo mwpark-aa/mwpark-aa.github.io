@@ -39,7 +39,6 @@ export default function Dashboard() {
       <Navigation
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
-        totalCount={totalCount}
       />
 
       {/* Main content */}

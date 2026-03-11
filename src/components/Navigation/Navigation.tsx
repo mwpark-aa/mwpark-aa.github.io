@@ -3,7 +3,7 @@ import Toolbar from '@mui/material/Toolbar'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import type { Category } from '../../types'
 
 const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs', 'Hot Deals']
@@ -11,10 +11,9 @@ const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs', 'Hot Deals']
 interface NavigationProps {
   activeCategory: Category
   onCategoryChange: (c: Category) => void
-  totalCount: number
 }
 
-export default function Navigation({ activeCategory, onCategoryChange, totalCount }: NavigationProps) {
+export default function Navigation({ activeCategory, onCategoryChange }: NavigationProps) {
   return (
     <AppBar
       position="sticky"
