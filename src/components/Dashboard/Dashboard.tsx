@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { items, sources, loading, error } = useFeed(activeCategory)
+  const { items, sources, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items
@@ -223,6 +223,29 @@ export default function Dashboard() {
                 </AnimatePresence>
               )}
             </Box>
+          {/* Load more */}
+          {!loading && hasMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
+              <Button
+                variant="outlined"
+                disabled={loadingMore}
+                onClick={loadMore}
+                sx={{
+                  color: '#10b981',
+                  borderColor: 'rgba(16,185,129,0.4)',
+                  textTransform: 'none',
+                  fontSize: 13,
+                  px: 4,
+                  '&:hover': {
+                    borderColor: '#10b981',
+                    background: 'rgba(16,185,129,0.08)',
+                  },
+                }}
+              >
+                {loadingMore ? '불러오는 중...' : '더 보기'}
+              </Button>
+            </Box>
+          )}
           </Box>
 
           {/* RIGHT: Sidebar — hidden on mobile/tablet */}

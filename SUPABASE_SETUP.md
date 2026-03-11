@@ -212,26 +212,31 @@ supabase functions deploy summarize
 ### 크롤링 스케줄 설정
 
 ```
-crawl     → 0 */1 * * *   (1시간마다 — 가볍고 빠름)
-summarize → 10 */1 * * *  (crawl 10분 후 실행 — Grok 처리)
+crawl     → */10 * * * *          (10분마다)
+summarize → 5,15,25,35,45,55 * * * *  (crawl 5분 후 실행 — Groq 처리)
 ```
 
 Supabase Pro 플랜에서 pg_cron으로 직접 등록:
 
 ```sql
--- crawl: 1시간마다
+-- crawl: 10분마다
 select cron.schedule(
   'crawl-articles',
-  '0 */1 * * *',
+  '*/10 * * * *',
   $$ select net.http_post(url := 'https://YOUR_PROJECT.supabase.co/functions/v1/crawl', headers := '{"Authorization":"Bearer YOUR_ANON_KEY"}'::jsonb, body := '{}'::jsonb); $$
 );
 
--- summarize: crawl 10분 후
+-- summarize: crawl 5분 후 (매시 5,15,25,35,45,55분)
 select cron.schedule(
   'summarize-articles',
-  '10 */1 * * *',
+  '5,15,25,35,45,55 * * * *',
   $$ select net.http_post(url := 'https://YOUR_PROJECT.supabase.co/functions/v1/summarize', headers := '{"Authorization":"Bearer YOUR_ANON_KEY"}'::jsonb, body := '{}'::jsonb); $$
 );
+
+-- 기존 스케줄 변경 시 (이미 등록된 경우)
+select cron.unschedule('crawl-articles');
+select cron.unschedule('summarize-articles');
+-- 위 schedule 명령어를 다시 실행
 ```
 
 ### 수동 실행
@@ -325,7 +330,7 @@ const { items, sources, loading, error } = useFeed(activeCategory)
 
 Edge Function 직접 호출 구조:
 ```
-GET  /functions/v1/feed?category=AI+Trends&limit=20
+GET  /functions/v1/feed?category=AI+Trends&limit=20&offset=0
 GET  /functions/v1/sources
 POST /functions/v1/crawl      → raw_articles 저장 (Grok 없음)
 POST /functions/v1/summarize  → raw_articles → Grok 요약 → feed_items 저장
@@ -423,7 +428,7 @@ $$ language plpgsql;
 - [ ] `supabase secrets set GROK_API_KEY=...`
 - [ ] Edge Functions 4개 배포 (crawl / feed / sources / summarize)
 - [ ] summarize Function 배포
-- [ ] crawl + summarize 크론 스케줄 설정 (`0 */1 * * *` / `10 */1 * * *`)
+- [ ] crawl + summarize 크론 스케줄 설정 (`*/10 * * * *` / `5,15,25,35,45,55 * * * *`)
 - [ ] 프론트엔드 `.env` 파일 작성
 - [ ] `.gitignore`에 `.env` 포함 여부 확인
 - [ ] `supabase functions invoke crawl` 로 첫 크롤링 테스트
