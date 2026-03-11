@@ -66,10 +66,11 @@ serve(async (req) => {
         }
 
         const { embedding } = await embedRes.json() as { embedding: number[] }
+        const embeddingStr = `[${embedding.join(',')}]`
 
         const { error: updateError } = await supabase
           .from('feed_items')
-          .update({ embedding })
+          .update({ embedding: embeddingStr })
           .eq('id', item.id)
 
         if (updateError) {

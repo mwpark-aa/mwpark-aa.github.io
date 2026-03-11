@@ -14,6 +14,7 @@ interface FeedItem {
   sourceUrl: string
   sourceName: string
   collectedAt: string
+  similarity: number
 }
 
 interface SearchRpcRow {
@@ -42,52 +43,39 @@ serve(async (req) => {
     if (!q || q.trim() === '') {
       return new Response(
         JSON.stringify({ error: '검색어(q)가 필요합니다.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
     const limit = Math.min(parseInt(limitParam ?? '20', 10) || 20, 50)
     const threshold = parseFloat(thresholdParam ?? '0.65') || 0.65
 
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // 1. 임베딩 생성 — 외부 HTTP 없이 직접 인라인
+    // deno-lint-ignore no-explicit-any
+    const session = new (globalThis as any).Supabase.ai.Session('gte-small')
+    const output = await session.run(q.trim(), { mean_pool: true, normalize: true })
+    const embedding = Array.from(output as Float32Array)
 
-    // 1. 쿼리 텍스트 임베딩 생성
-    const embedRes = await fetch(
-      `${SUPABASE_URL}/functions/v1/embed`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ text: q }),
-        signal: AbortSignal.timeout(30_000),
-      },
-    )
-
-    if (!embedRes.ok) {
-      const errText = await embedRes.text()
-      console.error(`embed function error (${embedRes.status}):`, errText)
+    if (!embedding || embedding.length === 0) {
+      console.error('embed returned empty vector')
       return new Response(
-        JSON.stringify({ error: '임베딩 생성에 실패했습니다.' }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        JSON.stringify({ error: '임베딩 생성 실패 (빈 벡터)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    const { embedding } = await embedRes.json() as { embedding: number[] }
+    console.log(`embedding dim=${embedding.length}, threshold=${threshold}, limit=${limit}`)
 
-    // 2. Postgres RPC 호출로 유사 항목 검색
+    // 2. pgvector 유사도 검색
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // pgvector는 '[x1,x2,...]' 문자열 형식으로 받아야 타입 변환이 정상 동작
+    const embeddingStr = `[${embedding.join(',')}]`
+
     const { data, error } = await supabase.rpc('search_feed_items', {
-      query_embedding: embedding,
+      query_embedding: embeddingStr,
       match_threshold: threshold,
       match_count: limit,
       filter_category: category,
@@ -97,15 +85,14 @@ serve(async (req) => {
       console.error('search_feed_items RPC error:', error)
       return new Response(
         JSON.stringify({ error: error.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    // 3. snake_case → camelCase 변환
-    const items: FeedItem[] = ((data as SearchRpcRow[]) ?? []).map((row) => ({
+    const rows = (data as SearchRpcRow[]) ?? []
+    console.log(`search returned ${rows.length} results (top similarity: ${rows[0]?.similarity ?? 'n/a'})`)
+
+    const items: FeedItem[] = rows.map((row) => ({
       id: row.id,
       category: row.category,
       title: row.title,
@@ -113,22 +100,18 @@ serve(async (req) => {
       sourceUrl: row.source_url,
       sourceName: row.source_name,
       collectedAt: row.collected_at,
+      similarity: Math.round(row.similarity * 1000) / 1000,
     }))
 
     return new Response(
-      JSON.stringify({ items, query: q }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      JSON.stringify({ items, query: q, count: items.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     console.error('search function error:', err)
     return new Response(
       JSON.stringify({ error: String(err) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

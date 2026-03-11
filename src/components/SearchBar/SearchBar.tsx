@@ -1,14 +1,16 @@
 import TextField from '@mui/material/TextField'
 import InputAdornment from '@mui/material/InputAdornment'
+import IconButton from '@mui/material/IconButton'
 import SearchIcon from '@mui/icons-material/Search'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 
 interface SearchBarProps {
   value: string
   onChange: (value: string) => void
+  onSubmit: (value: string) => void
 }
 
-export default function SearchBar({ value, onChange }: SearchBarProps) {
+export default function SearchBar({ value, onChange, onSubmit }: SearchBarProps) {
   return (
     <TextField
       fullWidth
@@ -16,10 +18,11 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
       size="medium"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="검색 (의미 기반 유사 검색)"
-      inputProps={{
-        'aria-label': '피드 검색',
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onSubmit(value)
       }}
+      placeholder="검색 (Enter로 유사 검색)"
+      inputProps={{ 'aria-label': '피드 검색' }}
       InputProps={{
         startAdornment: (
           <InputAdornment position="start">
@@ -34,13 +37,15 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
         ),
         endAdornment: (
           <InputAdornment position="end">
-            <AutoAwesomeIcon
-              sx={{
-                color: '#3b82f6',
-                fontSize: 18,
-                opacity: 0.8,
-              }}
-            />
+            <IconButton
+              size="small"
+              onClick={() => onSubmit(value)}
+              disabled={!value.trim()}
+              aria-label="벡터 검색 실행"
+              sx={{ color: value.trim() ? '#3b82f6' : '#3f3f46', p: 0.5 }}
+            >
+              <AutoAwesomeIcon sx={{ fontSize: 18 }} />
+            </IconButton>
           </InputAdornment>
         ),
       }}
@@ -49,12 +54,8 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
           background: '#18181b',
           borderRadius: 2,
           color: '#fafafa',
-          '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#27272a',
-          },
-          '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#3f3f46',
-          },
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#27272a' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3f3f46' },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: '#10b981',
             boxShadow: '0 0 0 3px rgba(16,185,129,0.12)',
@@ -65,10 +66,7 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
           fontSize: 14,
           py: 1.5,
           caretColor: '#10b981',
-          '&::placeholder': {
-            color: '#71717a',
-            opacity: 1,
-          },
+          '&::placeholder': { color: '#71717a', opacity: 1 },
         },
       }}
     />

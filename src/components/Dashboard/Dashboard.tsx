@@ -19,28 +19,35 @@ import type { Category } from '../../types'
 export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const [searchQuery, setSearchQuery] = useState('')
+  const [committedQuery, setCommittedQuery] = useState('')
 
   const { items, sources, total, categoryTotals, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
-  const { results: vectorResults, loading: vectorLoading } = useVectorSearch(searchQuery, activeCategory)
+  const { results: vectorResults, loading: vectorLoading } = useVectorSearch(committedQuery, activeCategory)
 
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items
+  const keywordItems = useMemo(() => {
+    if (!committedQuery.trim()) return items
 
-    const q = searchQuery.toLowerCase().trim()
+    const q = committedQuery.toLowerCase().trim()
+    // 제목·출처 매칭 우선, summary는 단어 경계로 정확 매칭
+    const wordRe = new RegExp(`(^|\\s)${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
     return items.filter((item) =>
       item.title.toLowerCase().includes(q) ||
-      item.summary.some((s) => s.toLowerCase().includes(q)) ||
       item.sourceName.toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q)
+      item.summary.some((s) => wordRe.test(s))
     )
-  }, [items, searchQuery])
+  }, [items, committedQuery])
 
-  // Prefer vector results when available; fall back to keyword-filtered items
-  const isVectorActive = searchQuery.trim().length > 0 && vectorResults !== null
-  const displayedItems = isVectorActive ? vectorResults! : filteredItems
+  // 벡터 + 키워드 결과 병합 (중복 제거, 벡터 결과 우선)
+  const displayedItems = useMemo(() => {
+    if (!committedQuery.trim()) return items
+    if (!vectorResults) return keywordItems
 
-  // 검색 중엔 결과 개수, 평상시엔 API의 전체 개수
-  const totalCount = searchQuery.trim() ? displayedItems.length : total
+    const seen = new Set(vectorResults.map((i) => i.id))
+    return [...vectorResults, ...keywordItems.filter((i) => !seen.has(i.id))]
+  }, [committedQuery, vectorResults, keywordItems, items])
+
+  const isVectorActive = committedQuery.trim().length > 0 && vectorResults !== null
+  const totalCount = committedQuery.trim() ? displayedItems.length : total
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#09090b' }}>
@@ -73,7 +80,15 @@ export default function Dashboard() {
             }}
           >
             {/* Search bar */}
-            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            <SearchBar
+              value={searchQuery}
+              onChange={(v) => {
+                setSearchQuery(v)
+                // 입력 지우면 벡터 결과도 초기화
+                if (!v.trim()) setCommittedQuery('')
+              }}
+              onSubmit={(v) => setCommittedQuery(v)}
+            />
 
             {/* Stats bar */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -89,9 +104,9 @@ export default function Dashboard() {
                     <AutoAwesomeIcon sx={{ fontSize: 11, color: '#3b82f6', verticalAlign: 'middle' }} />
                   </Box>
                 ) : (
-                  searchQuery ? '건 검색됨' : '건 수집됨'
+                  committedQuery ? '건 검색됨' : '건 수집됨'
                 )}
-                {vectorLoading && searchQuery && (
+                {vectorLoading && committedQuery && (
                   <CircularProgress
                     size={12}
                     thickness={5}
@@ -103,13 +118,13 @@ export default function Dashboard() {
               <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
                 방금 업데이트됨
               </Typography>
-              {searchQuery && (
+              {committedQuery && (
                 <>
                   <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 12 }}>·</Typography>
                   <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
                     검색 중:{' '}
                     <Box component="span" sx={{ color: '#3b82f6', fontWeight: 500 }}>
-                      &ldquo;{searchQuery}&rdquo;
+                      &ldquo;{committedQuery}&rdquo;
                     </Box>
                   </Typography>
                 </>
@@ -224,11 +239,11 @@ export default function Dashboard() {
                         >
                           검색어를 바꾸거나 다른 카테고리를 선택해보세요.
                         </Typography>
-                        {searchQuery && (
+                        {committedQuery && (
                           <Button
                             variant="text"
                             size="small"
-                            onClick={() => setSearchQuery('')}
+                            onClick={() => { setSearchQuery(''); setCommittedQuery('') }}
                             sx={{
                               mt: 1,
                               color: '#10b981',
@@ -247,7 +262,7 @@ export default function Dashboard() {
               )}
             </Box>
           {/* Load more */}
-          {!loading && hasMore && (
+          {!loading && hasMore && !committedQuery && (
             <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
               <Button
                 variant="outlined"
