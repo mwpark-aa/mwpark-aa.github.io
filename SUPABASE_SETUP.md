@@ -7,9 +7,10 @@
     │  VITE_SUPABASE_ANON_KEY (공개 가능 — RLS로 보호됨)
     ▼
 Supabase Edge Functions (Deno 런타임)
-    ├── /functions/v1/feed      → feed_items 조회
-    ├── /functions/v1/sources   → data_sources 조회
-    └── /functions/v1/crawl     → 크롤링 + Grok 요약 + DB 저장
+    ├── /functions/v1/feed       → feed_items 조회
+    ├── /functions/v1/sources    → data_sources 조회
+    ├── /functions/v1/crawl      → 크롤링 → raw_articles 저장 (Grok 없음)
+    └── /functions/v1/summarize  → raw_articles → Grok 요약 → feed_items 저장
               │
               │  GROK_API_KEY (Supabase Secrets — 서버에만 존재)
               │  SUPABASE_SERVICE_ROLE_KEY (자동 주입)
@@ -59,6 +60,36 @@ create table public.feed_items (
 | `category` | `AI Trends` / `Tech Blogs` / `Hot Deals` |
 | `summary` | Grok이 생성한 한글 요약 3개 (배열) |
 | `source_url` | 원본 URL (중복 방지용 unique 키) |
+
+### raw_articles
+
+```sql
+create table public.raw_articles (
+  id uuid default gen_random_uuid() primary key,
+  source_id text not null,
+  source_name text not null,
+  original_title text not null,
+  snippet text,                    -- 최대 400자 본문 (토큰 절약)
+  source_url text not null unique, -- 중복 방지 key
+  crawled_at timestamptz default now(),
+  processed boolean default false,
+  processed_at timestamptz
+);
+
+create index raw_articles_processed_idx on public.raw_articles(processed, crawled_at);
+create index raw_articles_source_url_idx on public.raw_articles(source_url);
+
+-- RLS
+alter table public.raw_articles enable row level security;
+create policy "Service role full access" on public.raw_articles using (true) with check (true);
+```
+
+| 컬럼 | 설명 |
+|------|------|
+| `source_id` | 소스 식별자 (`hacker-news` / `techcrunch` / `reddit-ml`) |
+| `snippet` | 최대 400자 본문 (Grok 토큰 절약용) |
+| `source_url` | 원본 URL (unique — 크롤링 중복 방지) |
+| `processed` | `summarize` 함수 처리 완료 여부 |
 
 ### data_sources
 
@@ -173,20 +204,39 @@ supabase secrets set GROK_API_KEY=xai-your-key-here
 supabase functions deploy crawl
 supabase functions deploy feed
 supabase functions deploy sources
+supabase functions deploy summarize
 ```
 
 ### 크롤링 스케줄 설정
 
-Supabase Dashboard → **Edge Functions** → `crawl` → **Schedule**
-
 ```
-Cron expression: 0 */2 * * *   (2시간마다 자동 크롤링)
+crawl     → 0 */1 * * *   (1시간마다 — 가볍고 빠름)
+summarize → 10 */1 * * *  (crawl 10분 후 실행 — Grok 처리)
 ```
 
-### 수동 크롤링 실행
+Supabase Pro 플랜에서 pg_cron으로 직접 등록:
+
+```sql
+-- crawl: 1시간마다
+select cron.schedule(
+  'crawl-articles',
+  '0 */1 * * *',
+  $$ select net.http_post(url := 'https://YOUR_PROJECT.supabase.co/functions/v1/crawl', headers := '{"Authorization":"Bearer YOUR_ANON_KEY"}'::jsonb, body := '{}'::jsonb); $$
+);
+
+-- summarize: crawl 10분 후
+select cron.schedule(
+  'summarize-articles',
+  '10 */1 * * *',
+  $$ select net.http_post(url := 'https://YOUR_PROJECT.supabase.co/functions/v1/summarize', headers := '{"Authorization":"Bearer YOUR_ANON_KEY"}'::jsonb, body := '{}'::jsonb); $$
+);
+```
+
+### 수동 실행
 
 ```bash
 supabase functions invoke crawl
+supabase functions invoke summarize
 ```
 
 ---
@@ -273,9 +323,10 @@ const { items, sources, loading, error } = useFeed(activeCategory)
 
 Edge Function 직접 호출 구조:
 ```
-GET /functions/v1/feed?category=AI+Trends&limit=20
-GET /functions/v1/sources
-POST /functions/v1/crawl
+GET  /functions/v1/feed?category=AI+Trends&limit=20
+GET  /functions/v1/sources
+POST /functions/v1/crawl      → raw_articles 저장 (Grok 없음)
+POST /functions/v1/summarize  → raw_articles → Grok 요약 → feed_items 저장
 ```
 
 ---
@@ -329,6 +380,25 @@ create index feed_items_category_idx on public.feed_items(category);
 create index feed_items_collected_at_idx on public.feed_items(collected_at desc);
 create index feed_items_source_url_idx on public.feed_items(source_url);
 
+-- raw_articles 스테이징 테이블
+create table public.raw_articles (
+  id uuid default gen_random_uuid() primary key,
+  source_id text not null,
+  source_name text not null,
+  original_title text not null,
+  snippet text,
+  source_url text not null unique,
+  crawled_at timestamptz default now(),
+  processed boolean default false,
+  processed_at timestamptz
+);
+
+create index raw_articles_processed_idx on public.raw_articles(processed, crawled_at);
+create index raw_articles_source_url_idx on public.raw_articles(source_url);
+
+alter table public.raw_articles enable row level security;
+create policy "Service role full access" on public.raw_articles using (true) with check (true);
+
 -- 정리 함수
 create or replace function cleanup_old_feed_items()
 returns void as $$
@@ -344,10 +414,13 @@ $$ language plpgsql;
 
 - [ ] Supabase 프로젝트 생성
 - [ ] SQL Editor에서 전체 SQL 실행
+- [ ] raw_articles 테이블 생성
 - [ ] `supabase link` 프로젝트 연결
 - [ ] `supabase secrets set GROK_API_KEY=...`
-- [ ] Edge Functions 3개 배포 (crawl / feed / sources)
-- [ ] Dashboard에서 crawl 스케줄 설정 (`0 */2 * * *`)
+- [ ] Edge Functions 4개 배포 (crawl / feed / sources / summarize)
+- [ ] summarize Function 배포
+- [ ] crawl + summarize 크론 스케줄 설정 (`0 */1 * * *` / `10 */1 * * *`)
 - [ ] 프론트엔드 `.env` 파일 작성
 - [ ] `.gitignore`에 `.env` 포함 여부 확인
 - [ ] `supabase functions invoke crawl` 로 첫 크롤링 테스트
+- [ ] `supabase functions invoke summarize` 로 첫 요약 테스트

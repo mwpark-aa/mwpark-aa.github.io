@@ -6,99 +6,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface Article {
-  title: string
-  sourceUrl: string
+interface RawArticle {
+  sourceId: string
   sourceName: string
-  content: string
+  originalTitle: string
+  snippet: string
+  sourceUrl: string
 }
 
-interface GrokResult {
-  koreanTitle: string
-  summary: string[]
-  category: 'AI Trends' | 'Tech Blogs' | 'Hot Deals'
-  readTime: string
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '')
 }
 
-// ─── Grok summarization ────────────────────────────────────────────────────
-
-async function summarizeWithGrok(
-  title: string,
-  content: string,
-  apiKey: string,
-): Promise<GrokResult | null> {
-  try {
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "grok-2-1212",
-        temperature: 0.3,
-        messages: [
-          {
-            role: "system",
-            content:
-              "당신은 기술 뉴스를 한국 개발자를 위해 요약하는 AI입니다. 항상 한국어로 응답하세요. 날카롭고 간결하게 작성하세요.",
-          },
-          {
-            role: "user",
-            content: `다음 기사를 분석해서 JSON으로만 응답해 (마크다운 없이):
-제목: ${title}
-내용: ${content}
-
-{
-  "koreanTitle": "한글 번역 제목",
-  "summary": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
-  "category": "AI Trends" | "Tech Blogs" | "Hot Deals",
-  "readTime": "X min read"
-}
-
-카테고리 기준:
-- AI Trends: AI/ML 모델, 연구, 도구
-- Tech Blogs: 엔지니어링 블로그, 기술 사례
-- Hot Deals: 할인, 무료 크레딧, 프로모션`,
-          },
-        ],
-      }),
-    })
-
-    if (!response.ok) {
-      console.error(`Grok API error: ${response.status} ${response.statusText}`)
-      return null
-    }
-
-    const data = await response.json()
-    const raw = data?.choices?.[0]?.message?.content ?? ""
-
-    // Strip any accidental markdown code fences
-    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim()
-    const result: GrokResult = JSON.parse(cleaned)
-
-    // Validate shape
-    if (
-      typeof result.koreanTitle !== "string" ||
-      !Array.isArray(result.summary) ||
-      !["AI Trends", "Tech Blogs", "Hot Deals"].includes(result.category) ||
-      typeof result.readTime !== "string"
-    ) {
-      console.error("Grok returned unexpected shape:", result)
-      return null
-    }
-
-    return result
-  } catch (err) {
-    console.error("summarizeWithGrok error:", err)
-    return null
-  }
+function unescapeHtml(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
 }
 
 // ─── Crawlers ──────────────────────────────────────────────────────────────
 
-async function crawlHackerNews(): Promise<Article[]> {
-  const articles: Article[] = []
+async function crawlHackerNews(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
   try {
     const idsRes = await fetch(
       "https://hacker-news.firebaseio.com/v0/topstories.json",
@@ -106,10 +41,9 @@ async function crawlHackerNews(): Promise<Article[]> {
     if (!idsRes.ok) throw new Error(`HN topstories: ${idsRes.status}`)
     const ids: number[] = await idsRes.json()
 
-    // Fetch top 30 candidates in parallel, then filter by score
-    const top30 = ids.slice(0, 30)
+    const top15 = ids.slice(0, 15)
     const items = await Promise.all(
-      top30.map(async (id) => {
+      top15.map(async (id) => {
         try {
           const itemRes = await fetch(
             `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
@@ -123,20 +57,21 @@ async function crawlHackerNews(): Promise<Article[]> {
     )
 
     for (const item of items) {
-      if (!item || item.type !== "story") continue
+      if (!item || item.type !== 'story') continue
       if ((item.score ?? 0) <= 50) continue
       if (!item.title || !item.url) continue
 
-      articles.push({
-        title: item.title,
-        sourceUrl: item.url,
-        sourceName: "Hacker News",
-        content: item.text
-          ? item.text.replace(/<[^>]*>/g, "").slice(0, 800)
-          : item.title,
-      })
+      const snippet = item.text
+        ? stripHtml(item.text).slice(0, 400)
+        : ''
 
-      if (articles.length >= 10) break
+      articles.push({
+        sourceId: 'hacker-news',
+        sourceName: 'Hacker News',
+        originalTitle: item.title,
+        snippet,
+        sourceUrl: item.url,
+      })
     }
   } catch (err) {
     console.error("crawlHackerNews error:", err)
@@ -144,16 +79,15 @@ async function crawlHackerNews(): Promise<Article[]> {
   return articles
 }
 
-async function crawlTechCrunch(): Promise<Article[]> {
-  const articles: Article[] = []
+async function crawlTechCrunch(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
   try {
     const res = await fetch("https://techcrunch.com/feed/", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; FeedBot/1.0)" },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FeedBot/1.0)' },
     })
     if (!res.ok) throw new Error(`TechCrunch feed: ${res.status}`)
     const xml = await res.text()
 
-    // Extract <item> blocks
     const itemRegex = /<item>([\s\S]*?)<\/item>/g
     let match: RegExpExecArray | null
     let count = 0
@@ -161,9 +95,11 @@ async function crawlTechCrunch(): Promise<Article[]> {
     while ((match = itemRegex.exec(xml)) !== null && count < 8) {
       const block = match[1]
 
-      const titleMatch = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ??
+      const titleMatch =
+        block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ??
         block.match(/<title>([\s\S]*?)<\/title>/)
-      const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/) ??
+      const linkMatch =
+        block.match(/<link>([\s\S]*?)<\/link>/) ??
         block.match(/<link\s[^>]*href="([^"]+)"/)
       const descMatch =
         block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ??
@@ -171,21 +107,17 @@ async function crawlTechCrunch(): Promise<Article[]> {
 
       const title = titleMatch?.[1]?.trim()
       const url = linkMatch?.[1]?.trim()
-      const desc = descMatch?.[1]
-        ?.replace(/<[^>]*>/g, "")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .trim()
-        .slice(0, 800)
+      const snippet = descMatch?.[1]
+        ? unescapeHtml(stripHtml(descMatch[1])).trim().slice(0, 400)
+        : ''
 
       if (title && url) {
         articles.push({
-          title,
+          sourceId: 'techcrunch',
+          sourceName: 'TechCrunch',
+          originalTitle: title,
+          snippet,
           sourceUrl: url,
-          sourceName: "TechCrunch",
-          content: desc ?? title,
         })
         count++
       }
@@ -196,14 +128,14 @@ async function crawlTechCrunch(): Promise<Article[]> {
   return articles
 }
 
-async function crawlRedditML(): Promise<Article[]> {
-  const articles: Article[] = []
+async function crawlRedditML(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
   try {
     const res = await fetch(
-      "https://www.reddit.com/r/MachineLearning/top.json?limit=10&t=day",
+      "https://www.reddit.com/r/MachineLearning/top.json?limit=15&t=day",
       {
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; FeedBot/1.0; Deno)",
+          'User-Agent': 'grok-intelligence-bot/1.0',
         },
       },
     )
@@ -215,17 +147,21 @@ async function crawlRedditML(): Promise<Article[]> {
       const post = child?.data
       if (!post) continue
       if ((post.score ?? 0) < 100) continue
-      if (post.is_self === false && !post.url) continue
 
-      const url = post.url?.startsWith("http")
+      const url = post.url?.startsWith('http')
         ? post.url
         : `https://www.reddit.com${post.permalink}`
 
+      const snippet = post.selftext
+        ? post.selftext.slice(0, 400)
+        : ''
+
       articles.push({
-        title: post.title,
+        sourceId: 'reddit-ml',
+        sourceName: 'Reddit r/MachineLearning',
+        originalTitle: post.title,
+        snippet,
         sourceUrl: url,
-        sourceName: "Reddit r/MachineLearning",
-        content: (post.selftext ?? post.title).slice(0, 800),
       })
     }
   } catch (err) {
@@ -237,13 +173,12 @@ async function crawlRedditML(): Promise<Article[]> {
 // ─── Main handler ──────────────────────────────────────────────────────────
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  const GROK_API_KEY = Deno.env.get("GROK_API_KEY")!
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -252,24 +187,28 @@ serve(async (req) => {
   let skipped = 0
 
   try {
-    // 1. Crawl all sources in parallel
+    // 1. Crawl all sources in parallel (no Grok calls here)
     const [hnArticles, tcArticles, redditArticles] = await Promise.all([
       crawlHackerNews(),
       crawlTechCrunch(),
       crawlRedditML(),
     ])
 
-    const allArticles: Article[] = [...hnArticles, ...tcArticles, ...redditArticles]
+    const allArticles: RawArticle[] = [
+      ...hnArticles,
+      ...tcArticles,
+      ...redditArticles,
+    ]
     crawled = allArticles.length
 
-    // 2. Process each article
+    // 2. Insert into raw_articles, skip duplicates
     for (const article of allArticles) {
       try {
-        // Dedup check
+        // Dedup check via source_url unique constraint
         const { data: existing } = await supabase
-          .from("feed_items")
-          .select("id")
-          .eq("source_url", article.sourceUrl)
+          .from('raw_articles')
+          .select('id')
+          .eq('source_url', article.sourceUrl)
           .maybeSingle()
 
         if (existing) {
@@ -277,72 +216,54 @@ serve(async (req) => {
           continue
         }
 
-        // Summarize with Grok
-        const result = await summarizeWithGrok(
-          article.title,
-          article.content,
-          GROK_API_KEY,
-        )
-
-        if (!result) {
-          console.error(`Skipping article (no Grok result): ${article.title}`)
-          skipped++
-          continue
-        }
-
-        // Insert into Supabase
-        const { error: insertError } = await supabase.from("feed_items").insert({
-          category: result.category,
-          title: result.koreanTitle,
-          summary: result.summary,
-          source_url: article.sourceUrl,
-          source_name: article.sourceName,
-          read_time: result.readTime,
-          collected_at: new Date().toISOString(),
-        })
+        const { error: insertError } = await supabase
+          .from('raw_articles')
+          .insert({
+            source_id: article.sourceId,
+            source_name: article.sourceName,
+            original_title: article.originalTitle,
+            snippet: article.snippet,
+            source_url: article.sourceUrl,
+          })
 
         if (insertError) {
-          // Unique constraint violations are expected for race conditions — treat as skip
-          if (insertError.code === "23505") {
-            skipped++
-          } else {
-            console.error(`Insert error for ${article.sourceUrl}:`, insertError.message)
-            skipped++
-          }
+          // Unique constraint violation (23505) = race condition duplicate — treat as skip
+          console.error(
+            `raw_articles insert error [${insertError.code}] for ${article.sourceUrl}:`,
+            insertError.message,
+          )
+          skipped++
         } else {
           inserted++
         }
       } catch (articleErr) {
-        console.error(`Error processing article "${article.title}":`, articleErr)
+        console.error(
+          `Error storing article "${article.originalTitle}":`,
+          articleErr,
+        )
         skipped++
       }
     }
 
     // 3. Update data_sources status
-    const sourceMap: Record<string, string> = {
-      "Hacker News": "hacker-news",
-      "TechCrunch": "techcrunch",
-      "Reddit r/MachineLearning": "reddit-ml",
-    }
-
+    const sourceIds = ['hacker-news', 'techcrunch', 'reddit-ml']
     await Promise.all(
-      Object.values(sourceMap).map((sourceId) =>
+      sourceIds.map((sourceId) =>
         supabase
-          .from("data_sources")
+          .from('data_sources')
           .update({
-            status: "active",
+            status: 'active',
             last_crawled: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", sourceId)
+          .eq('id', sourceId)
       ),
     )
 
-    // 4. Return summary
     return new Response(
       JSON.stringify({ crawled, inserted, skipped }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   } catch (err) {
@@ -351,7 +272,7 @@ serve(async (req) => {
       JSON.stringify({ error: String(err), crawled, inserted, skipped }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   }
