@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Typography from '@mui/material/Typography'
@@ -24,6 +24,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 type Step = 'init' | 'locating' | 'activities' | 'places'
+type SortOrder = 'distance' | 'rating'
 
 interface GeoInfo {
   lat: number
@@ -70,7 +71,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 async function fetchPlaces(
   geo: GeoInfo,
   params: { activity?: string; query?: string; radius?: number },
-): Promise<LocalPlace[]> {
+): Promise<{ places: LocalPlace[]; kakaoCount: number }> {
   const searchParams = new URLSearchParams({
     lat: String(geo.lat),
     lng: String(geo.lng),
@@ -86,7 +87,10 @@ async function fetchPlaces(
   )
   if (!res.ok) throw new Error(`장소 추천 실패: ${res.status}`)
   const data = await res.json()
-  return data.places ?? []
+  return {
+    places: data.places ?? [],
+    kakaoCount: data.kakaoCount ?? (data.places?.length || 0)
+  }
 }
 
 function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
@@ -102,139 +106,148 @@ function PlaceCard({ place, index }: { place: LocalPlace; index: number }) {
           background: '#18181b',
           border: '1px solid #27272a',
           borderRadius: 3,
-          p: 2.5,
           height: '100%',
           minHeight: 180,
           display: 'flex',
           flexDirection: 'column',
-          gap: 1.5,
-          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+          transition: 'all 0.15s ease',
+          overflow: 'hidden',
           '&:hover': {
             borderColor: '#3b82f6',
-            boxShadow: '0 0 0 1px rgba(59,130,246,0.15)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            '& .place-image': {
+              transform: 'scale(1.05)',
+            }
           },
         }}
       >
-        {/* Header: name + distance badge */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              variant="body2"
+        {/* Image / Map Thumbnail */}
+        {place.imageUrl && (
+          <Box sx={{ position: 'relative', width: '100%', pt: '56.25%', overflow: 'hidden', background: '#27272a' }}>
+            <Box
+              component="img"
+              src={place.imageUrl}
+              alt={place.name}
+              className="place-image"
               sx={{
-                color: '#fafafa',
-                fontWeight: 600,
-                fontSize: 15,
-                lineHeight: 1.3,
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'transform 0.4s ease',
               }}
-            >
-              {place.name}
-            </Typography>
-            {place.rating && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, mt: 0.5 }}>
-                <StarIcon sx={{ fontSize: 14, color: '#fbbf24' }} />
-                <Typography variant="caption" sx={{ color: '#fbbf24', fontWeight: 700, fontSize: 12 }}>
-                  {place.rating.toFixed(1)}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          {place.distance && (
-            <Chip
-              label={place.distance}
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: 11,
-                background: 'rgba(59,130,246,0.1)',
-                color: '#93c5fd',
-                border: '1px solid rgba(59,130,246,0.2)',
-                flexShrink: 0,
-                '& .MuiChip-label': { px: 1 },
+              onError={(e: any) => {
+                // If the searched image fails, fallback to static map
+                const staticMapFallback = `https://map2.daum.net/map/staticmap?mx=${place.x}&my=${place.y}&w=400&h=300&level=3&iw=400&ih=300&map_type=TYPE_MAP&map_attribute=ROADMAP&q=${encodeURIComponent(place.name)}`;
+                if (e.target.src !== staticMapFallback) {
+                  e.target.src = staticMapFallback;
+                } else {
+                  e.target.style.display = 'none';
+                }
               }}
             />
-          )}
-        </Box>
-
-        {/* Category */}
-        <Typography variant="caption" sx={{ color: '#52525b', fontSize: 12 }}>
-          {place.category}
-        </Typography>
-
-        {/* AI comment — only if present */}
-        {place.comment && (
-          <Box
-            sx={{
-              background: 'rgba(16,185,129,0.06)',
-              border: '1px solid rgba(16,185,129,0.15)',
-              borderRadius: 1.5,
-              px: 1.5,
-              py: 1,
-            }}
-          >
-            <Typography
-              variant="caption"
-              sx={{
-                color: '#6ee7b7',
-                fontSize: 12,
-                lineHeight: 1.5,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {place.comment}
-            </Typography>
           </Box>
         )}
 
-        {/* Spacer */}
-        <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+          {/* Header: name + distance badge */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: '#fafafa',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  lineHeight: 1.3,
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                }}
+              >
+                {place.name}
+              </Typography>
+              {place.rating && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, mt: 0.5 }}>
+                  <StarIcon sx={{ fontSize: 14, color: '#fbbf24' }} />
+                  <Typography variant="caption" sx={{ color: '#fbbf24', fontWeight: 700, fontSize: 12 }}>
+                    {place.rating.toFixed(1)}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#52525b', fontSize: 10, ml: 0.5 }}>
+                    AI 별점
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            {place.distance && (
+              <Chip
+                label={place.distance}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 11,
+                  background: 'rgba(59,130,246,0.1)',
+                  color: '#93c5fd',
+                  border: '1px solid rgba(59,130,246,0.2)',
+                  flexShrink: 0,
+                  '& .MuiChip-label': { px: 1 },
+                }}
+              />
+            )}
+          </Box>
 
-        {/* Address */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <PlaceIcon sx={{ fontSize: 12, color: '#52525b', flexShrink: 0 }} />
-          <Typography
-            variant="caption"
-            sx={{
-              color: '#71717a',
-              fontSize: 12,
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {place.address}
+          {/* Category */}
+          <Typography variant="caption" sx={{ color: '#52525b', fontSize: 12 }}>
+            {place.category}
           </Typography>
-        </Box>
 
-        {/* Phone + Kakao Map link */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 11 }}>
-            {place.phone || ''}
-          </Typography>
+          {/* Spacer */}
+          <Box sx={{ flexGrow: 1 }} />
+
+          {/* Address */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <PlaceIcon sx={{ fontSize: 12, color: '#52525b', flexShrink: 0 }} />
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#71717a',
+                fontSize: 11,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {place.address}
+            </Typography>
+          </Box>
+
+          {/* Link */}
           <Button
             component="a"
             href={place.placeUrl}
             target="_blank"
             rel="noopener noreferrer"
+            variant="outlined"
             size="small"
+            fullWidth
             sx={{
-              color: '#f9e000',  // kakao yellow
+              borderColor: '#27272a',
+              color: '#a1a1aa',
               fontSize: 11,
-              textTransform: 'none',
-              px: 1,
-              py: 0.3,
-              minWidth: 'auto',
+              py: 0.8,
               borderRadius: 1.5,
-              '&:hover': { background: 'rgba(249,224,0,0.08)' },
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: '#3b82f6',
+                color: '#3b82f6',
+                background: 'transparent',
+              },
             }}
           >
-            카카오맵 →
+            카카오맵으로 보기
           </Button>
         </Box>
       </Box>
@@ -261,9 +274,41 @@ export default function LocalExplorer() {
   const [radius, setRadius] = useState<number>(1000)
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
   const [places, setPlaces] = useState<LocalPlace[]>([])
+  const [kakaoCount, setKakaoCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nlQuery, setNlQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortOrder>('distance')
+  const isInternalStepChange = useRef(false)
+
+  // Sync step with history for back button support
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.step) {
+        isInternalStepChange.current = true
+        setStep(e.state.step)
+      }
+    };
+    window.addEventListener('popstate', handlePopState)
+
+    // Initial state
+    if (!window.history.state) {
+      window.history.replaceState({ step }, '')
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
+    if (isInternalStepChange.current) {
+      isInternalStepChange.current = false
+      return
+    }
+    // Only push state if the step is different from current history state to avoid duplicates
+    if (window.history.state?.step !== step) {
+      window.history.pushState({ step }, '')
+    }
+  }, [step])
 
   const handleLocate = useCallback(async () => {
     setStep('locating')
@@ -297,47 +342,49 @@ export default function LocalExplorer() {
     )
   }, [])
 
-  const handleNaturalSearch = useCallback(async () => {
-    if (!geo || !nlQuery.trim()) return
-    setSelectedActivity(nlQuery.trim())
-    setStep('places')
-    setLoading(true)
-    setError(null)
-    setPlaces([])
-
-    try {
-      const ps = await fetchPlaces(geo, { query: nlQuery.trim(), radius })
-      // 별점 순 정렬 (높은 순), 별점 없으면 0으로 처리
-      const sorted = [...ps].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-      setPlaces(sorted)
-    } catch {
-      setError('장소를 불러오지 못했습니다. 다시 시도해주세요.')
-    } finally {
-      setLoading(false)
-    }
-  }, [geo, nlQuery])
-
-  const handleSelectActivity = useCallback(
-    async (activityName: string) => {
+  const handleSearch = useCallback(
+    async (activityName: string, queryText?: string) => {
       if (!geo) return
       setSelectedActivity(activityName)
       setStep('places')
       setLoading(true)
       setError(null)
       setPlaces([])
+      setKakaoCount(null)
 
       try {
-        const ps = await fetchPlaces(geo, { activity: activityName, radius })
-        // 별점 순 정렬 (높은 순), 별점 없으면 0으로 처리
-        const sorted = [...ps].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-        setPlaces(sorted)
+        const { places: ps, kakaoCount: kc } = await fetchPlaces(geo, {
+          activity: queryText ? undefined : activityName,
+          query: queryText,
+          radius
+        })
+        setPlaces(ps)
+        setKakaoCount(kc)
       } catch {
         setError('장소를 불러오지 못했습니다. 다시 시도해주세요.')
       } finally {
         setLoading(false)
       }
     },
-    [geo],
+    [geo, radius],
+  )
+
+  useEffect(() => {
+    if (selectedActivity && step === 'places') {
+      handleSearch(selectedActivity, nlQuery === selectedActivity ? nlQuery : undefined)
+    }
+  }, [radius])
+
+  const handleNaturalSearch = useCallback(() => {
+    if (!nlQuery.trim()) return
+    handleSearch(nlQuery.trim(), nlQuery.trim())
+  }, [nlQuery, handleSearch])
+
+  const handleSelectActivity = useCallback(
+    (activityName: string) => {
+      handleSearch(activityName)
+    },
+    [handleSearch],
   )
 
   const handleBack = useCallback(() => {
@@ -354,6 +401,11 @@ export default function LocalExplorer() {
     setPlaces([])
     setError(null)
   }, [])
+
+  const sortedPlaces = React.useMemo(() => {
+    if (sortBy === 'distance') return places
+    return [...places].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+  }, [places, sortBy])
 
   return (
     <Box sx={{ minHeight: 'calc(100vh - 64px)', background: '#09090b' }}>
@@ -787,9 +839,6 @@ export default function LocalExplorer() {
                         size="small"
                         onClick={() => {
                           setRadius(opt.value)
-                          if (selectedActivity) {
-                            handleSelectActivity(selectedActivity)
-                          }
                         }}
                         sx={{
                           height: 22,
@@ -803,6 +852,40 @@ export default function LocalExplorer() {
                         }}
                       />
                     ))}
+                  </Box>
+
+                  {/* Sort Order Selector */}
+                  <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                    <Chip
+                      label="거리순"
+                      size="small"
+                      onClick={() => setSortBy('distance')}
+                      sx={{
+                        height: 22,
+                        fontSize: 10,
+                        background: sortBy === 'distance' ? 'rgba(59,130,246,0.15)' : 'transparent',
+                        color: sortBy === 'distance' ? '#93c5fd' : '#52525b',
+                        border: '1px solid',
+                        borderColor: sortBy === 'distance' ? 'rgba(59,130,246,0.3)' : 'rgba(63,63,70,0.2)',
+                        fontWeight: sortBy === 'distance' ? 600 : 400,
+                        '& .MuiChip-label': { px: 1 },
+                      }}
+                    />
+                    <Chip
+                      label="AI 추천순"
+                      size="small"
+                      onClick={() => setSortBy('rating')}
+                      sx={{
+                        height: 22,
+                        fontSize: 10,
+                        background: sortBy === 'rating' ? 'rgba(16,185,129,0.1)' : 'transparent',
+                        color: sortBy === 'rating' ? '#6ee7b7' : '#52525b',
+                        border: '1px solid',
+                        borderColor: sortBy === 'rating' ? 'rgba(16,185,129,0.2)' : 'rgba(63,63,70,0.2)',
+                        fontWeight: sortBy === 'rating' ? 600 : 400,
+                        '& .MuiChip-label': { px: 1 },
+                      }}
+                    />
                   </Box>
                 </Box>
               </Box>
@@ -833,28 +916,22 @@ export default function LocalExplorer() {
                           background: '#18181b',
                           border: '1px solid #27272a',
                           borderRadius: 3,
-                          p: 2.5,
-                          height: 220,
+                          overflow: 'hidden',
+                          height: 300,
                         }}
                       >
-                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 18, width: '60%', mb: 1.5 }} />
-                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 14, width: '90%', mb: 1 }} />
-                        <Box sx={{ background: '#27272a', borderRadius: 1, height: 14, width: '70%', mb: 2 }} />
-                        <Box
-                          sx={{
-                            background: 'rgba(59,130,246,0.05)',
-                            border: '1px solid rgba(59,130,246,0.1)',
-                            borderRadius: 2,
-                            height: 52,
-                          }}
-                        />
+                        <Box sx={{ background: '#27272a', height: '56.25%', width: '100%' }} />
+                        <Box sx={{ p: 2.5 }}>
+                          <Box sx={{ background: '#27272a', borderRadius: 1, height: 18, width: '60%', mb: 1.5 }} />
+                          <Box sx={{ background: '#27272a', borderRadius: 1, height: 14, width: '90%', mb: 1 }} />
+                        </Box>
                       </Box>
                     </Grid>
                   ))}
                 </Grid>
               ) : (
                 <Grid container spacing={2}>
-                  {places.map((place, i) => (
+                  {sortedPlaces.map((place, i) => (
                     <Grid item xs={12} sm={6} md={4} key={place.name + i} sx={{ display: 'flex' }}>
                       <PlaceCard place={place} index={i} />
                     </Grid>
@@ -864,12 +941,19 @@ export default function LocalExplorer() {
 
               {!loading && places.length === 0 && !error && (
                 <Box sx={{ textAlign: 'center', py: 8 }}>
-                  <Typography variant="body2" sx={{ color: '#52525b' }}>
-                    추천 장소를 가져오지 못했습니다.
+                  <Typography variant="body2" sx={{ color: '#52525b', mb: 1 }}>
+                    {kakaoCount === 0 
+                      ? '해당 지역에 검색 결과가 없습니다.' 
+                      : '검색 결과는 있으나, 추천할 만한 장소를 찾지 못했습니다.'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#3f3f46', display: 'block', mb: 2 }}>
+                    {kakaoCount === 0 
+                      ? '탐색 반경을 넓히거나 다른 키워드로 검색해보세요.' 
+                      : '반경을 조정하거나 잠시 후 다시 시도해주세요.'}
                   </Typography>
                   <Button
-                    onClick={() => selectedActivity && handleSelectActivity(selectedActivity)}
-                    sx={{ mt: 2, color: '#3b82f6', textTransform: 'none', fontSize: 13 }}
+                    onClick={() => selectedActivity && handleSearch(selectedActivity, nlQuery === selectedActivity ? nlQuery : undefined)}
+                    sx={{ color: '#3b82f6', textTransform: 'none', fontSize: 13 }}
                   >
                     다시 시도
                   </Button>
@@ -879,7 +963,7 @@ export default function LocalExplorer() {
               {!loading && places.length > 0 && (
                 <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
                   <Chip
-                    label="카카오맵 실제 데이터 기반 · 거리 기준 정렬"
+                    label="카카오맵 데이터 기반 · AI 별점 및 정렬"
                     size="small"
                     sx={{
                       background: 'rgba(245,158,11,0.08)',
