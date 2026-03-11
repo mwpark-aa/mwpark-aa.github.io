@@ -42,7 +42,6 @@ export function useFeed(category: Category) {
         setCategoryTotals({
           'AI Trends': mockFeedItems.filter((i) => i.category === 'AI Trends').length,
           'Tech Blogs': mockFeedItems.filter((i) => i.category === 'Tech Blogs').length,
-          'Hot Deals': mockFeedItems.filter((i) => i.category === 'Hot Deals').length,
         })
         setLoading(false)
         setLoadingMore(false)

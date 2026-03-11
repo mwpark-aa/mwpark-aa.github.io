@@ -1,4 +1,4 @@
-export type Category = 'All' | 'AI Trends' | 'Tech Blogs' | 'Hot Deals'
+export type Category = 'All' | 'AI Trends' | 'Tech Blogs'
 
 export interface FeedItem {
   id: string

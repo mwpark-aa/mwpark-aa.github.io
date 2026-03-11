@@ -92,45 +92,6 @@ export const feedItems: FeedItem[] = [
     sourceName: 'Shopify Engineering',
     collectedAt: new Date(Date.now() - 1000 * 60 * 145).toISOString(),
   },
-  {
-    id: 'deal-001',
-    category: 'Hot Deals',
-    title: 'AWS Activate: 초기 스타트업 대상 10만 달러 클라우드 크레딧 신청 접수 중',
-    summary: [
-      'AWS Activate Portfolio는 컴퓨트, 스토리지, Bedrock, SageMaker를 포함한 10만 달러 크레딧을 제공한다. 조건: 기관 투자자의 지원이 필요하다.',
-      '신청 마감 2025년 2월 28일. 승인 시 AWS 솔루션 아키텍트 1:1 상담 10회 무료 제공.',
-      'AI 중심 스타트업은 Bedrock 추론 크레딧 2만 5천 달러를 추가로 받아 총 12만 5천 달러 패키지가 된다.',
-    ],
-    sourceUrl: 'https://aws.amazon.com/activate/',
-    sourceName: 'AWS',
-    collectedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-  },
-  {
-    id: 'deal-002',
-    category: 'Hot Deals',
-    title: 'JetBrains 전 제품 패키지, 이번 주 개인 개발자 40% 할인',
-    summary: [
-      'JetBrains All Products 구독이 연 299달러에서 179달러로 한시 인하. 25개 IDE가 포함된다.',
-      'IntelliJ Ultimate, WebStorm, PyCharm, DataGrip, Rider 등 전부 포함. 기존 구독자 갱신에도 동일 할인율이 적용된다.',
-      '평소 월 10달러인 AI Assistant Pro가 포함된다. JetBrains가 AI를 진지하게 다루기 시작했다.',
-    ],
-    sourceUrl: 'https://www.jetbrains.com/store/promotions/',
-    sourceName: 'JetBrains',
-    collectedAt: new Date(Date.now() - 1000 * 60 * 32).toISOString(),
-  },
-  {
-    id: 'deal-003',
-    category: 'Hot Deals',
-    title: 'GitHub Copilot Business, 스타 1천 개 이상 오픈소스 메인테이너에게 무료 제공',
-    summary: [
-      '월 19달러인 GitHub Copilot Business가 1,000개 이상의 스타를 보유한 저장소 메인테이너에게 무료로 제공된다. GPT-4o와 Claude 멀티모델 지원 포함.',
-      '자격 충족 시 계정 설정에서 바로 신청 가능하며, 승인은 영업일 기준 2일 이내에 완료된다.',
-      '해당 저장소에 PR 10개 이상 머지한 기여자도 자격이 된다. 오픈소스 생태계가 실질적인 혜택을 받기 시작했다.',
-    ],
-    sourceUrl: 'https://github.blog',
-    sourceName: 'GitHub Blog',
-    collectedAt: new Date(Date.now() - 1000 * 60 * 68).toISOString(),
-  },
 ]
 
 export const dataSources: DataSource[] = [

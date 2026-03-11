@@ -52,7 +52,6 @@ export default function SourceMonitor({ sources, categoryTotals = {} }: SourceMo
   const stats = [
     { label: 'AI Trends', value: categoryTotals['AI Trends'] ?? 0, color: '#10b981' },
     { label: 'Tech Blogs', value: categoryTotals['Tech Blogs'] ?? 0, color: '#3b82f6' },
-    { label: 'Hot Deals', value: categoryTotals['Hot Deals'] ?? 0, color: '#f59e0b' },
   ] as const
 
   return (
@@ -86,7 +85,7 @@ export default function SourceMonitor({ sources, categoryTotals = {} }: SourceMo
         >
           카테고리별 현황
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
           {stats.map(({ label, value, color }) => (
             <Box
               key={label}

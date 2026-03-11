@@ -21,7 +21,7 @@ interface RawArticleRow {
 interface GrokResult {
   koreanTitle: string
   summary: string[]
-  category: 'AI Trends' | 'Tech Blogs' | 'Hot Deals'
+  category: 'AI Trends' | 'Tech Blogs'
 }
 
 // ─── Grok summarization ────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ async function summarizeWithGrok(
     기사를 분석해서 JSON만 응답 (마크다운 없이):
     제목: ${article.original_title} 
     ${article.snippet ? `내용: ${article.snippet.slice(0, 300)}` : ''}
-    {"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"|"Hot Deals"}
+    {"koreanTitle":"한글제목","summary":["요점1","요점2","요점3"],"category":"AI Trends"|"Tech Blogs"}
     `
     const response = await fetch(`${GROQ_BASE}/chat/completions`, {
       method: "POST",
@@ -74,7 +74,7 @@ async function summarizeWithGrok(
     if (
       typeof result.koreanTitle !== 'string' ||
       !Array.isArray(result.summary) ||
-      !['AI Trends', 'Tech Blogs', 'Hot Deals'].includes(result.category) ||
+      !['AI Trends', 'Tech Blogs'].includes(result.category) ||
       !result.category
     ) {
       console.error('Grok returned unexpected shape:', result)

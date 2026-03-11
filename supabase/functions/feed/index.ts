@@ -57,15 +57,13 @@ serve(async (req) => {
     // 카테고리별 전체 개수 — 카테고리 필터가 없을 때만 계산 (sidebar용)
     let categoryCounts: Record<string, number> | undefined
     if (!category || category === 'All') {
-      const [aiRes, techRes, dealsRes] = await Promise.all([
+      const [aiRes, techRes] = await Promise.all([
         supabase.from('feed_items').select('*', { count: 'exact', head: true }).eq('category', 'AI Trends'),
         supabase.from('feed_items').select('*', { count: 'exact', head: true }).eq('category', 'Tech Blogs'),
-        supabase.from('feed_items').select('*', { count: 'exact', head: true }).eq('category', 'Hot Deals'),
       ])
       categoryCounts = {
         'AI Trends': aiRes.count ?? 0,
         'Tech Blogs': techRes.count ?? 0,
-        'Hot Deals': dealsRes.count ?? 0,
       }
     }
 

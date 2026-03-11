@@ -6,7 +6,7 @@ import Button from '@mui/material/Button'
 import { motion } from 'framer-motion'
 import type { Category } from '../../types'
 
-const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs', 'Hot Deals']
+const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs']
 
 interface NavigationProps {
   activeCategory: Category

@@ -21,7 +21,7 @@ export default function SearchBar({ value, onChange, onSubmit }: SearchBarProps)
       onKeyDown={(e) => {
         if (e.key === 'Enter') onSubmit(value)
       }}
-      placeholder="검색 (Enter로 유사 검색)"
+      placeholder="검색어를 입력하고 Enter..."
       inputProps={{ 'aria-label': '피드 검색' }}
       InputProps={{
         startAdornment: (

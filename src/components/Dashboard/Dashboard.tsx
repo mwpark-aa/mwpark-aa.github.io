@@ -4,16 +4,13 @@ import Container from '@mui/material/Container'
 import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
-import CircularProgress from '@mui/material/CircularProgress'
 import { AnimatePresence, motion } from 'framer-motion'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import Navigation from '../Navigation/Navigation'
 import SearchBar from '../SearchBar/SearchBar'
 import FeedCard from '../FeedCard/FeedCard'
 import Sidebar from '../Sidebar/Sidebar'
 import { useFeed } from '../../hooks/useFeed'
-import { useVectorSearch } from '../../hooks/useVectorSearch'
 import type { Category } from '../../types'
 
 export default function Dashboard() {
@@ -22,31 +19,18 @@ export default function Dashboard() {
   const [committedQuery, setCommittedQuery] = useState('')
 
   const { items, sources, total, categoryTotals, loading, loadingMore, hasMore, loadMore, error } = useFeed(activeCategory)
-  const { results: vectorResults, loading: vectorLoading } = useVectorSearch(committedQuery, activeCategory)
 
-  const keywordItems = useMemo(() => {
+  const displayedItems = useMemo(() => {
     if (!committedQuery.trim()) return items
 
     const q = committedQuery.toLowerCase().trim()
-    // 제목·출처 매칭 우선, summary는 단어 경계로 정확 매칭
-    const wordRe = new RegExp(`(^|\\s)${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
     return items.filter((item) =>
       item.title.toLowerCase().includes(q) ||
       item.sourceName.toLowerCase().includes(q) ||
-      item.summary.some((s) => wordRe.test(s))
+      item.summary.some((s) => s.toLowerCase().includes(q))
     )
   }, [items, committedQuery])
 
-  // 벡터 + 키워드 결과 병합 (중복 제거, 벡터 결과 우선)
-  const displayedItems = useMemo(() => {
-    if (!committedQuery.trim()) return items
-    if (!vectorResults) return keywordItems
-
-    const seen = new Set(vectorResults.map((i) => i.id))
-    return [...vectorResults, ...keywordItems.filter((i) => !seen.has(i.id))]
-  }, [committedQuery, vectorResults, keywordItems, items])
-
-  const isVectorActive = committedQuery.trim().length > 0 && vectorResults !== null
   const totalCount = committedQuery.trim() ? displayedItems.length : total
 
   return (
@@ -93,26 +77,12 @@ export default function Dashboard() {
             {/* Stats bar */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TrendingUpIcon sx={{ fontSize: 14, color: '#10b981' }} />
-              <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>
                 <Box component="span" sx={{ color: '#a1a1aa', fontWeight: 500 }}>
                   {totalCount}
                 </Box>
                 {' '}
-                {isVectorActive ? (
-                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                    건 유사 검색됨
-                    <AutoAwesomeIcon sx={{ fontSize: 11, color: '#3b82f6', verticalAlign: 'middle' }} />
-                  </Box>
-                ) : (
-                  committedQuery ? '건 검색됨' : '건 수집됨'
-                )}
-                {vectorLoading && committedQuery && (
-                  <CircularProgress
-                    size={12}
-                    thickness={5}
-                    sx={{ color: '#3b82f6', ml: 0.5, verticalAlign: 'middle' }}
-                  />
-                )}
+                {committedQuery ? '건 검색됨' : '건 수집됨'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#3f3f46', fontSize: 12 }}>·</Typography>
               <Typography variant="caption" sx={{ color: '#71717a', fontSize: 12 }}>

@@ -31,11 +31,6 @@ const categoryConfig: Record<
     background: 'rgba(59,130,246,0.1)',
     label: 'Tech Blog',
   },
-  'Hot Deals': {
-    color: '#f59e0b',
-    background: 'rgba(245,158,11,0.1)',
-    label: 'Hot Deal',
-  },
 }
 
 function formatRelativeTime(isoString: string): string {
