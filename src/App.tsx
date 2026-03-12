@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Navigation from './components/Navigation/Navigation'
 import Dashboard from './components/Dashboard/Dashboard'
 import LocalExplorer from './components/LocalExplorer/LocalExplorer'
+import StockExplorer from './components/StockExplorer/StockExplorer'
 import type { Category, AppPage } from './types'
 
 export default function App() {
@@ -18,7 +19,9 @@ export default function App() {
       />
       {activePage === 'feed'
         ? <Dashboard activeCategory={activeCategory} />
-        : <LocalExplorer />
+        : activePage === 'stock'
+          ? <StockExplorer />
+          : <LocalExplorer />
       }
     </>
   )

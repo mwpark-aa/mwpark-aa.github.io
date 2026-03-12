@@ -20,7 +20,7 @@ export interface DataSource {
   itemsCollected: number
 }
 
-export type AppPage = 'feed' | 'local'
+export type AppPage = 'feed' | 'local' | 'stock'
 
 export interface LocalPlace {
   name: string

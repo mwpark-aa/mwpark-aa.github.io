@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import { motion } from 'framer-motion'
 import NewspaperOutlinedIcon from '@mui/icons-material/NewspaperOutlined'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
 import type { Category, AppPage } from '../../types'
 
 const CATEGORIES: Category[] = ['All', 'AI Trends', 'Tech Blogs']
@@ -20,6 +21,7 @@ interface NavigationProps {
 const PAGE_TABS: { key: AppPage; label: string; Icon: React.ElementType }[] = [
   { key: 'local', label: '근처', Icon: LocationOnOutlinedIcon },
   { key: 'feed', label: '피드', Icon: NewspaperOutlinedIcon },
+  { key: 'stock', label: '주식', Icon: ShowChartIcon },
 ]
 
 export default function Navigation({ activePage, onPageChange, activeCategory, onCategoryChange }: NavigationProps) {
