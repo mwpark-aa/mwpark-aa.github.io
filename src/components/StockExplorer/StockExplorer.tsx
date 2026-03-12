@@ -103,7 +103,7 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
 };
 
 export default function StockExplorer() {
-  const [ticker, setTicker] = useState('AAPL');
+  const [ticker, setTicker] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -111,8 +111,13 @@ export default function StockExplorer() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    handleSearch('AAPL');
+    const checkMobile = () => setIsMobile(window.innerWidth < 600);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleSearch = async (targetTicker: string = searchTerm) => {
@@ -205,15 +210,16 @@ export default function StockExplorer() {
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: 'auto', color: '#fafafa' }}>
       {/* Search Header */}
-      <Box sx={{ mb: 4, display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
+      <Box sx={{ mb: 4, display: 'flex', gap: 1, alignItems: 'center' }}>
         <TextField
           fullWidth
           variant="outlined"
-          placeholder="티커 또는 종목명 입력 (예: AAPL, TSLA, 삼성전자)"
+          placeholder="티커 입력 (예: AAPL, TSLA)"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           sx={{
+            flex: 1,
             '& .MuiOutlinedInput-root': {
               color: '#fff',
               backgroundColor: '#18181b',
@@ -227,16 +233,16 @@ export default function StockExplorer() {
           variant="contained"
           onClick={() => handleSearch()}
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : <Search size={20} />}
           sx={{
             height: 56,
-            px: 4,
+            minWidth: { xs: '80px', sm: '120px' },
+            px: { xs: 2, sm: 4 },
             bgcolor: '#3b82f6',
             '&:hover': { bgcolor: '#2563eb' },
             whiteSpace: 'nowrap'
           }}
         >
-          조회하기
+          {loading ? <CircularProgress size={24} color="inherit" /> : '조회'}
         </Button>
       </Box>
 
@@ -249,13 +255,13 @@ export default function StockExplorer() {
           {stockData.length > 0 && (
             <Box>
               {/* Header Info */}
-              <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+              <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}>
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.75rem', sm: '2.125rem' }, whiteSpace: 'nowrap' }}>
                     {ticker}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap' }}>
+                    <Typography variant="h5" sx={{ fontWeight: 600, fontSize: { xs: '1.25rem', sm: '1.5rem' }, whiteSpace: 'nowrap' }}>
                       ${currentPrice.toLocaleString()}
                     </Typography>
                     <Typography
@@ -263,7 +269,9 @@ export default function StockExplorer() {
                         display: 'flex',
                         alignItems: 'center',
                         color: change >= 0 ? '#10b981' : '#ef4444',
-                        fontWeight: 600
+                        fontWeight: 600,
+                        fontSize: { xs: '0.875rem', sm: '1rem' },
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       {change >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
@@ -271,7 +279,7 @@ export default function StockExplorer() {
                     </Typography>
                   </Box>
                 </Box>
-                <Typography variant="body2" sx={{ color: '#71717a' }}>
+                <Typography variant="body2" sx={{ color: '#71717a', width: '100%', textAlign: { xs: 'left', sm: 'right' }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, whiteSpace: 'nowrap' }}>
                   최근 업데이트: {stockData[stockData.length - 1].date}
                 </Typography>
               </Box>
@@ -300,6 +308,7 @@ export default function StockExplorer() {
                         domain={['auto', 'auto']}
                         orientation="right"
                         tickFormatter={(val) => `$${val.toLocaleString()}`}
+                        hide={isMobile}
                       />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff' }}
