@@ -144,11 +144,15 @@ export default function StockExplorer() {
       if (!data || !data.data) throw new Error('데이터를 불러오지 못했습니다.');
 
       const richData = calculateIndicators(data.data);
-      setStockData(richData);
+      // 최근 1년(약 252 거래일) 데이터만 화면에 표시하기 위해 슬라이스
+      // 지표는 2년치 데이터를 기반으로 이미 계산됨
+      const displayData = richData.slice(-252);
+      setStockData(displayData);
       setTicker(targetTicker.toUpperCase());
 
-      // 주가 데이터를 성공적으로 가져온 후 AI 분석 요청
-      handleAnalyze(targetTicker.toUpperCase(), richData);
+      // AI 분석에는 전체 지표 데이터를 전달하여 추세 파악을 돕거나, 최근 데이터만 전달할 수 있음
+      // 여기서는 최근 252일치만 전달하여 컨텍스트 제한에 맞춤
+      handleAnalyze(targetTicker.toUpperCase(), displayData);
     } catch (err: any) {
       console.error('Stock search error:', err);
       setError(err.message || '주식 데이터를 가져오는 중 오류가 발생했습니다.');

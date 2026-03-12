@@ -20,8 +20,8 @@ serve(async (req) => {
     }
 
     // Yahoo Finance Query (v8)
-    // 1 year interval = 1d, range = 1y
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`
+    // Fetch 2 years to calculate 200d MA for the latest 1 year
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=2y&interval=1d`
 
     const response = await fetch(url, {
       headers: {
