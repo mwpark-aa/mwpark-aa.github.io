@@ -10,7 +10,7 @@ import {
   CircularProgress,
   Paper,
 } from '@mui/material';
-import { Search, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info } from 'lucide-react';
 import {
   LineChart,
   Line,
