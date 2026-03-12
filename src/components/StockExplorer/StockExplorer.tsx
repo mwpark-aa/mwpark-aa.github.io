@@ -22,6 +22,7 @@ import {
   Legend,
 } from 'recharts';
 
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 
 // Technical Indicator Calculations
@@ -36,9 +37,9 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
     });
   };
 
-  const sma20 = calculateSMA(20);
-  const sma60 = calculateSMA(60);
-  const sma200 = calculateSMA(200);
+  const ma20 = calculateSMA(20);
+  const ma60 = calculateSMA(60);
+  const ma200 = calculateSMA(200);
 
   // RSI calculation
   const calculateRSI = (period: number = 14) => {
@@ -92,9 +93,9 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
 
   return data.map((d, i) => ({
     ...d,
-    sma20: sma20[i],
-    sma60: sma60[i],
-    sma200: sma200[i],
+    ma20: ma20[i],
+    ma60: ma60[i],
+    ma200: ma200[i],
     rsi: rsi14[i],
     tenkanSen: tenkanSen[i],
     kijunSen: kijunSen[i],
@@ -105,7 +106,9 @@ export default function StockExplorer() {
   const [ticker, setTicker] = useState('AAPL');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [stockData, setStockData] = useState<any[]>([]);
+  const [analysis, setAnalysis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -143,11 +146,34 @@ export default function StockExplorer() {
       const richData = calculateIndicators(data.data);
       setStockData(richData);
       setTicker(targetTicker.toUpperCase());
+
+      // 주가 데이터를 성공적으로 가져온 후 AI 분석 요청
+      handleAnalyze(targetTicker.toUpperCase(), richData);
     } catch (err: any) {
       console.error('Stock search error:', err);
       setError(err.message || '주식 데이터를 가져오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAnalyze = async (targetTicker: string, indicators: any[]) => {
+    setAnalyzing(true);
+    setAnalysis(null);
+    try {
+      const { data, error: analysisError } = await supabase.functions.invoke('stock-analyze', {
+        body: { symbol: targetTicker, indicators }
+      });
+
+      if (analysisError) throw new Error(analysisError.message);
+      if (data && data.analysis) {
+        setAnalysis(data.analysis);
+      }
+    } catch (err: any) {
+      console.error('AI Analysis error:', err);
+      setAnalysis('AI 분석을 가져오는 중 오류가 발생했습니다.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -278,9 +304,9 @@ export default function StockExplorer() {
                       />
                       <Legend wrapperStyle={{ paddingTop: '20px' }} />
                       <Line type="monotone" dataKey="close" name="종가" stroke="#fff" strokeWidth={2} dot={false} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="sma20" name="20일선" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="sma60" name="60일선" stroke="#10b981" dot={false} strokeWidth={1} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="sma200" name="200일선" stroke="#f59e0b" dot={false} strokeWidth={1} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="ma20" name="20일 이평선" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="ma60" name="60일 이평선" stroke="#10b981" dot={false} strokeWidth={1} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="ma200" name="200일 이평선" stroke="#f59e0b" dot={false} strokeWidth={1} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </Box>
@@ -298,8 +324,8 @@ export default function StockExplorer() {
             <Grid item xs={12} sm={6} md={3}>
               <IndicatorCard
                 title="20일 이동평균선"
-                value={`$${latestData.sma20}`}
-                description={currentPrice > latestData.sma20 ? "단기 상향 추세" : "단기 하향 추세"}
+                value={`$${latestData.ma20}`}
+                description={currentPrice > latestData.ma20 ? "단기 상향 추세" : "단기 하향 추세"}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -312,11 +338,45 @@ export default function StockExplorer() {
             <Grid item xs={12} sm={6} md={3}>
               <IndicatorCard
                 title="200일 이동평균선"
-                value={`$${latestData.sma200}`}
-                description={currentPrice > latestData.sma200 ? "장기 지지선 상회" : "장기 저항선 하회"}
+                value={`$${latestData.ma200}`}
+                description={currentPrice > latestData.ma200 ? "장기 지지선 상회" : "장기 저항선 하회"}
               />
             </Grid>
           </Grid>
+
+          {/* AI Analysis Section */}
+          <Paper sx={{ p: 3, mb: 4, background: '#1e1e24', border: '1px solid #3b82f6', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Info size={20} color="#3b82f6" />
+              <Typography variant="h6" sx={{ color: '#fafafa', fontSize: '1.1rem', fontWeight: 700 }}>
+                AI 기술적 분석
+              </Typography>
+            </Box>
+
+            {analyzing ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
+                <CircularProgress size={20} />
+                <Typography sx={{ color: '#a1a1aa' }}>차트 지표를 분석 중입니다...</Typography>
+              </Box>
+            ) : analysis ? (
+              <Box sx={{
+                color: '#e4e4e7',
+                lineHeight: 1.6,
+                '& p': { mb: 2 },
+                '& h1, & h2, & h3': { color: '#fafafa', mt: 3, mb: 1.5, fontWeight: 700 },
+                '& ul, & ol': { pl: 2, mb: 2 },
+                '& li': { mb: 1 },
+                '& strong': { color: '#3b82f6' },
+                '& blockquote': { borderLeft: '4px solid #3b82f6', pl: 2, color: '#a1a1aa', my: 2 }
+              }}>
+                <ReactMarkdown>
+                  {analysis}
+                </ReactMarkdown>
+              </Box>
+            ) : (
+              <Typography sx={{ color: '#71717a' }}>분석 결과가 없습니다.</Typography>
+            )}
+          </Paper>
 
           {/* Summary Alert (Objective Only) */}
           <Box sx={{
@@ -331,9 +391,9 @@ export default function StockExplorer() {
             <Box>
               <Typography variant="subtitle2" sx={{ color: '#3b82f6', fontWeight: 600, mb: 0.5 }}>객관적 지표 요약</Typography>
               <Typography variant="body2" sx={{ color: '#a1a1aa', lineHeight: 1.6 }}>
-                현재 주가(${currentPrice.toLocaleString()})는 200일 장기 이동평균선($${latestData.sma200?.toLocaleString()}) 대비 {currentPrice > (latestData.sma200 || 0) ? '위에' : '아래에'} 위치해 있으며,
+                현재 주가(${currentPrice.toLocaleString()})는 200일 장기 이동평균선($${latestData.ma200?.toLocaleString()}) 대비 {currentPrice > (latestData.ma200 || 0) ? '위에' : '아래에'} 위치해 있으며,
                 RSI 지수는 {latestData.rsi}를 기록하고 있습니다.
-                단기적으로는 20일선($${latestData.sma20?.toLocaleString()})과 {currentPrice > (latestData.sma20 || 0) ? '정배열' : '역배열'} 상태를 보이고 있습니다.
+                단기적으로는 20일선($${latestData.ma20?.toLocaleString()})과 {currentPrice > (latestData.ma20 || 0) ? '정배열' : '역배열'} 상태를 보이고 있습니다.
               </Typography>
             </Box>
           </Box>
