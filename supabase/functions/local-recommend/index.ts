@@ -43,6 +43,7 @@ interface CuratedPlace {
   rating: number
   x: string
   y: string
+  placeUrl: string
   tags?: string[]
 }
 
@@ -136,6 +137,7 @@ ${list}
       rating: typeof rating === 'number' ? Math.round(rating * 10) / 10 : 4.0,
       x: p.x,
       y: p.y,
+      placeUrl: p.place_url,
       tags: tags || [],
     }
   })

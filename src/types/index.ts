@@ -31,5 +31,6 @@ export interface LocalPlace {
   rating?: number    // AI-estimated rating (1.0–5.0)
   x: string          // longitude for reference
   y: string          // latitude for reference
+  placeUrl: string   // kakao map url
   tags?: string[]    // AI-generated tags
 }
