@@ -26,7 +26,7 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
 
 // Technical Indicator Calculations
-const calculateIndicators = (data: { date: string, close: number }[]) => {
+const calculateIndicators = (data: { date: string, close: number, high?: number, low?: number }[]) => {
   const closes = data.map(d => d.close);
 
   const calculateSMA = (period: number) => {
@@ -49,7 +49,6 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
     let avgGain = 0;
     let avgLoss = 0;
 
-    // Initial RSI
     for (let i = 1; i <= period; i++) {
       const diff = closes[i] - closes[i - 1];
       if (diff >= 0) avgGain += diff;
@@ -59,7 +58,6 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
     avgLoss /= period;
     rsi[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
 
-    // Smooth RSI
     for (let i = period + 1; i < closes.length; i++) {
       const diff = closes[i] - closes[i - 1];
       const gain = diff >= 0 ? diff : 0;
@@ -75,7 +73,7 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
 
   const rsi14 = calculateRSI(14);
 
-  // Ichimoku Cloud (Simplified for 1 year view)
+  // Ichimoku Cloud (Simplified)
   const calculateIchimoku = () => {
     const calculateMedian = (period: number, idx: number) => {
       if (idx < period - 1) return null;
@@ -91,6 +89,45 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
 
   const { tenkanSen, kijunSen } = calculateIchimoku();
 
+  // Bollinger Bands (20-day, ±2 std dev)
+  const calculateBollingerBands = (period: number = 20, multiplier: number = 2) => {
+    const upper = new Array(closes.length).fill(null);
+    const lower = new Array(closes.length).fill(null);
+    for (let i = period - 1; i < closes.length; i++) {
+      const slice = closes.slice(i - period + 1, i + 1);
+      const mean = slice.reduce((a, b) => a + b, 0) / period;
+      const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+      const stdDev = Math.sqrt(variance);
+      upper[i] = parseFloat((mean + multiplier * stdDev).toFixed(2));
+      lower[i] = parseFloat((mean - multiplier * stdDev).toFixed(2));
+    }
+    return { upper, lower };
+  };
+
+  const { upper: bbUpper, lower: bbLower } = calculateBollingerBands();
+
+  // ATR (14-day Average True Range) — 변동성 기반 손절 기준
+  const calculateATR = (period: number = 14) => {
+    const atr = new Array(data.length).fill(null);
+    if (data.length < period + 1) return atr;
+    const trueRanges = data.map((d, i) => {
+      const high = d.high ?? d.close;
+      const low = d.low ?? d.close;
+      if (i === 0) return high - low;
+      const prevClose = data[i - 1].close;
+      return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+    });
+    let atrVal = trueRanges.slice(1, period + 1).reduce((a: number, b: number) => a + b, 0) / period;
+    atr[period] = parseFloat(atrVal.toFixed(2));
+    for (let i = period + 1; i < data.length; i++) {
+      atrVal = (atrVal * (period - 1) + trueRanges[i]) / period;
+      atr[i] = parseFloat(atrVal.toFixed(2));
+    }
+    return atr;
+  };
+
+  const atrValues = calculateATR();
+
   return data.map((d, i) => ({
     ...d,
     ma20: ma20[i],
@@ -99,6 +136,9 @@ const calculateIndicators = (data: { date: string, close: number }[]) => {
     rsi: rsi14[i],
     tenkanSen: tenkanSen[i],
     kijunSen: kijunSen[i],
+    bbUpper: bbUpper[i],
+    bbLower: bbLower[i],
+    atr: atrValues[i],
   }));
 };
 
@@ -286,7 +326,7 @@ export default function StockExplorer() {
 
               {/* Main Chart */}
               <Paper sx={{ p: 2, mb: 4, background: '#09090b', border: '1px solid #27272a', borderRadius: 2 }}>
-                <Typography variant="h6" sx={{ mb: 2, color: '#fafafa', fontSize: '1rem' }}>1개년 가격 및 이동평균선</Typography>
+                <Typography variant="h6" sx={{ mb: 2, color: '#fafafa', fontSize: '1rem' }}>1개년 가격 · 이동평균 · 볼린저 밴드</Typography>
                 <Box sx={{ height: 400, width: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={stockData}>
@@ -297,7 +337,6 @@ export default function StockExplorer() {
                         fontSize={12}
                         tickFormatter={(str) => {
                           const date = new Date(str);
-                          // Show month only when it's the first data point of the month or every 2 months
                           return date.getDate() <= 7 && date.getMonth() % 2 === 0 ? `${date.getFullYear()}.${date.getMonth() + 1}` : '';
                         }}
                         minTickGap={30}
@@ -316,6 +355,8 @@ export default function StockExplorer() {
                         labelFormatter={(label) => `날짜: ${label}`}
                       />
                       <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                      <Line type="monotone" dataKey="bbUpper" name="BB 상단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} />
+                      <Line type="monotone" dataKey="bbLower" name="BB 하단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} />
                       <Line type="monotone" dataKey="close" name="종가" stroke="#fff" strokeWidth={2} dot={false} isAnimationActive={false} />
                       <Line type="monotone" dataKey="ma20" name="20일 이평선" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} />
                       <Line type="monotone" dataKey="ma60" name="60일 이평선" stroke="#10b981" dot={false} strokeWidth={1} isAnimationActive={false} />
@@ -353,6 +394,32 @@ export default function StockExplorer() {
                 title="200일 이동평균선"
                 value={`$${latestData.ma200}`}
                 description={currentPrice > latestData.ma200 ? "장기 지지선 상회" : "장기 저항선 하회"}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <IndicatorCard
+                title="볼린저 밴드"
+                value={latestData.bbUpper && latestData.bbLower ? `$${latestData.bbLower} ~ $${latestData.bbUpper}` : 'N/A'}
+                description={
+                  latestData.bbUpper && latestData.bbLower
+                    ? currentPrice >= latestData.bbUpper
+                      ? "상단 밴드 근접 — 과열 가능성"
+                      : currentPrice <= latestData.bbLower
+                        ? "하단 밴드 근접 — 반등 가능성"
+                        : "밴드 중간 구간"
+                    : "데이터 부족"
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <IndicatorCard
+                title="ATR (변동성)"
+                value={latestData.atr ? `$${latestData.atr}` : 'N/A'}
+                description={
+                  latestData.atr
+                    ? `손절 기준선: $${(currentPrice - latestData.atr * 1.5).toFixed(2)} (ATR×1.5)`
+                    : "데이터 부족"
+                }
               />
             </Grid>
           </Grid>

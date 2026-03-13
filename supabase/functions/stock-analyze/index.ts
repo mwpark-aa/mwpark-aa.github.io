@@ -38,6 +38,9 @@ serve(async (req) => {
     const rsi = findLast('rsi')
     const tenkanSen = findLast('tenkanSen')
     const kijunSen = findLast('kijunSen')
+    const bbUpper = findLast('bbUpper')
+    const bbLower = findLast('bbLower')
+    const atr = findLast('atr')
 
     const price = latest.close
     const fmt = (v: number | null) => v !== null ? `$${v}` : '데이터 부족'
@@ -58,6 +61,18 @@ serve(async (req) => {
         ? `전환선 ${fmt(tenkanSen)}, 기준선 ${fmt(kijunSen)} → 전환선이 기준선 ${tenkanSen > kijunSen ? '위 (단기 강세 신호)' : '아래 (단기 약세 신호)'}`
         : '데이터 부족'
 
+    const bbDesc = bbUpper !== null && bbLower !== null
+      ? `상단 ${fmt(bbUpper)} / 하단 ${fmt(bbLower)} → 현재가가 ${
+          price >= bbUpper ? '상단 밴드 근접 (과열 신호)' :
+          price <= bbLower ? '하단 밴드 근접 (반등 가능 신호)' :
+          `밴드 중간 (${Math.round(((price - bbLower) / (bbUpper - bbLower)) * 100)}% 위치)`
+        }`
+      : '데이터 부족'
+
+    const atrDesc = atr !== null
+      ? `$${atr} → 손절 기준 제안: $${(price - atr * 1.5).toFixed(2)} (현재가 - ATR×1.5)`
+      : '데이터 부족'
+
     const prompt = `종목: ${symbol}
 현재가: $${price}
 
@@ -70,6 +85,10 @@ serve(async (req) => {
 
 🌐 일목균형표 (추세 강도 파악): ${ichimokuDesc}
 
+📉 볼린저 밴드 (가격 위치 파악): ${bbDesc}
+
+📏 ATR - 변동성 기반 손절 기준: ${atrDesc}
+
 위 지표를 바탕으로 아래 3가지를 한국어로 작성해주세요. 전문 용어는 괄호로 쉽게 풀어쓰고, 각 섹션은 3줄 이내로 간결하게 작성하세요.
 
 ### 1. 현재 상황 요약
@@ -79,7 +98,7 @@ serve(async (req) => {
 **매수 / 관망 / 매도** 중 하나를 굵게 표시하고 이유를 간결하게 설명
 
 ### 3. 대응 전략
-지지·저항 가격대를 기준으로 구체적인 매수 타점과 손절 기준 제안`
+볼린저 밴드와 ATR 손절 기준을 활용해 구체적인 매수 타점, 목표가, 손절가 제안`
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
