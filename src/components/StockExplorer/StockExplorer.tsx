@@ -391,6 +391,22 @@ export default function StockExplorer() {
             )}
           </Paper>
 
+          {/* 투자 주의사항 */}
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              color: '#3f3f46',
+              mt: -2,
+              mb: 3,
+              px: 1,
+              lineHeight: 1.6,
+              fontSize: '0.7rem',
+            }}
+          >
+            ※ 이 분석은 차트 지표에 기반한 기술적 분석이며, 실제 투자 결과를 보장하지 않습니다. 모든 투자 결정은 본인 판단하에 신중히 이루어져야 하며, 투자 권유가 아닙니다.
+          </Typography>
+
           {/* Summary Alert (Objective Only) */}
           <Box sx={{
             p: 3,

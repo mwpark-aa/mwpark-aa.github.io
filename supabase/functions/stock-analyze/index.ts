@@ -21,42 +21,65 @@ serve(async (req) => {
       )
     }
 
-    if (!GROK_API_KEY) {
-       // GROK_API_KEY가 설정되어 있지 않은 경우에 대한 폴백 처리 (기존 summarize 등에서 사용 중인 키 이름 확인 필요)
-       // GROQ_API_KEY 인지 GROK_API_KEY 인지 확인이 필요할 수 있음. SUPABASE_SETUP.md 에는 GROK_API_KEY 로 명시됨.
+    // Find last non-null value for a given key
+    const findLast = (key: string): number | null => {
+      for (let i = indicators.length - 1; i >= 0; i--) {
+        if (indicators[i][key] !== null && indicators[i][key] !== undefined) {
+          return indicators[i][key]
+        }
+      }
+      return null
     }
 
     const latest = indicators[indicators.length - 1]
-    const prompt = `당신은 세계 최고의 주식 차트 분석가입니다.
-회사의 내재 가치나 미래 가능성을 보는 것이 아니라, 오로지 제공된 "객관적인 기술적 지표"만을 바탕으로 차트를 분석합니다.
-주관적인 감정이나 추측을 배제하고 데이터에 기반한 분석 결과를 제공하세요.
+    const ma20 = findLast('ma20')
+    const ma60 = findLast('ma60')
+    const ma200 = findLast('ma200')
+    const rsi = findLast('rsi')
+    const tenkanSen = findLast('tenkanSen')
+    const kijunSen = findLast('kijunSen')
 
-분석 대상: ${symbol}
-현재 기술 지표 데이터:
-- 종가: ${latest.close}
-- 20일 이동평균선: ${latest.ma20}
-- 60일 이동평균선: ${latest.ma60}
-- 200일 이동평균선: ${latest.ma200}
-- RSI (14): ${latest.rsi}
-- 일목균형표 전환선(Tenkan): ${latest.tenkanSen}
-- 일목균형표 기준선(Kijun): ${latest.kijunSen}
+    const price = latest.close
+    const fmt = (v: number | null) => v !== null ? `$${v}` : '데이터 부족'
+    const fmtN = (v: number | null) => v !== null ? `${v}` : '데이터 부족'
+    const trend = (v: number | null, label: string) =>
+      v !== null ? `${fmt(v)} → 현재가가 ${price > v ? '위 (상승 추세)' : '아래 (하락 추세)'}` : '데이터 부족'
 
-위 데이터를 바탕으로 현재 이 주식이 "매수하기에 매력적인 구간인지" 아니면 "관망 또는 매도 구간인지" 분석해 주세요. 
-분석은 한국어로 작성하며, **반드시 Markdown 형식을 사용하여 가독성 있게** 작성해 주세요.
+    const rsiDesc = rsi === null
+      ? '데이터 부족'
+      : rsi > 70
+        ? `${rsi} → 과열 구간 (너무 많이 올라 조정 가능성)`
+        : rsi < 30
+          ? `${rsi} → 침체 구간 (많이 떨어져 반등 가능성)`
+          : `${rsi} → 중립 (안정적인 흐름)`
 
-다음 구조를 활용하세요:
-### 1. 종합 판단
-(매수 적기 / 관망 / 주의 등을 강조해서 표시)
+    const ichimokuDesc =
+      tenkanSen !== null && kijunSen !== null
+        ? `전환선 ${fmt(tenkanSen)}, 기준선 ${fmt(kijunSen)} → 전환선이 기준선 ${tenkanSen > kijunSen ? '위 (단기 강세 신호)' : '아래 (단기 약세 신호)'}`
+        : '데이터 부족'
 
-### 2. 기술적 지표 분석
-- **이동평균선**: 현재 주가와 이평선(20일, 60일, 200일)의 관계 분석
-- **RSI**: 현재 과매수/과매도 여부 및 강도 분석
-- **일목균형표**: 전환선과 기준선의 관계 분석
+    const prompt = `종목: ${symbol}
+현재가: $${price}
 
-### 3. 향후 전망 및 전략
-- **목표가 및 손절가**: 기술적 지지/저항선을 기반으로 제안
+📈 이동평균선 (주가 방향 파악):
+- 20일 평균: ${trend(ma20, '20일')} (단기)
+- 60일 평균: ${trend(ma60, '60일')} (중기)
+- 200일 평균: ${trend(ma200, '200일')} (장기)
 
-> **주의**: 이 분석은 오로지 차트 지표에 기반한 기술적 분석이며, 실제 투자는 본인의 판단하에 신중히 결정해야 합니다. 절대 투자 권유가 아닙니다.`
+📊 RSI (과열/침체 여부): ${rsiDesc}
+
+🌐 일목균형표 (추세 강도 파악): ${ichimokuDesc}
+
+위 지표를 바탕으로 아래 3가지를 한국어로 작성해주세요. 전문 용어는 괄호로 쉽게 풀어쓰고, 각 섹션은 3줄 이내로 간결하게 작성하세요.
+
+### 1. 현재 상황 요약
+지표들이 보여주는 현재 흐름을 쉽게 설명
+
+### 2. 투자 판단
+**매수 / 관망 / 매도** 중 하나를 굵게 표시하고 이유를 간결하게 설명
+
+### 3. 대응 전략
+지지·저항 가격대를 기준으로 구체적인 매수 타점과 손절 기준 제안`
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -67,10 +90,10 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: '당신은 차트 데이터만을 분석하는 냉철한 기술적 분석 전문가입니다.' },
+          { role: 'system', content: '주식 차트를 쉽게 설명해주는 분석가입니다. 전문 용어 없이, 일반인도 바로 이해할 수 있는 쉬운 말로 핵심만 간결하게 분석하세요.' },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.2, // 객관성을 위해 낮은 온도로 설정
+        temperature: 0.2,
       }),
     })
 
