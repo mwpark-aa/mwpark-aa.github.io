@@ -19,7 +19,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 
 import ReactMarkdown from 'react-markdown';
@@ -152,6 +151,12 @@ export default function StockExplorer() {
   const [error, setError] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [visibleLines, setVisibleLines] = useState({
+    close: true, ma20: true, ma60: false, ma200: true, bb: true,
+  });
+
+  const toggleLine = (key: keyof typeof visibleLines) =>
+    setVisibleLines(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 600);
@@ -326,8 +331,44 @@ export default function StockExplorer() {
 
               {/* Main Chart */}
               <Paper sx={{ p: 2, mb: 4, background: '#09090b', border: '1px solid #27272a', borderRadius: 2 }}>
-                <Typography variant="h6" sx={{ mb: 2, color: '#fafafa', fontSize: '1rem' }}>1개년 가격 · 이동평균 · 볼린저 밴드</Typography>
-                <Box sx={{ height: 400, width: '100%' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="h6" sx={{ color: '#fafafa', fontSize: '1rem' }}>1개년 차트</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                    {([
+                      { key: 'close', label: '종가', color: '#fff' },
+                      { key: 'ma20', label: '20일', color: '#3b82f6' },
+                      { key: 'ma60', label: '60일', color: '#10b981' },
+                      { key: 'ma200', label: '200일', color: '#f59e0b' },
+                      { key: 'bb', label: 'BB', color: '#8b5cf6' },
+                    ] as const).map(({ key, label, color }) => (
+                      <Box
+                        key={key}
+                        onClick={() => toggleLine(key)}
+                        sx={{
+                          px: 1.5, py: 0.4,
+                          borderRadius: '999px',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          border: `1px solid ${color}`,
+                          color: visibleLines[key] ? '#000' : color,
+                          bgcolor: visibleLines[key] ? color : 'transparent',
+                          opacity: visibleLines[key] ? 1 : 0.5,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {label}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+                <Box sx={{
+                  height: 400, width: '100%',
+                  '& svg': { outline: 'none' },
+                  '& .recharts-wrapper': { outline: 'none' },
+                  '& *:focus': { outline: 'none' },
+                }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={stockData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
@@ -354,13 +395,12 @@ export default function StockExplorer() {
                         itemStyle={{ fontSize: '12px' }}
                         labelFormatter={(label) => `날짜: ${label}`}
                       />
-                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                      <Line type="monotone" dataKey="bbUpper" name="BB 상단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} />
-                      <Line type="monotone" dataKey="bbLower" name="BB 하단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} />
-                      <Line type="monotone" dataKey="close" name="종가" stroke="#fff" strokeWidth={2} dot={false} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="ma20" name="20일 이평선" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="ma60" name="60일 이평선" stroke="#10b981" dot={false} strokeWidth={1} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="ma200" name="200일 이평선" stroke="#f59e0b" dot={false} strokeWidth={1} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="bbUpper" name="BB 상단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} hide={!visibleLines.bb} />
+                      <Line type="monotone" dataKey="bbLower" name="BB 하단" stroke="#8b5cf6" dot={false} strokeWidth={1} strokeDasharray="4 2" isAnimationActive={false} hide={!visibleLines.bb} />
+                      <Line type="monotone" dataKey="close" name="종가" stroke="#fff" strokeWidth={2} dot={false} isAnimationActive={false} hide={!visibleLines.close} />
+                      <Line type="monotone" dataKey="ma20" name="20일 이평선" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} hide={!visibleLines.ma20} />
+                      <Line type="monotone" dataKey="ma60" name="60일 이평선" stroke="#10b981" dot={false} strokeWidth={1} isAnimationActive={false} hide={!visibleLines.ma60} />
+                      <Line type="monotone" dataKey="ma200" name="200일 이평선" stroke="#f59e0b" dot={false} strokeWidth={1} isAnimationActive={false} hide={!visibleLines.ma200} />
                     </LineChart>
                   </ResponsiveContainer>
                 </Box>
