@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
 
 type DataPoint = { date: string; close: number; open?: number; high?: number; low?: number; volume?: number };
@@ -590,8 +591,20 @@ export default function StockExplorer() {
                 <Typography sx={{ color: '#a1a1aa' }}>차트 지표와 패턴을 분석 중입니다...</Typography>
               </Box>
             ) : analysis ? (
-              <Box sx={{ color: '#e4e4e7', lineHeight: 1.6, '& p': { mb: 2 }, '& h1, & h2, & h3': { color: '#fafafa', mt: 3, mb: 1.5, fontWeight: 700 }, '& ul, & ol': { pl: 2, mb: 2 }, '& li': { mb: 1 }, '& strong': { color: '#3b82f6' }, '& blockquote': { borderLeft: '4px solid #3b82f6', pl: 2, color: '#a1a1aa', my: 2 } }}>
-                <ReactMarkdown>{analysis}</ReactMarkdown>
+              <Box sx={{
+                color: '#e4e4e7', lineHeight: 1.6,
+                '& p': { mb: 2 },
+                '& h1, & h2, & h3': { color: '#fafafa', mt: 3, mb: 1.5, fontWeight: 700 },
+                '& ul, & ol': { pl: 2, mb: 2 },
+                '& li': { mb: 1 },
+                '& strong': { color: '#3b82f6' },
+                '& blockquote': { borderLeft: '4px solid #3b82f6', pl: 2, color: '#a1a1aa', my: 2 },
+                '& table': { width: '100%', borderCollapse: 'collapse', mb: 2, fontSize: '0.875rem' },
+                '& th': { background: '#27272a', color: '#fafafa', fontWeight: 700, px: 2, py: 1, textAlign: 'left', border: '1px solid #3f3f46' },
+                '& td': { px: 2, py: 1, border: '1px solid #3f3f46', color: '#e4e4e7' },
+                '& tr:nth-of-type(even)': { background: '#18181b' },
+              }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</ReactMarkdown>
               </Box>
             ) : (
               <Typography sx={{ color: '#71717a' }}>분석 결과가 없습니다.</Typography>

@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { SYSTEM_PROMPT, buildUserPrompt } from "./prompts.ts"
+import { fetchExternalMarketData, formatExternalDataForPrompt } from "./external-data.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +15,7 @@ serve(async (req) => {
   try {
     const { symbol, indicators, patternInfo } = await req.json()
     const GROK_API_KEY = Deno.env.get('GROK_API_KEY')
+    const COINGLASS_API_KEY = Deno.env.get('COINGLASS_API_KEY')
 
     if (!symbol || !indicators) {
       return new Response(
@@ -106,46 +109,28 @@ serve(async (req) => {
       ? `저항선: ${patternInfo.nearestResistance ? `$${patternInfo.nearestResistance}` : '없음'} / 지지선: ${patternInfo.nearestSupport ? `$${patternInfo.nearestSupport}` : '없음'}`
       : '데이터 부족'
 
-    const prompt = `종목: ${symbol}
-현재가: $${price}
+    // 외부 API (Fear & Greed, CoinGlass) 실시간 조회
+    const externalData = await fetchExternalMarketData(symbol, COINGLASS_API_KEY)
+    const externalDataDesc = formatExternalDataForPrompt(externalData)
 
-📈 이동평균선 (추세 방향):
-- 20일 단기: ${trend(ma20)}
-- 60일 중기: ${trend(ma60)}
-- 200일 장기: ${trend(ma200)}
-
-📊 RSI (14일) — 과열/침체: ${rsiDesc}
-
-📊 MACD (12,26,9) — 모멘텀: ${macdDesc}
-
-📊 스토캐스틱 %K/%D (14,3) — 단기 과매수/과매도: ${stochDesc}
-
-🌐 일목균형표 — 추세 강도: ${ichimokuDesc}
-
-📉 볼린저 밴드 — 가격 위치: ${bbDesc}
-
-📈 OBV — 거래량 추세: ${obvTrend}
-
-📏 ATR — 변동성/손절 기준: ${atrDesc}
-
-🕯️ 감지된 차트/캔들 패턴:
-${patternDesc}
-
-🎯 주요 지지/저항선: ${srDesc}
-
-위 지표와 패턴을 종합하여 아래 4가지를 한국어로 작성해주세요. 전문 용어는 괄호로 쉽게 풀어쓰고, 각 섹션은 3~4줄 이내로 간결하게 작성하세요.
-
-### 1. 현재 상황 요약
-모든 지표가 보여주는 현재 흐름 — 감지된 패턴과 주요 시그널 포함하여 설명
-
-### 2. 핵심 시그널 분석
-가장 주목해야 할 지표 신호 2~3가지 (골든/데드크로스, MACD, 패턴, RSI 등 중 주요 것만)
-
-### 3. 투자 판단
-**매수 / 관망 / 매도** 중 하나를 굵게 표시하고, 위 지표와 패턴을 근거로 간결하게 이유 설명
-
-### 4. 대응 전략
-지지/저항선, 볼린저 밴드, ATR 손절 기준을 활용해 구체적인 매수 타점, 목표가, 손절가 제안`
+    const userPrompt = buildUserPrompt({
+      symbol,
+      price,
+      ma20,
+      ma60,
+      ma200,
+      rsiDesc,
+      macdDesc,
+      stochDesc,
+      ichimokuDesc,
+      bbDesc,
+      obvTrend,
+      atrDesc,
+      atr,
+      patternDesc,
+      srDesc,
+      externalDataDesc,
+    })
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -156,8 +141,8 @@ ${patternDesc}
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: '당신은 주식 차트를 쉽게 설명해주는 기술적 분석 전문가입니다. 이동평균선, MACD, RSI, 스토캐스틱, 볼린저 밴드, 일목균형표, 캔들 패턴, 차트 패턴 등 다양한 지표를 종합하여 분석합니다. 전문 용어 없이 일반인도 바로 이해할 수 있는 쉬운 말로 핵심만 간결하게 분석하세요.' },
-          { role: 'user', content: prompt }
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
         ],
         temperature: 0.2,
       }),
