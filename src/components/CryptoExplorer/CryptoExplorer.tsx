@@ -1236,7 +1236,7 @@ function useBinanceKlines(tf: Timeframe): {
 type DashTab = 'live' | 'backtest'
 
 export default function CryptoExplorer() {
-  const [tab, setTab] = useState<DashTab>('backtest')
+  const [tab, setTab] = useState<DashTab>('live')
   const [signals, setSignals]               = useState<Signal[]>([])
   const [loadingSignals, setLoadingSignals] = useState(true)
   const [lastUpdated, setLastUpdated]       = useState<Date | null>(null)
