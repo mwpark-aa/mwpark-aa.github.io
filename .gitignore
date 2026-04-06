@@ -22,3 +22,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 /dist/
+
+# Trading bot — algorithm must not be public
+bot/
+
+# Backtest Edge Function — deploy to Supabase directly, never commit
+supabase/functions/backtest/
+supabase/functions/stock-analyze/prompts.ts
