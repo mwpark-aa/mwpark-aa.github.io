@@ -19,7 +19,7 @@ import {
   type ISeriesMarkersPluginApi,
 } from 'lightweight-charts'
 import { supabase } from '../../lib/supabase'
-import { runBacktest as execBacktest, type BacktestParams as LibBacktestParams } from '../../lib/backtest'
+import { runBacktest as execBacktest, type BacktestParams as LibBacktestParams, type BacktestTrade as LibBacktestTrade } from '../../lib/backtest'
 import { CRYPTO_SYMBOLS, SIGNAL_LABELS, type CryptoSymbol } from '../../constants/crypto'
 
 // ─────────────────────────────────────────────────────────────
@@ -759,7 +759,7 @@ export default function BacktestViewer() {
 
       setResult(data)
       setTrades(
-        data.trade_log.map((t, i) => ({
+        data.trade_log.map((t: LibBacktestTrade, i: number) => ({
           ...t,
           id: String(i),
           avg_entry_price: t.entry_price,
@@ -1170,7 +1170,7 @@ export default function BacktestViewer() {
                       ] as { key: keyof BacktestParams; label: string; sub: string; hint: string }[]).map(({ key, label, sub, hint }) => {
                         const on = params[key] as unknown as boolean
                         return (
-                          <Box key={key} onClick={() => setParams(p => ({ ...p, [key]: !p[key] }))}
+                          <Box key={String(key)} onClick={() => setParams(p => ({ ...p, [key]: !p[key] }))}
                             sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75,
                               borderRadius: 2, border: '1px solid', cursor: 'pointer', userSelect: 'none',
                               borderColor: on ? '#3b82f666' : '#27272a',
@@ -1183,7 +1183,7 @@ export default function BacktestViewer() {
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Typography sx={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2,
                                   color: on ? '#93c5fd' : '#71717a' }}>{label}</Typography>
-                                <HintTooltip id={`pill-${key}`} text={hint} />
+                                <HintTooltip id={`pill-${String(key)}`} text={hint} />
                               </Box>
                               <Typography sx={{ fontSize: 9, color: on ? '#60a5fa88' : '#52525b' }}>{sub}</Typography>
                             </Box>

@@ -30,5 +30,5 @@ bot/
 supabase/functions/backtest/
 supabase/functions/stock-analyze/prompts.ts
 
-# Backtest browser lib — algorithm must not be public
-src/lib/backtest.ts
+# Backtest browser lib — stub is committed, real algo stays local via skip-worktree
+# After cloning: git update-index --skip-worktree src/lib/backtest.ts
