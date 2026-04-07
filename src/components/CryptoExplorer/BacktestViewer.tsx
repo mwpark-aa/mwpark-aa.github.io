@@ -717,6 +717,7 @@ export default function BacktestViewer() {
     scoreUseIchi: false,
     fixedTP: 0,
     fixedSL: 0,
+    useDailyTrend: false,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
@@ -751,6 +752,7 @@ export default function BacktestViewer() {
       rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
       fixedTP:        parseFloat(draft.fixedTP)        || 0,
       fixedSL:        parseFloat(draft.fixedSL)        || 0,
+      useDailyTrend:  params.useDailyTrend,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)
@@ -812,6 +814,7 @@ export default function BacktestViewer() {
           score_use_ichi: params.scoreUseIchi,
           fixed_tp: committed.fixedTP,
           fixed_sl: committed.fixedSL,
+          use_daily_trend: params.useDailyTrend,
         }
         const resultPayload = {
           total_return_pct: data.total_return_pct,
@@ -877,6 +880,7 @@ export default function BacktestViewer() {
       scoreUseIchi:    (best as any).score_use_ichi ?? false,
       fixedTP:         (best as any).fixed_tp ?? 0,
       fixedSL:         (best as any).fixed_sl ?? 0,
+      useDailyTrend:   (best as any).use_daily_trend ?? false,
       // 날짜는 유지 (현재 선택된 날짜 사용)
     }))
     setDraft(d => ({
@@ -944,6 +948,7 @@ export default function BacktestViewer() {
       rvolSkip:        run.rvol_skip        ?? 0.4,
       fixedTP:         (run as any).fixed_tp ?? 0,
       fixedSL:         (run as any).fixed_sl ?? 0,
+      useDailyTrend:   (run as any).use_daily_trend ?? false,
     }))
     setDraft({
       leverage: String(run.leverage),
@@ -1261,6 +1266,35 @@ export default function BacktestViewer() {
                           <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
                         </Box>
                       </Box>
+                    </Box>
+                  </Box>
+
+                  {/* ── MTF 일봉 추세 필터 ── */}
+                  <Box sx={{ p: 1.5, borderRadius: 2, border: '1px solid',
+                    borderColor: params.useDailyTrend ? '#f59e0b44' : '#27272a',
+                    background: params.useDailyTrend ? '#f59e0b08' : 'transparent',
+                    cursor: 'pointer', userSelect: 'none', transition: 'all 0.15s' }}
+                    onClick={() => setParams(p => ({ ...p, useDailyTrend: !p.useDailyTrend }))}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        background: params.useDailyTrend ? '#f59e0b' : '#3f3f46',
+                        boxShadow: params.useDailyTrend ? '0 0 8px #f59e0baa' : 'none' }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Typography sx={{ fontSize: 12, fontWeight: 700,
+                            color: params.useDailyTrend ? '#fcd34d' : '#71717a' }}>
+                            일봉 추세 필터 (MTF)
+                          </Typography>
+                          <HintTooltip id="useDailyTrend" text={'"거시 방향과 맞는 진입만 허용"\n일봉 MA120 기준: 일봉 종가 > MA120이면 롱만, < MA120이면 숏만 허용.\n1d 인터벌에서는 자동으로 비활성화.'} />
+                        </Box>
+                        <Typography sx={{ fontSize: 10, color: params.useDailyTrend ? '#f59e0b88' : '#52525b', mt: 0.25 }}>
+                          일봉 MA120 방향과 일치하는 신호만 진입 · 캔들 단위가 1d면 무효
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: 10, fontWeight: 700,
+                        color: params.useDailyTrend ? '#fcd34d' : '#3f3f46' }}>
+                        {params.useDailyTrend ? 'ON' : 'OFF'}
+                      </Typography>
                     </Box>
                   </Box>
 
