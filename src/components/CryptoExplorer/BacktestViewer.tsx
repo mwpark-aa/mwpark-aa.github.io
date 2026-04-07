@@ -76,6 +76,7 @@ interface BacktestTrade {
   add_count: number | null
   add_entries: any
   score?: number
+  capital_used: number
 }
 
 interface OHLCVCandle {
@@ -404,10 +405,12 @@ const TradeRow = memo(function TradeRow({
                                           trade,
                                           index,
                                           onScrollTo,
+                                          initialCapital,
                                         }: {
   trade: BacktestTrade
   index: number
   onScrollTo: (ts: string) => void
+  initialCapital: number
 }) {
   if (!trade) return null
 
@@ -668,6 +671,18 @@ const TradeRow = memo(function TradeRow({
                             fee ${trade.commission.toFixed(2)}
                           </Typography>
                       )}
+                      {trade.capital_used > 0 && initialCapital > 0 && (
+                          <Typography
+                              sx={{
+                                fontSize: 8,
+                                color: '#3b82f6',
+                                fontFamily: 'monospace',
+                                opacity: 0.7,
+                              }}
+                          >
+                            💰 {(trade.capital_used / initialCapital * 100).toFixed(1)}% 사용
+                          </Typography>
+                      )}
                     </Box>
                 ) : (
                     <Box />
@@ -764,6 +779,7 @@ export default function BacktestViewer() {
     scoreUseIchi: false,
     fixedTP: 0,
     fixedSL: 0,
+    tpslMode: 'auto' as const,
     useDailyTrend: false,
   })
 
@@ -799,6 +815,7 @@ export default function BacktestViewer() {
       rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
       fixedTP:        parseFloat(draft.fixedTP)        || 0,
       fixedSL:        parseFloat(draft.fixedSL)        || 0,
+      tpslMode:       params.tpslMode,
       useDailyTrend:  params.useDailyTrend,
     }
     setParams(p => ({ ...p, ...committed }))
@@ -1235,52 +1252,68 @@ export default function BacktestViewer() {
                           value={draft.initialCapital ?? String(params.initialCapital)} style={inputStyle}
                           onChange={e => setDraft(d => ({ ...d, initialCapital: e.target.value }))} />
                       </Box>
-                      <Box>
-                        <LabelRow label="목표 수익 배율 (TP)" hintId="minRR" hint={'"손실 대비 몇 배를 목표로 잡냐"\n2.0이면 -$100 리스크 → +$200 목표.\n높을수록 익절 자리가 멀어짐.'} />
-                        <input type="number" min={1} max={10} step={0.1}
-                          value={draft.minRR ?? String(params.minRR)} style={inputStyle}
-                          onChange={e => setDraft(d => ({ ...d, minRR: e.target.value }))} />
-                      </Box>
-                      <Box>
-                        <LabelRow label="진입 필터 (손익비)" hintId="minRRRatio" hint={'"이 자리, 진입할 만한가?" 필터\n계산된 손익비가 이 값 미만이면 진입 포기.\n낮출수록 더 많이 진입, 높일수록 신중.'} />
-                        <input type="number" min={1} max={10} step={0.1}
-                          value={draft.minRRRatio ?? String(params.minRRRatio)} style={inputStyle}
-                          onChange={e => setDraft(d => ({ ...d, minRRRatio: e.target.value }))} />
-                      </Box>
-                      <Box>
-                        <LabelRow label="최소 지표 동의 수" hintId="minScore" hint={'"몇 개가 동의해야 진입하냐"\n선택한 지표 중 이 개수 이상 동의해야 실제 진입.\n높을수록 신호 적고 신중, 0이면 조건 없이 진입.'} />
-                        <input type="number" min={0} max={7}
-                          value={draft.minScore ?? String(params.minScore)} style={inputStyle}
-                          onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
-                      </Box>
                     </Box>
                   </Box>
 
-                  {/* ── 고정 익절/손절 % ── */}
+                  {/* ── TP/SL 모드 선택 ── */}
                   <Box>
-                    <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>고정 익절/손절 % <Typography component="span" sx={{ fontSize: 9, color: '#3f3f46', ml: 0.5 }}>0 = ATR 자동계산</Typography></Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
-                      <Box>
-                        <LabelRow label="익절 % (+N)" hintId="fixedTP" hint={'"진입가 기준 N% 오르면 무조건 익절"\n현물 기준 (레버리지 무관).\n0이면 minRR 기반 ATR 자동계산 사용.'} />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Typography sx={{ fontSize: 11, color: '#10b981', fontWeight: 700, flexShrink: 0 }}>+</Typography>
-                          <input type="number" min={0} max={100} step={0.5}
-                            value={draft.fixedTP ?? String(params.fixedTP)} style={inputStyle}
-                            onChange={e => setDraft(d => ({ ...d, fixedTP: e.target.value }))} />
-                          <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
+                    <Typography sx={{ ...labelSx, mb: 1, color: '#a1a1aa' }}>TP / SL 설정</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+                      {([['auto', '🎯 손익비 필터 (자동)'], ['fixed', '📌 고정 TP/SL (%)']] as const).map(([mode, label]) => (
+                        <Box key={mode}
+                          onClick={() => setParams(p => ({ ...p, tpslMode: mode }))}
+                          sx={{
+                            flex: 1, py: 0.75, px: 1.5, borderRadius: 1.5, cursor: 'pointer', textAlign: 'center',
+                            border: '1px solid', userSelect: 'none', transition: 'all 0.15s',
+                            borderColor: params.tpslMode === mode ? '#3b82f6' : '#27272a',
+                            background: params.tpslMode === mode ? '#3b82f611' : 'transparent',
+                          }}>
+                          <Typography sx={{ fontSize: 11, fontWeight: 700, color: params.tpslMode === mode ? '#60a5fa' : '#71717a' }}>
+                            {label}
+                          </Typography>
                         </Box>
-                      </Box>
-                      <Box>
-                        <LabelRow label="손절 % (-M)" hintId="fixedSL" hint={'"진입가 기준 M% 내리면 무조건 손절"\n현물 기준 (레버리지 무관).\n0이면 스윙로우/ATR 자동계산 사용.'} />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Typography sx={{ fontSize: 11, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>−</Typography>
-                          <input type="number" min={0} max={100} step={0.5}
-                            value={draft.fixedSL ?? String(params.fixedSL)} style={inputStyle}
-                            onChange={e => setDraft(d => ({ ...d, fixedSL: e.target.value }))} />
-                          <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
-                        </Box>
-                      </Box>
+                      ))}
                     </Box>
+
+                    {params.tpslMode === 'auto' ? (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
+                        <Box>
+                          <LabelRow label="목표 수익 배율 (TP)" hintId="minRR" hint={'"손실 대비 몇 배를 목표로 잡냐"\n2.0이면 -$100 리스크 → +$200 목표.\n높을수록 익절 자리가 멀어짐.'} />
+                          <input type="number" min={1} max={10} step={0.1}
+                            value={draft.minRR ?? String(params.minRR)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, minRR: e.target.value }))} />
+                        </Box>
+                        <Box>
+                          <LabelRow label="진입 필터 (손익비)" hintId="minRRRatio" hint={'"이 자리, 진입할 만한가?" 필터\n계산된 손익비가 이 값 미만이면 진입 포기.\n낮출수록 더 많이 진입, 높일수록 신중.'} />
+                          <input type="number" min={1} max={10} step={0.1}
+                            value={draft.minRRRatio ?? String(params.minRRRatio)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, minRRRatio: e.target.value }))} />
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
+                        <Box>
+                          <LabelRow label="익절 % (+N)" hintId="fixedTP" hint={'"진입가 기준 N% 오르면 무조건 익절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 익절.'} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Typography sx={{ fontSize: 11, color: '#10b981', fontWeight: 700, flexShrink: 0 }}>+</Typography>
+                            <input type="number" min={0.1} max={100} step={0.5}
+                              value={draft.fixedTP ?? String(params.fixedTP)} style={inputStyle}
+                              onChange={e => setDraft(d => ({ ...d, fixedTP: e.target.value }))} />
+                            <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
+                          </Box>
+                        </Box>
+                        <Box>
+                          <LabelRow label="손절 % (-M)" hintId="fixedSL" hint={'"진입가 기준 M% 내리면 무조건 손절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 손절.'} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Typography sx={{ fontSize: 11, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>−</Typography>
+                            <input type="number" min={0.1} max={100} step={0.5}
+                              value={draft.fixedSL ?? String(params.fixedSL)} style={inputStyle}
+                              onChange={e => setDraft(d => ({ ...d, fixedSL: e.target.value }))} />
+                            <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
 
                   {/* ── MTF 일봉 추세 필터 ── */}
@@ -1312,7 +1345,7 @@ export default function BacktestViewer() {
                     </Box>
                   </Box>
 
-                  {/* ── 지표 선택 ── */}
+                  {/* ── 매수 기준 점수 + 지표 선택 ── */}
                   {(() => {
                     const smInput: React.CSSProperties = { ...inputStyle, width: '100%', boxSizing: 'border-box', fontSize: 11, padding: '3px 6px' }
                     const indicatorList = [
@@ -1596,13 +1629,19 @@ export default function BacktestViewer() {
 
                     return (
                       <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
                           <Typography sx={{ ...labelSx, color: '#a1a1aa' }}>지표 선택</Typography>
                           <Box sx={{ px: 1, py: 0.25, borderRadius: 10, background: activeCount > 0 ? '#3b82f620' : '#27272a',
                             border: '1px solid', borderColor: activeCount > 0 ? '#3b82f644' : '#3f3f46' }}>
                             <Typography sx={{ fontSize: 10, color: activeCount > 0 ? '#93c5fd' : '#52525b', fontWeight: 700 }}>
                               {activeCount} / {indicatorList.length} 활성화
                             </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
+                            <LabelRow label="매수 기준 점수" hintId="minScore" hint={'"진입에 필요한 최소 점수"\n활성화된 지표들이 각각 +1/-1 점수를 부여.\n합산 점수가 이 값 이상이어야 실제 진입.\n높을수록 신중한 진입, 0이면 조건 없이 진입.'} />
+                            <input type="number" min={0} max={7}
+                              value={draft.minScore ?? String(params.minScore)} style={{ ...inputStyle, width: 48 }}
+                              onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
                           </Box>
                         </Box>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 1 }}>
@@ -1927,6 +1966,7 @@ export default function BacktestViewer() {
                               trade={t}
                               index={i}
                               onScrollTo={handleScrollTo}
+                              initialCapital={result?.initial_capital ?? params.initialCapital}
                           />
                       ))
                   ) : (
