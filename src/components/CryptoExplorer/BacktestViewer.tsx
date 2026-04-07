@@ -714,6 +714,8 @@ export default function BacktestViewer() {
     stochOverbought: 80,
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
+    ichiTP: 7.0,
+    ichiSL: 2.5,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
@@ -723,6 +725,7 @@ export default function BacktestViewer() {
     adxThreshold: '20', mfiThreshold: '50',
     stochOversold: '20', stochOverbought: '80',
     rvolThreshold: '1.5', rvolSkip: '0.4',
+    ichiTP: '7.0', ichiSL: '2.5',
   })
 
   const handleScrollTo = useCallback((ts: string) => {
@@ -745,6 +748,8 @@ export default function BacktestViewer() {
       stochOverbought:parseFloat(draft.stochOverbought)|| params.stochOverbought,
       rvolThreshold:  parseFloat(draft.rvolThreshold)  || params.rvolThreshold,
       rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
+      ichiTP:         parseFloat(draft.ichiTP)         || params.ichiTP,
+      ichiSL:         parseFloat(draft.ichiSL)         || params.ichiSL,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)
@@ -802,6 +807,8 @@ export default function BacktestViewer() {
         stoch_overbought: committed.stochOverbought,
         rvol_threshold: committed.rvolThreshold,
         rvol_skip: committed.rvolSkip,
+        ichi_tp: committed.ichiTP,
+        ichi_sl: committed.ichiSL,
       }
       const resultPayload = {
         total_return_pct: data.total_return_pct,
@@ -870,6 +877,8 @@ export default function BacktestViewer() {
       stochOverbought: run.stoch_overbought ?? 80,
       rvolThreshold:   run.rvol_threshold   ?? 1.5,
       rvolSkip:        run.rvol_skip        ?? 0.4,
+      ichiTP:          (run as any).ichi_tp ?? 7.0,
+      ichiSL:          (run as any).ichi_sl ?? 2.5,
     }))
     setDraft({
       leverage: String(run.leverage),
@@ -885,6 +894,8 @@ export default function BacktestViewer() {
       stochOverbought: String(run.stoch_overbought ?? 80),
       rvolThreshold: String(run.rvol_threshold ?? 1.5),
       rvolSkip: String(run.rvol_skip ?? 0.4),
+      ichiTP: String((run as any).ichi_tp ?? 7.0),
+      ichiSL: String((run as any).ichi_sl ?? 2.5),
     })
     setShowHistory(false)
     setShowParams(true)
@@ -1295,8 +1306,34 @@ export default function BacktestViewer() {
                         )}
 
                       </Box>
+
                     </Box>
                   )}
+
+                  {/* ── 일목구름 + BB 눌림목 설정 ── */}
+                  <Box>
+                    <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>일목구름+BB 눌림목 (ICHI_BB_PULLBACK)</Typography>
+                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px solid #f59e0b22', background: '#f59e0b08' }}>
+                      <Typography sx={{ fontSize: 10, color: '#a1a1aa', mb: 1, lineHeight: 1.6 }}>
+                        현재가가 일목구름(스팬A·B) <strong style={{ color: '#fbbf24' }}>위</strong>에 있을 때, BB 하단 눌림목 롱 진입.<br/>
+                        BB 상단 도달 또는 익절/손절 % 중 먼저 발생하는 조건으로 청산.
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                        <Box>
+                          <LabelRow label="익절 %" hintId="ichiTP" hint={'"진입가 기준 몇 % 오르면 익절"\n기본 7% — Pine Script 원본 값.'} />
+                          <input type="number" min={1} max={50} step={0.5}
+                            value={draft.ichiTP ?? String(params.ichiTP)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, ichiTP: e.target.value }))} />
+                        </Box>
+                        <Box>
+                          <LabelRow label="손절 %" hintId="ichiSL" hint={'"진입가 기준 몇 % 내리면 손절"\n기본 2.5% — Pine Script 원본 값.\nBB 상단 도달 시에도 자동 청산.'} />
+                          <input type="number" min={0.5} max={20} step={0.5}
+                            value={draft.ichiSL ?? String(params.ichiSL)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, ichiSL: e.target.value }))} />
+                        </Box>
+                      </Box>
+                    </Box>
+                  </Box>
 
                 </Box>
             )}

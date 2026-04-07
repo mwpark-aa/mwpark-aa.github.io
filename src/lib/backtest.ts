@@ -28,6 +28,8 @@ export interface BacktestParams {
   stochOverbought: number
   rvolThreshold: number
   rvolSkip: number
+  ichiTP: number          // 일목+BB 눌림목 익절 % (기본 7.0)
+  ichiSL: number          // 일목+BB 눌림목 손절 % (기본 2.5)
 }
 
 export interface BacktestTrade {
@@ -77,6 +79,7 @@ interface Candle {
   vol_ma20?: number | null; vol_rvol168?: number
   adx14?: number | null; obv?: number; obv_ma20?: number | null
   mfi14?: number | null; macd_hist?: number | null; stoch_k?: number | null
+  ichimoku_a?: number | null; ichimoku_b?: number | null
   swing_low?: number; swing_high?: number
 }
 
@@ -96,7 +99,7 @@ const TRAILING_STOP_PCT    = 0.025
 const BELOW_TP1_BUFFER     = 0.01
 const DAILY_LOSS_LIMIT_PCT = 0.06
 
-const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH']
+const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH', 'ICHI_BB_PULLBACK']
 const SHORT_SIGNALS = ['MA20_BREAKDOWN', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'DEATH_CROSS']
 const HIGH_CONF     = new Set(['DEATH_CROSS'])
 const SELL_SIGNALS  = new Set(['DEATH_CROSS', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'MA20_BREAKDOWN'])
@@ -281,6 +284,10 @@ function computeIndicators(rows: Candle[]): void {
   const obvRaw = obv(rows), obvMa = sma(obvRaw, 20)
   const mfi = mfi14(rows), macd = macdHist(closes), stoch = stochK(rows)
 
+  // 일목균형표: Span A/B (26봉 뒤에 그려지므로 현재봉 기준 26봉 전 값)
+  const hl2 = rows.map(r => (r.high + r.low) / 2)
+  const tenkan = sma(hl2, 9), kijun = sma(hl2, 26), sma52 = sma(hl2, 52)
+
   for (let i = 0; i < rows.length; i++) {
     const b168 = vm168[i]
     rows[i].ma20 = ma20[i]; rows[i].ma60 = ma60[i]; rows[i].ma120 = ma120[i]
@@ -291,6 +298,16 @@ function computeIndicators(rows: Candle[]): void {
     rows[i].vol_rvol168 = b168 ? Math.round(vols[i] / b168 * 1000) / 1000 : 1.0
     rows[i].adx14 = adx[i]; rows[i].obv = obvRaw[i]; rows[i].obv_ma20 = obvMa[i]
     rows[i].mfi14 = mfi[i]; rows[i].macd_hist = macd[i]; rows[i].stoch_k = stoch[i]
+    // 일목 스팬: 현재봉의 구름은 26봉 전 tenkan/kijun으로 계산
+    const shift = 26
+    if (i >= shift) {
+      const ta = tenkan[i - shift], ka = kijun[i - shift], sb = sma52[i - shift]
+      rows[i].ichimoku_a = ta != null && ka != null ? (ta + ka) / 2 : null
+      rows[i].ichimoku_b = sb ?? null
+    } else {
+      rows[i].ichimoku_a = null
+      rows[i].ichimoku_b = null
+    }
   }
 }
 
@@ -413,6 +430,18 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
     && prev.ma20 >= prev.ma60 && curr.ma20 < curr.ma60 && close < curr.ma60 && ready('DEATH_CROSS'))
     add('DEATH_CROSS', rS, scoreShort(rS, p))
 
+  // 일목구름 + BB 하단 눌림목 (LONG)
+  // 조건: 현재가 > Span A AND 현재가 > Span B (구름 위) + 저가가 BB 하단에 닿음
+  if (curr.ichimoku_a != null && curr.ichimoku_b != null
+    && close > curr.ichimoku_a && close > curr.ichimoku_b
+    && curr.bb_lower != null && curr.low <= curr.bb_lower
+    && ready('ICHI_BB_PULLBACK')) {
+    const sl = Math.round(close * (1 - p.ichiSL / 100) * 1e6) / 1e6
+    const tp = Math.round(close * (1 + p.ichiTP / 100) * 1e6) / 1e6
+    const rr = Math.round((tp - close) / (close - sl) * 100) / 100
+    fired.push({ signal_type: 'ICHI_BB_PULLBACK', tp, sl, rr, score: scoreLong(rL, p) })
+  }
+
   return fired
 }
 
@@ -505,8 +534,13 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
         ? row.high >= tp1Val * (1 + BELOW_TP1_BUFFER)
         : row.low  <= tp1Val * (1 - BELOW_TP1_BUFFER))
 
+      // ICHI_BB_PULLBACK 전용: BB 상단 도달 시 청산 (익절 전 먼저 체크)
+      const ichiBBExit = pos.signal_type === 'ICHI_BB_PULLBACK'
+        && !short && row.bb_upper != null && row.high >= row.bb_upper!
+
       let exitPrice: number | null = null, exitReason = ''
-      if      (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
+      if      (ichiBBExit) { exitPrice = row.bb_upper!; exitReason = 'BB_UPPER' }
+      else if (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
       else if (tpHit)    { exitPrice = pos.tp; exitReason = 'TP' }
       else if (trailHit) { exitPrice = short ? pos.peakPrice * (1 + TRAILING_STOP_PCT) : pos.peakPrice * (1 - TRAILING_STOP_PCT); exitReason = 'TRAIL' }
       else if (belowTp1) { exitPrice = tp1Val; exitReason = 'BELOW_TP1' }
