@@ -714,8 +714,7 @@ export default function BacktestViewer() {
     stochOverbought: 80,
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
-    ichiTP: 7.0,
-    ichiSL: 2.5,
+    scoreUseIchi: false,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
@@ -725,7 +724,6 @@ export default function BacktestViewer() {
     adxThreshold: '20', mfiThreshold: '50',
     stochOversold: '20', stochOverbought: '80',
     rvolThreshold: '1.5', rvolSkip: '0.4',
-    ichiTP: '7.0', ichiSL: '2.5',
   })
 
   const handleScrollTo = useCallback((ts: string) => {
@@ -748,8 +746,6 @@ export default function BacktestViewer() {
       stochOverbought:parseFloat(draft.stochOverbought)|| params.stochOverbought,
       rvolThreshold:  parseFloat(draft.rvolThreshold)  || params.rvolThreshold,
       rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
-      ichiTP:         parseFloat(draft.ichiTP)         || params.ichiTP,
-      ichiSL:         parseFloat(draft.ichiSL)         || params.ichiSL,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)
@@ -807,8 +803,7 @@ export default function BacktestViewer() {
         stoch_overbought: committed.stochOverbought,
         rvol_threshold: committed.rvolThreshold,
         rvol_skip: committed.rvolSkip,
-        ichi_tp: committed.ichiTP,
-        ichi_sl: committed.ichiSL,
+        score_use_ichi: params.scoreUseIchi,
       }
       const resultPayload = {
         total_return_pct: data.total_return_pct,
@@ -871,6 +866,7 @@ export default function BacktestViewer() {
       scoreUseStoch:run.score_use_stoch?? true,
       scoreUseRSI:  run.score_use_rsi  ?? true,
       scoreUseRVOL: run.score_use_rvol ?? true,
+      scoreUseIchi: (run as any).score_use_ichi ?? false,
       adxThreshold:    run.adx_threshold    ?? 20,
       mfiThreshold:    run.mfi_threshold    ?? 50,
       stochOversold:   run.stoch_oversold   ?? 20,
@@ -894,8 +890,6 @@ export default function BacktestViewer() {
       stochOverbought: String(run.stoch_overbought ?? 80),
       rvolThreshold: String(run.rvol_threshold ?? 1.5),
       rvolSkip: String(run.rvol_skip ?? 0.4),
-      ichiTP: String((run as any).ichi_tp ?? 7.0),
-      ichiSL: String((run as any).ichi_sl ?? 2.5),
     })
     setShowHistory(false)
     setShowParams(true)
@@ -1184,6 +1178,7 @@ export default function BacktestViewer() {
                         { key: 'scoreUseStoch', label: 'Stoch', sub: '스토캐스틱',   hint: '"최근 범위에서 위쪽이냐 아래쪽이냐"\n최근 N봉 고-저 박스 안에서 현재가 위치.\nLong은 상한 미만, Short는 하한 초과 시 점수 +1.' },
                         { key: 'scoreUseRSI',   label: 'RSI',   sub: 'RSI 건강구간', hint: '"얼마나 빠르게 올라왔냐"\n14봉 상승폭 vs 하락폭 비율 (0~100).\n과매도~과매수 사이 건강 구간에 있을 때 점수 +1.' },
                         { key: 'scoreUseRVOL',  label: 'RVOL',  sub: '주간 거래량',  hint: '"평소보다 많이 거래되고 있냐?"\n168봉(1주) 평균 대비 현재 거래량 비율.\n설정 배수 이상이면 점수 +1.' },
+                        { key: 'scoreUseIchi',  label: '일목',  sub: '구름대 위치',   hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\nLong: 구름 위 → 점수 +1\nShort: 구름 아래 → 점수 +1\n활성화 시 구름 이탈하면 자동 청산.' },
                       ] as { key: keyof BacktestParams; label: string; sub: string; hint: string }[]).map(({ key, label, sub, hint }) => {
                         const on = params[key] as unknown as boolean
                         return (
@@ -1309,31 +1304,6 @@ export default function BacktestViewer() {
 
                     </Box>
                   )}
-
-                  {/* ── 일목구름 + BB 눌림목 설정 ── */}
-                  <Box>
-                    <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>일목구름+BB 눌림목 (ICHI_BB_PULLBACK)</Typography>
-                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px solid #f59e0b22', background: '#f59e0b08' }}>
-                      <Typography sx={{ fontSize: 10, color: '#a1a1aa', mb: 1, lineHeight: 1.6 }}>
-                        현재가가 일목구름(스팬A·B) <strong style={{ color: '#fbbf24' }}>위</strong>에 있을 때, BB 하단 눌림목 롱 진입.<br/>
-                        BB 상단 도달 또는 익절/손절 % 중 먼저 발생하는 조건으로 청산.
-                      </Typography>
-                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                        <Box>
-                          <LabelRow label="익절 %" hintId="ichiTP" hint={'"진입가 기준 몇 % 오르면 익절"\n기본 7% — Pine Script 원본 값.'} />
-                          <input type="number" min={1} max={50} step={0.5}
-                            value={draft.ichiTP ?? String(params.ichiTP)} style={inputStyle}
-                            onChange={e => setDraft(d => ({ ...d, ichiTP: e.target.value }))} />
-                        </Box>
-                        <Box>
-                          <LabelRow label="손절 %" hintId="ichiSL" hint={'"진입가 기준 몇 % 내리면 손절"\n기본 2.5% — Pine Script 원본 값.\nBB 상단 도달 시에도 자동 청산.'} />
-                          <input type="number" min={0.5} max={20} step={0.5}
-                            value={draft.ichiSL ?? String(params.ichiSL)} style={inputStyle}
-                            onChange={e => setDraft(d => ({ ...d, ichiSL: e.target.value }))} />
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
 
                 </Box>
             )}

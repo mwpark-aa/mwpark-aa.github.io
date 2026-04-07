@@ -28,8 +28,7 @@ export interface BacktestParams {
   stochOverbought: number
   rvolThreshold: number
   rvolSkip: number
-  ichiTP: number          // 일목+BB 눌림목 익절 % (기본 7.0)
-  ichiSL: number          // 일목+BB 눌림목 손절 % (기본 2.5)
+  scoreUseIchi: boolean
 }
 
 export interface BacktestTrade {
@@ -99,7 +98,7 @@ const TRAILING_STOP_PCT    = 0.025
 const BELOW_TP1_BUFFER     = 0.01
 const DAILY_LOSS_LIMIT_PCT = 0.06
 
-const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH', 'ICHI_BB_PULLBACK']
+const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH']
 const SHORT_SIGNALS = ['MA20_BREAKDOWN', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'DEATH_CROSS']
 const HIGH_CONF     = new Set(['DEATH_CROSS'])
 const SELL_SIGNALS  = new Set(['DEATH_CROSS', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'MA20_BREAKDOWN'])
@@ -354,6 +353,8 @@ function scoreLong(row: Candle, p: BacktestParams): number {
   if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k < p.stochOverbought) s++
   if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
+  if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
+    && row.close > row.ichimoku_a && row.close > row.ichimoku_b) s++
   return s
 }
 
@@ -366,6 +367,8 @@ function scoreShort(row: Candle, p: BacktestParams): number {
   if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k > p.stochOversold) s++
   if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
+  if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
+    && row.close < row.ichimoku_a && row.close < row.ichimoku_b) s++
   return s
 }
 
@@ -429,18 +432,6 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
   if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
     && prev.ma20 >= prev.ma60 && curr.ma20 < curr.ma60 && close < curr.ma60 && ready('DEATH_CROSS'))
     add('DEATH_CROSS', rS, scoreShort(rS, p))
-
-  // 일목구름 + BB 하단 눌림목 (LONG)
-  // 조건: 현재가 > Span A AND 현재가 > Span B (구름 위) + 저가가 BB 하단에 닿음
-  if (curr.ichimoku_a != null && curr.ichimoku_b != null
-    && close > curr.ichimoku_a && close > curr.ichimoku_b
-    && curr.bb_lower != null && curr.low <= curr.bb_lower
-    && ready('ICHI_BB_PULLBACK')) {
-    const sl = Math.round(close * (1 - p.ichiSL / 100) * 1e6) / 1e6
-    const tp = Math.round(close * (1 + p.ichiTP / 100) * 1e6) / 1e6
-    const rr = Math.round((tp - close) / (close - sl) * 100) / 100
-    fired.push({ signal_type: 'ICHI_BB_PULLBACK', tp, sl, rr, score: scoreLong(rL, p) })
-  }
 
   return fired
 }
@@ -534,12 +525,16 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
         ? row.high >= tp1Val * (1 + BELOW_TP1_BUFFER)
         : row.low  <= tp1Val * (1 - BELOW_TP1_BUFFER))
 
-      // ICHI_BB_PULLBACK 전용: BB 상단 도달 시 청산 (익절 전 먼저 체크)
-      const ichiBBExit = pos.signal_type === 'ICHI_BB_PULLBACK'
-        && !short && row.bb_upper != null && row.high >= row.bb_upper!
+      // 일목 구름 이탈 청산 (scoreUseIchi 활성화 시)
+      // 롱: 종가가 구름 아래로 이탈 / 숏: 종가가 구름 위로 이탈
+      const cloudBreak = p.scoreUseIchi
+        && row.ichimoku_a != null && row.ichimoku_b != null
+        && (short
+          ? row.close > Math.max(row.ichimoku_a!, row.ichimoku_b!)
+          : row.close < Math.min(row.ichimoku_a!, row.ichimoku_b!))
 
       let exitPrice: number | null = null, exitReason = ''
-      if      (ichiBBExit) { exitPrice = row.bb_upper!; exitReason = 'BB_UPPER' }
+      if      (cloudBreak) { exitPrice = row.close; exitReason = 'CLOUD_EXIT' }
       else if (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
       else if (tpHit)    { exitPrice = pos.tp; exitReason = 'TP' }
       else if (trailHit) { exitPrice = short ? pos.peakPrice * (1 + TRAILING_STOP_PCT) : pos.peakPrice * (1 - TRAILING_STOP_PCT); exitReason = 'TRAIL' }
