@@ -31,6 +31,7 @@ export interface BacktestParams {
   scoreUseIchi: boolean
   fixedTP: number   // 고정 익절 % (현물 기준, 0 = ATR 자동)
   fixedSL: number   // 고정 손절 % (현물 기준, 0 = ATR 자동)
+  useDailyTrend: boolean  // 일봉 추세 필터 (MTF): 일봉 MA120 방향과 일치할 때만 진입
 }
 
 export interface BacktestTrade {
@@ -462,7 +463,7 @@ function positionSize(capital: number, entry: number, sl: number, leverage: numb
 
 // ── Main backtest ──────────────────────────────────────────────────────────────
 
-function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
+function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, DailyBar> | null = null): BacktestResult {
   const n = rows.length
   let capital = p.initialCapital
   const trades: BacktestTrade[] = []
@@ -586,10 +587,18 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
       // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
       if (p.fixedTP === 0 && p.fixedSL === 0 && rr != null && rr < p.minRRRatio) continue
       if (score < p.minScore) continue
-      // MA120 trend filter
+      // 인터벌 MA120 추세 필터 (단일 타임프레임)
       if (row.ma120 != null) {
         if (short && row.close > row.ma120) continue
         if (!short && row.close < row.ma120) continue
+      }
+      // 일봉 추세 필터 (MTF): 일봉 MA120 방향 확인
+      if (dailyMap) {
+        const daily = getDailyBar(dailyMap, row.timestamp)
+        if (daily && daily.ma120 != null) {
+          if (!short && daily.close < daily.ma120) continue   // 일봉 하락장 → 롱 스킵
+          if (short  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
+        }
       }
       const { quantity, capitalUsed } = positionSize(capital, row.close, sl, p.leverage)
       if (quantity <= 0) continue
@@ -658,6 +667,47 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
   }
 }
 
+// ── Daily trend map (MTF) ──────────────────────────────────────────────────────
+
+interface DailyBar {
+  close: number
+  ma120: number | null
+  ichimoku_a: number | null
+  ichimoku_b: number | null
+}
+
+async function buildDailyTrendMap(symbol: string, startMs: number, endMs: number): Promise<Map<number, DailyBar>> {
+  // MA120 + 일목 워밍업: 220일
+  const warmup = 220 * 86400000
+  const rows = await fetchKlines(symbol, '1d', startMs - warmup, endMs)
+
+  const closes = rows.map(r => r.close)
+  const ma120arr = sma(closes, 120)
+  const hl2 = rows.map(r => (r.high + r.low) / 2)
+  const tenkan = sma(hl2, 9), kijun = sma(hl2, 26), sma52arr = sma(hl2, 52)
+
+  const map = new Map<number, DailyBar>()
+  for (let i = 0; i < rows.length; i++) {
+    const shift = 26
+    const ia = i >= shift && tenkan[i - shift] != null && kijun[i - shift] != null
+      ? (tenkan[i - shift]! + kijun[i - shift]!) / 2 : null
+    const ib = i >= shift ? (sma52arr[i - shift] ?? null) : null
+    map.set(rows[i].timestamp, { close: rows[i].close, ma120: ma120arr[i], ichimoku_a: ia, ichimoku_b: ib })
+  }
+  return map
+}
+
+// 해당 봉 시각 기준 직전 완료 일봉 반환 (당일 미완성 봉 제외)
+function getDailyBar(map: Map<number, DailyBar>, ts: number): DailyBar | null {
+  const d = new Date(ts)
+  let dayMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - 86400000
+  for (let i = 0; i < 7; i++) {
+    const bar = map.get(dayMs - i * 86400000)
+    if (bar) return bar
+  }
+  return null
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
@@ -671,5 +721,11 @@ export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
   const rows = await fetchKlines(p.symbol, p.interval, startMs - warmup, endMs)
   if (rows.length < 200) throw new Error('데이터 부족: 날짜 범위를 넓혀주세요.')
   computeIndicators(rows)
-  return simulate(rows, p)
+
+  // MTF: 1d가 아닐 때만 일봉 추세 맵 별도 fetch
+  const dailyMap = (p.useDailyTrend && p.interval !== '1d')
+    ? await buildDailyTrendMap(p.symbol, startMs, endMs)
+    : null
+
+  return simulate(rows, p, dailyMap)
 }
