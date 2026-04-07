@@ -5,6 +5,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
 import Chip from '@mui/material/Chip'
+import MuiTooltip from '@mui/material/Tooltip'
 import {
   createChart,
   createSeriesMarkers,
@@ -687,7 +688,7 @@ export default function BacktestViewer() {
   const [showParams, setShowParams] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<RunHistory[]>([])
-  const [openHint, setOpenHint] = useState<string | null>(null)
+
   const scrollToRef = useRef<((ts: string) => void) | null>(null)
 
   const [params, setParams] = useState<BacktestParams>({
@@ -977,55 +978,22 @@ export default function BacktestViewer() {
           : '#ef4444'
       : '#fafafa'
 
-  const HintTooltip = ({ id, text }: { id: string; text: string }) => {
-    const isOpen = openHint === id
-    return (
-      <Box component="span"
-        onMouseEnter={() => setOpenHint(id)}
-        onMouseLeave={() => setOpenHint(null)}
-        onClick={e => { e.stopPropagation(); setOpenHint(isOpen ? null : id) }}
-        sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-        <Box component="span" sx={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 13, height: 13, borderRadius: '50%',
-          border: '1px solid #3f3f46', color: isOpen ? '#d4d4d8' : '#71717a',
-          borderColor: isOpen ? '#a1a1aa' : '#3f3f46',
-          fontSize: 8, fontWeight: 700, flexShrink: 0, userSelect: 'none',
-          transition: 'all 0.12s',
-        }}>?</Box>
-        {isOpen && (
-          <Box sx={{
-            position: 'absolute',
-            bottom: 'calc(100% + 8px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 220,
-            background: '#18181b',
-            border: '1px solid #3f3f46',
-            borderRadius: '8px',
-            px: 1.5, py: 1,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              borderWidth: '5px',
-              borderStyle: 'solid',
-              borderColor: '#3f3f46 transparent transparent transparent',
-            },
-          }}>
-            <Typography sx={{ fontSize: 11, color: '#d4d4d8', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-              {text}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    )
-  }
+  const HintTooltip = ({ id: _id, text }: { id: string; text: string }) => (
+    <MuiTooltip
+      placement="top"
+      arrow
+      title={<Typography sx={{ fontSize: 11, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{text}</Typography>}
+      componentsProps={{
+        tooltip: { sx: { bgcolor: '#18181b', border: '1px solid #52525b', borderRadius: 2, p: 1.5, maxWidth: 260, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' } },
+        arrow:   { sx: { color: '#52525b' } },
+      }}>
+      <Box component="span" onClick={e => e.stopPropagation()}
+        sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 14, height: 14, borderRadius: '50%', border: '1px solid #3f3f46',
+          color: '#71717a', fontSize: 8, fontWeight: 700, cursor: 'help', flexShrink: 0,
+          userSelect: 'none', '&:hover': { borderColor: '#a1a1aa', color: '#d4d4d8' } }}>?</Box>
+    </MuiTooltip>
+  )
 
   const LabelRow = ({ label, hint, hintId }: { label: string; hint?: string; hintId?: string }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1299,43 +1267,179 @@ export default function BacktestViewer() {
                   </Box>
 
                   {/* ── 지표 선택 ── */}
-                  <Box>
-                    <Typography sx={{ ...labelSx, mb: 1, color: '#a1a1aa' }}>지표 선택 (점수에 반영할 항목)</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {([
-                        { key: 'scoreUseADX',   label: 'ADX',   sub: '추세 강도',    hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\nADX > 설정값이면 점수 +1.' },
-                        { key: 'scoreUseOBV',   label: 'OBV',   sub: '스마트머니',   hint: '"큰손이 사고 있냐 팔고 있냐"\n상승 마감 시 거래량 누적, 하락 시 차감.\n이동평균보다 위면 점수 +1.' },
-                        { key: 'scoreUseMFI',   label: 'MFI',   sub: '자금 흐름',    hint: '"이 캔들에 돈이 얼마나 들어왔냐"\n거래량 가중 RSI (0~100).\n설정값 미만 = 아직 과열 아님 → 점수 +1.' },
-                        { key: 'scoreUseMACD',  label: 'MACD',  sub: '모멘텀',       hint: '"상승 가속도가 붙고 있냐?"\n12봉-26봉 EMA 차이의 방향.\n양수(Long) / 음수(Short)면 점수 +1.' },
-                        { key: 'scoreUseStoch', label: 'Stoch', sub: '스토캐스틱',   hint: '"최근 범위에서 위쪽이냐 아래쪽이냐"\n최근 N봉 고-저 박스 안에서 현재가 위치.\nLong은 상한 미만, Short는 하한 초과 시 점수 +1.' },
-                        { key: 'scoreUseRSI',   label: 'RSI',   sub: 'RSI 건강구간', hint: '"얼마나 빠르게 올라왔냐"\n14봉 상승폭 vs 하락폭 비율 (0~100).\n과매도~과매수 사이 건강 구간에 있을 때 점수 +1.' },
-                        { key: 'scoreUseRVOL',  label: 'RVOL',  sub: '주간 거래량',  hint: '"평소보다 많이 거래되고 있냐?"\n168봉(1주) 평균 대비 현재 거래량 비율.\n설정 배수 이상이면 점수 +1.' },
-                        { key: 'scoreUseIchi',  label: '일목',  sub: '구름대 위치',   hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\nLong: 구름 위 → 점수 +1\nShort: 구름 아래 → 점수 +1' },
-                      ] as { key: keyof BacktestParams; label: string; sub: string; hint: string }[]).map(({ key, label, sub, hint }) => {
-                        const on = params[key] as unknown as boolean
-                        return (
-                          <Box key={String(key)} onClick={() => setParams(p => ({ ...p, [key]: !p[key] }))}
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75,
-                              borderRadius: 2, border: '1px solid', cursor: 'pointer', userSelect: 'none',
-                              borderColor: on ? '#3b82f666' : '#27272a',
-                              background: on ? '#3b82f614' : 'transparent',
-                              transition: 'all 0.15s' }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                              background: on ? '#3b82f6' : '#3f3f46',
-                              boxShadow: on ? '0 0 6px #3b82f6aa' : 'none' }} />
-                            <Box>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Typography sx={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2,
-                                  color: on ? '#93c5fd' : '#71717a' }}>{label}</Typography>
-                                <HintTooltip id={`pill-${String(key)}`} text={hint} />
-                              </Box>
-                              <Typography sx={{ fontSize: 9, color: on ? '#60a5fa88' : '#52525b' }}>{sub}</Typography>
-                            </Box>
+                  {(() => {
+                    const indicatorList = [
+                      {
+                        key: 'scoreUseADX', label: 'ADX', sub: '추세 강도',
+                        hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\nADX > 설정값이면 점수 +1.',
+                        desc: '방향 없이 추세의 강도만 측정. 횡보장 진입 억제.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="28" x2="68" y2="28" stroke="#3f3f46" strokeWidth="0.5"/>
+                            <polyline points="4,26 12,24 20,19 30,13 40,8 52,6 62,5 68,5" fill="none" stroke="#71717a" strokeWidth="1.2" strokeDasharray="2,2"/>
+                            <line x1="4" y1="18" x2="68" y2="18" stroke="#f59e0b44" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <polyline points="4,26 12,24 20,19 30,13 40,8 52,6 62,5 68,5" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            <text x="5" y="16" fill="#f59e0b88" fontSize="5">threshold</text>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseOBV', label: 'OBV', sub: '스마트머니',
+                        hint: '"큰손이 사고 있냐 팔고 있냐"\n상승 마감 시 거래량 누적, 하락 시 차감.\nOBV > OBV MA20이면 점수 +1.',
+                        desc: '거래량 누적으로 기관/세력 매수 여부 파악.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="28" x2="68" y2="28" stroke="#3f3f46" strokeWidth="0.5"/>
+                            <polyline points="4,26 10,26 10,22 18,22 18,18 26,16 34,14 42,11 50,9 58,7 68,5" fill="none" stroke="#71717a" strokeWidth="1.2" strokeDasharray="2,2"/>
+                            <polyline points="4,27 12,25 22,22 32,19 42,15 52,12 62,8 68,6" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            <text x="5" y="9" fill="currentColor" fontSize="5" opacity="0.6">OBV</text>
+                            <text x="5" y="14" fill="#71717a" fontSize="5">MA20</text>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseMFI', label: 'MFI', sub: '자금 흐름',
+                        hint: '"이 캔들에 돈이 얼마나 들어왔냐"\n거래량 가중 RSI (0~100).\n설정값(기본 50) 미만 = 과열 아님 → 점수 +1.',
+                        desc: '거래량×가격으로 실제 자금 유입/유출 측정.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="6" x2="68" y2="6" stroke="#ef444444" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <line x1="4" y1="26" x2="68" y2="26" stroke="#10b98144" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <path d="M4,22 C10,24 16,27 24,27 C32,27 36,22 44,14 C50,9 56,7 68,8" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            <text x="5" y="5" fill="#ef444488" fontSize="5">과매수</text>
+                            <text x="5" y="31" fill="#10b98188" fontSize="5">과매도</text>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseMACD', label: 'MACD', sub: '모멘텀',
+                        hint: '"상승 가속도가 붙고 있냐?"\n12봉-26봉 EMA 차이의 방향.\n히스토그램 양수(Long) / 음수(Short)면 점수 +1.',
+                        desc: '단기-장기 이평 교차로 추세 전환 모멘텀 포착.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="16" x2="68" y2="16" stroke="#3f3f46" strokeWidth="0.8"/>
+                            {[8,14,20,26,32,38,44,50,56,62].map((x, i) => {
+                              const h = [3,6,9,8,6,4,-3,-5,-4,-2][i]
+                              return <rect key={x} x={x-2} y={h>0?16-h:16} width={4} height={Math.abs(h)} fill={h>0?'currentColor':'#ef444488'} opacity={0.85}/>
+                            })}
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseStoch', label: 'Stoch', sub: '스토캐스틱',
+                        hint: '"최근 범위에서 위쪽이냐 아래쪽이냐"\n최근 N봉 고-저 박스 안에서 현재가 위치.\nLong: 상한 미만, Short: 하한 초과 시 점수 +1.',
+                        desc: '최근 고-저 범위 내 현재가 위치로 과매도/과매수 판별.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="7" x2="68" y2="7" stroke="#ef444444" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <line x1="4" y1="25" x2="68" y2="25" stroke="#10b98144" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <path d="M4,22 C10,14 16,8 24,9 C30,10 34,18 40,24 C46,28 52,22 58,14 C62,9 66,8 68,9" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            <path d="M4,24 C10,18 16,12 24,13 C30,14 34,20 40,25 C46,28 52,24 58,18 C62,14 66,12 68,13" fill="none" stroke="#71717a" strokeWidth="1" strokeDasharray="2,2"/>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseRSI', label: 'RSI', sub: 'RSI 건강구간',
+                        hint: '"얼마나 빠르게 올라왔냐"\n14봉 상승폭 vs 하락폭 비율 (0~100).\n과매도~과매수 사이 건강 구간에 있을 때 점수 +1.',
+                        desc: '14봉 평균 상승/하락 비율. 건강 구간에서만 점수.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <rect x="4" y="9" width="64" height="14" fill="currentColor" opacity="0.07" rx="2"/>
+                            <line x1="4" y1="9" x2="68" y2="9" stroke="currentColor" strokeWidth="0.7" strokeDasharray="3,2" opacity="0.5"/>
+                            <line x1="4" y1="23" x2="68" y2="23" stroke="currentColor" strokeWidth="0.7" strokeDasharray="3,2" opacity="0.5"/>
+                            <path d="M4,20 C10,22 16,24 22,22 C28,20 32,14 38,10 C44,7 50,9 56,13 C60,15 64,17 68,16" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            <text x="5" y="8" fill="currentColor" fontSize="4.5" opacity="0.5">70</text>
+                            <text x="5" y="29" fill="currentColor" fontSize="4.5" opacity="0.5">30</text>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseRVOL', label: 'RVOL', sub: '주간 거래량',
+                        hint: '"평소보다 많이 거래되고 있냐?"\n168봉(1주) 평균 대비 현재 거래량 비율.\n설정 배수 이상이면 점수 +1.',
+                        desc: '1주 평균 대비 거래량 급등 → 세력 개입 신호.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <line x1="4" y1="28" x2="68" y2="28" stroke="#3f3f46" strokeWidth="0.5"/>
+                            {[8,16,24,32,40,48,56,64].map((x,i) => {
+                              const h = [8,6,14,10,7,18,12,9][i]
+                              const hi = i===5
+                              return <rect key={x} x={x-3} y={28-h} width={6} height={h} fill={hi?'currentColor':'#52525b'} opacity={hi?0.9:0.5}/>
+                            })}
+                            <polyline points="8,22 16,23 24,17 32,20 40,23 48,14 56,19 64,21" fill="none" stroke="#f59e0b88" strokeWidth="1.2" strokeDasharray="2,1"/>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseIchi', label: '일목', sub: '구름대 위치',
+                        hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\n구름 위 = 상승 지지, 구름 아래 = 하락 저항.\nLong: 구름 위 → 점수 +1, Short: 구름 아래 → 점수 +1.',
+                        desc: '스팬A·B 구름대로 지지/저항 구조 파악.',
+                        svg: (
+                          <svg viewBox="0 0 72 32" style={{ width: '100%', height: 32 }}>
+                            <defs>
+                              <linearGradient id="ichiGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="currentColor" stopOpacity="0.25"/>
+                                <stop offset="100%" stopColor="currentColor" stopOpacity="0.05"/>
+                              </linearGradient>
+                            </defs>
+                            <path d="M4,20 C16,19 28,18 40,17 C52,16 60,15 68,15 L68,22 C60,22 52,22 40,23 C28,24 16,24 4,24 Z" fill="url(#ichiGrad)"/>
+                            <path d="M4,20 C16,19 28,18 40,17 C52,16 60,15 68,15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.7"/>
+                            <path d="M4,24 C16,24 28,24 40,23 C52,22 60,22 68,22" fill="none" stroke="#ef444488" strokeWidth="1.2"/>
+                            <path d="M4,18 C12,15 20,12 30,9 C40,7 50,6 60,5 L68,5" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.9"/>
+                          </svg>
+                        ),
+                      },
+                    ] as { key: keyof BacktestParams; label: string; sub: string; hint: string; desc: string; svg: React.ReactNode }[]
+
+                    const activeCount = indicatorList.filter(({ key }) => params[key] as unknown as boolean).length
+
+                    return (
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                          <Typography sx={{ ...labelSx, color: '#a1a1aa' }}>지표 선택</Typography>
+                          <Box sx={{ px: 1, py: 0.25, borderRadius: 10, background: activeCount > 0 ? '#3b82f620' : '#27272a',
+                            border: '1px solid', borderColor: activeCount > 0 ? '#3b82f644' : '#3f3f46' }}>
+                            <Typography sx={{ fontSize: 10, color: activeCount > 0 ? '#93c5fd' : '#52525b', fontWeight: 700 }}>
+                              {activeCount} / {indicatorList.length} 활성화
+                            </Typography>
                           </Box>
-                        )
-                      })}
-                    </Box>
-                  </Box>
+                        </Box>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(4,1fr)' }, gap: 1 }}>
+                          {indicatorList.map(({ key, label, sub, hint, desc, svg }) => {
+                            const on = params[key] as unknown as boolean
+                            return (
+                              <Box key={String(key)}
+                                onClick={() => setParams(p => ({ ...p, [key]: !p[key] }))}
+                                sx={{
+                                  p: 1.25, borderRadius: 2, border: '1px solid', cursor: 'pointer', userSelect: 'none',
+                                  borderColor: on ? '#3b82f666' : '#27272a',
+                                  background: on ? '#3b82f610' : '#18181b',
+                                  transition: 'all 0.15s',
+                                  '&:hover': { borderColor: on ? '#3b82f699' : '#3f3f46', background: on ? '#3b82f618' : '#1c1c1f' },
+                                }}>
+                                {/* 미니 차트 */}
+                                <Box sx={{ mb: 1, color: on ? '#60a5fa' : '#3f3f46', transition: 'color 0.15s' }}>
+                                  {svg}
+                                </Box>
+                                {/* 헤더 */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                                      background: on ? '#3b82f6' : '#3f3f46',
+                                      boxShadow: on ? '0 0 6px #3b82f6aa' : 'none', transition: 'all 0.15s' }} />
+                                    <Typography sx={{ fontSize: 12, fontWeight: 800, lineHeight: 1,
+                                      color: on ? '#93c5fd' : '#71717a' }}>{label}</Typography>
+                                  </Box>
+                                  <HintTooltip id={`pill-${String(key)}`} text={hint} />
+                                </Box>
+                                <Typography sx={{ fontSize: 9, fontWeight: 600, color: on ? '#60a5fa99' : '#52525b', mb: 0.5 }}>{sub}</Typography>
+                                <Typography sx={{ fontSize: 9, color: on ? '#71717a' : '#3f3f46', lineHeight: 1.4 }}>{desc}</Typography>
+                              </Box>
+                            )
+                          })}
+                        </Box>
+                      </Box>
+                    )
+                  })()}
 
                   {/* ── 선택된 지표의 세부 설정 ── */}
                   {(params.scoreUseRSI || params.scoreUseADX || params.scoreUseMFI || params.scoreUseStoch || params.scoreUseRVOL) && (
