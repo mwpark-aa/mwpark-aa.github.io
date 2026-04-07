@@ -21,7 +21,7 @@ import {
 } from 'lightweight-charts'
 import { supabase } from '../../lib/supabase'
 import { runBacktest as execBacktest, type BacktestParams as LibBacktestParams, type BacktestTrade as LibBacktestTrade } from '../../lib/backtest'
-import { CRYPTO_SYMBOLS, SIGNAL_LABELS, type CryptoSymbol } from '../../constants/crypto'
+import { CRYPTO_SYMBOLS, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS, type CryptoSymbol } from '../../constants/crypto'
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -355,7 +355,7 @@ const BacktestChart = memo(function BacktestChart({
           shape: isShort ? 'arrowDown' : 'arrowUp',
           text:
               e.step === 1
-                  ? isShort ? '숏진입' : '롱진입'
+                  ? (isShort ? '숏진입' : '롱진입')
                   : isShort ? '숏추가' : '롱추가',
         })
       }
@@ -365,7 +365,7 @@ const BacktestChart = memo(function BacktestChart({
         position: isShort ? 'belowBar' : 'aboveBar',
         color: win ? '#10b981' : '#ec4899',
         shape: isShort ? 'arrowUp' : 'arrowDown',
-        text: win ? '익절' : '손절',
+        text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
       })
     }
 
@@ -562,17 +562,63 @@ const TradeRow = memo(function TradeRow({
                 {/* 시그널 — 첫 행만 */}
                 {isFirst ? (
                     <Box>
-                      <Typography
-                          sx={{
-                            fontSize: 9,
-                            color: '#a1a1aa',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                      <MuiTooltip
+                          arrow
+                          placement="top"
+                          componentsProps={{
+                            tooltip: {
+                              sx: {
+                                bgcolor: '#18181b',
+                                border: '1px solid #52525b',
+                                borderRadius: 2,
+                                p: 1.5,
+                                maxWidth: 320,
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                              },
+                            },
+                            arrow: { sx: { color: '#18181b' } },
                           }}
+                          title={
+                            SIGNAL_DESCRIPTIONS[trade.signal_type] ? (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#f4f4f5' }}>
+                                    {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: 10, color: '#a1a1aa', lineHeight: 1.4 }}>
+                                    {SIGNAL_DESCRIPTIONS[trade.signal_type].summary}
+                                  </Typography>
+                                  <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #3b82f6' }}>
+                                    <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>진입 조건</Typography>
+                                    <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
+                                      {SIGNAL_DESCRIPTIONS[trade.signal_type].condition}
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ pl: 1, borderLeft: '2px solid #a855f7' }}>
+                                    <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>해석</Typography>
+                                    <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
+                                      {SIGNAL_DESCRIPTIONS[trade.signal_type].interpretation}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                            ) : (
+                                SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type
+                            )
+                          }
                       >
-                        {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
-                      </Typography>
+                        <Typography
+                            sx={{
+                              fontSize: 9,
+                              color: '#a1a1aa',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              cursor: 'help',
+                              borderBottom: SIGNAL_DESCRIPTIONS[trade.signal_type] ? '1px dotted #52525b' : 'none',
+                            }}
+                        >
+                          {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
+                        </Typography>
+                      </MuiTooltip>
                       <Typography
                           sx={{
                             fontSize: 9,
@@ -1271,9 +1317,9 @@ export default function BacktestViewer() {
                     const smInput: React.CSSProperties = { ...inputStyle, width: '100%', boxSizing: 'border-box', fontSize: 11, padding: '3px 6px' }
                     const indicatorList = [
                       {
-                        key: 'scoreUseADX', label: 'ADX', sub: '추세 강도',
-                        hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\nADX > 설정값이면 점수 +1.',
-                        desc: '방향 없이 추세의 강도만 측정. 횡보장 진입 억제.',
+                        key: 'scoreUseADX', label: 'ADX', sub: '추세 강도 필터',
+                        hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\nADX > 설정값이면 점수 +1.\n\n💡 20 미만 = 횡보(추세 없음)\n💡 20~40 = 약한 추세\n💡 40 이상 = 강한 추세',
+                        desc: '추세 방향(롱/숏)은 무관하고 "추세가 존재하는가"만 판단. 횡보장에서 불필요한 진입을 막아줌.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
                             <Typography sx={{ fontSize: 9, color: '#60a5fa99' }}>최소 ADX 값 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(20미만=횡보, 20~40=약한추세)</Typography></Typography>
@@ -1282,49 +1328,49 @@ export default function BacktestViewer() {
                               onChange={e => setDraft(d => ({ ...d, adxThreshold: e.target.value }))} />
                           </Box>
                         ),
-                        svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            {/* 횡보 구간 배경 */}
-                            <rect x="4" y="4" width="28" height="30" fill="#ffffff04" rx="1"/>
-                            <text x="10" y="36" fill="#52525b" fontSize="5">횡보</text>
-                            <text x="44" y="36" fill="#10b98166" fontSize="5">추세↑</text>
-                            {/* 가격선: 횡보 → 상승 */}
+                        svg: (() => {
+                          const v = Number(draft.adxThreshold ?? params.adxThreshold) || 25
+                          const thY = 4 + (1 - v / 100) * 34
+                          return (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <rect x="4" y="4" width="64" height={thY - 4} fill="#10b98108" rx="1"/>
+                            <rect x="4" y={thY} width="64" height={38 - thY} fill="#ef444408" rx="1"/>
+                            <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
+                            <text x="8" y={thY - 2} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
+                            <text x="8" y={thY + 5} fill="#ef4444" fontSize="3" opacity="0.6">점수 없음</text>
                             <polyline points="4,22 8,20 12,23 16,21 20,24 24,21 28,22 34,19 40,15 48,11 56,8 64,6 68,5"
-                              fill="none" stroke="currentColor" strokeWidth="1.6"/>
-                            {/* ADX 선 */}
+                              fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
                             <polyline points="4,30 10,30 18,29 26,27 32,23 40,17 50,12 60,9 68,8"
-                              fill="none" stroke="#f59e0b" strokeWidth="1.3"/>
-                            {/* 임계선 */}
-                            <line x1="4" y1="22" x2="68" y2="22" stroke="#f59e0b55" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            {/* 신호 발동 지점 */}
-                            <circle cx="32" cy="23" r="3" fill="#10b981" opacity="0.9"/>
-                            <text x="26" y="15" fill="#f59e0b99" fontSize="4.5">ADX</text>
+                              fill="none" stroke="#f59e0b" strokeWidth="1.5"/>
+                            <circle cx="32" cy="23" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
-                        ),
+                          )
+                        })(),
                       },
                       {
-                        key: 'scoreUseOBV', label: 'OBV', sub: '스마트머니',
-                        hint: '"큰손이 사고 있냐 팔고 있냐"\n상승 마감 시 거래량 누적, 하락 시 차감.\nOBV > OBV MA20이면 점수 +1.',
-                        desc: '거래량 누적으로 기관/세력 매수 여부 파악.',
+                        key: 'scoreUseOBV', label: 'OBV', sub: '스마트머니 추적',
+                        hint: '"큰손이 사고 있냐 팔고 있냐"\n양봉이면 거래량을 더하고, 음봉이면 빼서 누적.\nOBV가 20봉 평균(MA20)을 상향 돌파하면 점수 +1.\n\n💡 가격은 횡보인데 OBV 상승 → 세력 매집 가능성\n💡 가격 상승인데 OBV 하락 → 매도 압력 증가 경고',
+                        desc: '거래량을 누적해서 "보이지 않는 매수/매도 압력"을 추적. 가격보다 먼저 움직이는 선행 지표.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <polyline points="4,30 14,29 24,27 32,25 38,24 44,22 52,19 60,17 68,15"
                               fill="none" stroke="#71717a" strokeWidth="1" strokeDasharray="2,2"/>
                             <polyline points="4,32 12,31 20,29 28,27 34,26 40,22 48,17 56,12 64,9 68,8"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="40" cy="22" r="3" fill="#10b981" opacity="0.9"/>
-                            <line x1="40" y1="22" x2="40" y2="14" stroke="#10b98166" strokeWidth="0.7" strokeDasharray="2,1"/>
-                            <text x="42" y="13" fill="#10b981" fontSize="4">교차↑</text>
-                            <text x="5" y="11" fill="currentColor" fontSize="4.5" opacity="0.7">OBV</text>
-                            <text x="5" y="18" fill="#71717a" fontSize="4.5">MA20</text>
+                            <circle cx="40" cy="22" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <text x="42" y="20" fill="#10b981" fontSize="3">롱 +1</text>
+                            <text x="5" y="35" fill="#ef4444" fontSize="3" opacity="0.5">OBV &lt; MA → 숏 +1</text>
+                            <text x="5" y="8" fill="currentColor" fontSize="3.5" opacity="0.6">━ OBV</text>
+                            <text x="5" y="14" fill="#71717a" fontSize="3.5">┅ MA20</text>
                           </svg>
                         ),
                       },
                       {
-                        key: 'scoreUseMFI', label: 'MFI', sub: '자금 흐름',
-                        hint: '"이 캔들에 돈이 얼마나 들어왔냐"\n거래량 가중 RSI (0~100).\n설정값(기본 50) 미만 = 과열 아님 → 점수 +1.',
-                        desc: '거래량×가격으로 실제 자금 유입/유출 측정.',
+                        key: 'scoreUseMFI', label: 'MFI', sub: '자금 유입/유출',
+                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n설정값(기본 50) 미만이면 과열 아님 → 점수 +1.\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)\n💡 RSI보다 거래량 반영해서 더 정확',
+                        desc: '가격×거래량으로 "실제 자금"의 유입/유출을 측정. RSI의 거래량 보강 버전.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
                             <Typography sx={{ fontSize: 9, color: '#60a5fa99' }}>이 값 미만일 때 점수 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과열 아님 기준)</Typography></Typography>
@@ -1333,46 +1379,51 @@ export default function BacktestViewer() {
                               onChange={e => setDraft(d => ({ ...d, mfiThreshold: e.target.value }))} />
                           </Box>
                         ),
-                        svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height="10" fill="#ef444410" rx="1"/>
-                            <text x="5" y="11" fill="#ef444488" fontSize="4.5">과열 구간 (점수 ✕)</text>
-                            <rect x="4" y="14" width="64" height="16" fill="#10b98110" rx="1"/>
-                            <text x="5" y="24" fill="#10b98166" fontSize="4.5">건강 구간 (점수 ✓)</text>
-                            <line x1="4" y1="14" x2="68" y2="14" stroke="#f59e0b55" strokeWidth="0.8" strokeDasharray="3,2"/>
+                        svg: (() => {
+                          const v = Number(draft.mfiThreshold ?? params.mfiThreshold) || 50
+                          const thY = 4 + (1 - v / 100) * 34
+                          return (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <rect x="4" y="4" width="64" height={thY - 4} fill="#ef444408" rx="1"/>
+                            <rect x="4" y={thY} width="64" height={38 - thY} fill="#10b98108" rx="1"/>
+                            <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
+                            <text x="8" y={thY + 5} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
+                            <text x="8" y={thY - 2} fill="#ef4444" fontSize="3" opacity="0.6">과열 구간</text>
                             <path d="M4,8 C12,10 18,16 28,20 C36,23 44,22 52,18 C58,15 62,13 68,12"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="26" cy="20" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
-                        ),
+                          )
+                        })(),
                       },
                       {
-                        key: 'scoreUseMACD', label: 'MACD', sub: '모멘텀',
-                        hint: '"상승 가속도가 붙고 있냐?"\n12봉-26봉 EMA 차이의 방향.\n히스토그램 양수(Long) / 음수(Short)면 점수 +1.',
-                        desc: '단기-장기 이평 교차로 추세 전환 모멘텀 포착.',
+                        key: 'scoreUseMACD', label: 'MACD', sub: '추세 모멘텀',
+                        hint: '"상승/하락 가속도가 붙고 있냐?"\n단기(12봉) EMA - 장기(26봉) EMA = MACD선.\n히스토그램(막대)이 0선 위 = 상승 모멘텀 → Long 점수 +1\n히스토그램이 0선 아래 = 하락 모멘텀 → Short 점수 +1\n\n💡 막대가 점점 커지면 → 추세 가속 중\n💡 막대가 줄어들면 → 추세 약화, 전환 임박',
+                        desc: '단기-장기 이평선 차이로 "추세의 가속도"를 측정. 0선 돌파가 핵심 신호.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <text x="5" y="8" fill="#10b98166" fontSize="4.5">양수 히스토그램 → 점수 +1</text>
-                            <line x1="4" y1="20" x2="68" y2="20" stroke="#3f3f46" strokeWidth="0.8"/>
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b" strokeWidth="0.6"/>
+                            <text x="62" y="19" fill="#52525b" fontSize="3">0</text>
+                            <text x="38" y="8" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
+                            <text x="6" y="38" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1</text>
                             {[8,14,20].map((x,i) => {
                               const h = [6,8,5][i]
-                              return <rect key={x} x={x-3} y={20} width={6} height={h} fill="#ef444466" rx="0.5"/>
+                              return <rect key={x} x={x-3} y={21} width={6} height={h} fill="#ef444466" rx="0.5"/>
                             })}
                             {[30,38,46,54,62].map((x,i) => {
                               const h = [3,6,9,7,5][i]
-                              return <rect key={x} x={x-3} y={20-h} width={6} height={h} fill="currentColor" rx="0.5" opacity={0.85}/>
+                              return <rect key={x} x={x-3} y={21-h} width={6} height={h} fill="currentColor" rx="0.5" opacity={0.85}/>
                             })}
-                            <circle cx="28" cy="20" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <line x1="28" y1="14" x2="28" y2="20" stroke="#10b98166" strokeWidth="0.8" strokeDasharray="2,1"/>
-                            <text x="16" y="13" fill="#10b981" fontSize="4">0선 돌파 진입↑</text>
+                            <circle cx="28" cy="21" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
                         ),
                       },
                       {
-                        key: 'scoreUseStoch', label: 'Stoch', sub: '스토캐스틱',
-                        hint: '"최근 범위에서 위쪽이냐 아래쪽이냐"\n최근 N봉 고-저 박스 안에서 현재가 위치.\nLong: 상한(80) 미만, Short: 하한(20) 초과 시 점수 +1.',
-                        desc: '최근 고-저 범위 내 현재가 위치로 과매도/과매수 판별.',
+                        key: 'scoreUseStoch', label: 'Stoch', sub: '가격 위치 판단',
+                        hint: '"최근 가격 범위에서 지금 어디쯤이냐?"\n최근 N봉의 최고-최저 사이에서 현재가 위치를 0~100으로 표시.\n\nLong 진입 시: 80 미만이어야 점수 +1 (너무 높으면 위험)\nShort 진입 시: 20 초과여야 점수 +1 (너무 낮으면 위험)\n\n💡 80 이상 = 최근 고점 근처 (과매수)\n💡 20 이하 = 최근 저점 근처 (과매도)',
+                        desc: '최근 고-저 범위 내 현재가 위치를 %로 표시. "꼭대기에서 사지 말라"는 필터.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                             <Box>
@@ -1389,25 +1440,34 @@ export default function BacktestViewer() {
                             </Box>
                           </Box>
                         ),
-                        svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height="8" fill="#ef444410" rx="1"/>
-                            <line x1="4" y1="12" x2="68" y2="12" stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="5" y="10" fill="#ef444488" fontSize="4.5">80 — Long 점수 ✕</text>
-                            <rect x="4" y="28" width="64" height="8" fill="#10b98110" rx="1"/>
-                            <line x1="4" y1="28" x2="68" y2="28" stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="5" y="35" fill="#10b98188" fontSize="4.5">20 — 중간 진입 가능</text>
+                        svg: (() => {
+                          const ob = Number(draft.stochOverbought ?? params.stochOverbought) || 80
+                          const os = Number(draft.stochOversold ?? params.stochOversold) || 20
+                          const obY = 4 + (1 - ob / 100) * 34
+                          const osY = 4 + (1 - os / 100) * 34
+                          return (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <rect x="4" y="4" width="64" height={obY - 4} fill="#ef444408" rx="1"/>
+                            <rect x="4" y={obY} width="64" height={osY - obY} fill="#3b82f608" rx="1"/>
+                            <rect x="4" y={osY} width="64" height={38 - osY} fill="#ef444408" rx="1"/>
+                            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
+                            <text x="56" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
+                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏만 +1</text>
+                            <text x="8" y={(obY + osY) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
+                            <text x="8" y="37" fill="#10b981" fontSize="3" opacity="0.6">롱만 +1</text>
+                            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
+                            <text x="56" y={osY + 4} fill="#ef4444" fontSize="3.5">{os}</text>
                             <path d="M4,10 C10,8 16,12 22,20 C26,26 30,30 36,28 C40,26 44,22 50,16 C56,11 62,9 68,10"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="50" cy="16" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <text x="44" y="10" fill="#10b981" fontSize="4">점수↑</text>
                           </svg>
-                        ),
+                          )
+                        })(),
                       },
                       {
-                        key: 'scoreUseRSI', label: 'RSI', sub: 'RSI 건강구간',
-                        hint: '"얼마나 빠르게 올라왔냐"\n14봉 상승폭 vs 하락폭 비율 (0~100).\n과매도(30)~과매수(70) 사이 건강 구간에 있을 때 점수 +1.',
-                        desc: '14봉 평균 상승/하락 비율. 건강 구간에서만 점수.',
+                        key: 'scoreUseRSI', label: 'RSI', sub: '과열/침체 필터',
+                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\nLong: 30~60 구간에서만 +1 (건강한 반등 구간)\nShort: 40~70 구간에서만 +1 (건강한 과매수 거부 구간)\n\n💡 70 이상 = 과매수 → 롱·숏 모두 점수 없음\n💡 30 이하 = 과매도 → 롱·숏 모두 점수 없음\n💡 40~60 = 롱숏 모두 점수 획득 구간',
+                        desc: '14봉 상승/하락 비율로 과열·침체 판단. 극단 구간(과매수·과매도)을 피하는 안전 필터.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                             <Box>
@@ -1424,26 +1484,43 @@ export default function BacktestViewer() {
                             </Box>
                           </Box>
                         ),
-                        svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height="8" fill="#ef444410" rx="1"/>
-                            <text x="5" y="10" fill="#ef444488" fontSize="4.5">70 — 점수 ✕</text>
-                            <rect x="4" y="12" width="64" height="16" fill="#3b82f610" rx="1"/>
-                            <line x1="4" y1="12" x2="68" y2="12" stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="22" y="22" fill="#3b82f666" fontSize="4.5">건강 구간 → 점수 ✓</text>
-                            <line x1="4" y1="28" x2="68" y2="28" stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <rect x="4" y="28" width="64" height="8" fill="#ef444410" rx="1"/>
-                            <text x="5" y="35" fill="#ef444488" fontSize="4.5">30 — 점수 ✕</text>
+                        svg: (() => {
+                          // 실제 봇 로직: 롱 30~60, 숏 40~70 (하드코딩)
+                          const y70 = 4 + (1 - 70 / 100) * 34
+                          const y60 = 4 + (1 - 60 / 100) * 34
+                          const y40 = 4 + (1 - 40 / 100) * 34
+                          const y30 = 4 + (1 - 30 / 100) * 34
+                          return (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <rect x="4" y="4" width="64" height={y70 - 4} fill="#ef444408" rx="1"/>
+                            <rect x="4" y={y70} width="64" height={y60 - y70} fill="#f59e0b08" rx="1"/>
+                            <rect x="4" y={y60} width="64" height={y40 - y60} fill="#10b98110" rx="1"/>
+                            <rect x="4" y={y40} width="64" height={y30 - y40} fill="#3b82f608" rx="1"/>
+                            <rect x="4" y={y30} width="64" height={38 - y30} fill="#ef444408" rx="1"/>
+                            <line x1="4" y1={y70} x2="68" y2={y70} stroke="#ef444455" strokeWidth="0.5" strokeDasharray="2,2"/>
+                            <text x="56" y={y70 - 1} fill="#ef4444" fontSize="3">70</text>
+                            <line x1="4" y1={y60} x2="68" y2={y60} stroke="#f59e0b55" strokeWidth="0.5" strokeDasharray="2,2"/>
+                            <text x="56" y={y60 - 1} fill="#f59e0b" fontSize="3">60</text>
+                            <line x1="4" y1={y40} x2="68" y2={y40} stroke="#3b82f655" strokeWidth="0.5" strokeDasharray="2,2"/>
+                            <text x="56" y={y40 - 1} fill="#3b82f6" fontSize="3">40</text>
+                            <line x1="4" y1={y30} x2="68" y2={y30} stroke="#ef444455" strokeWidth="0.5" strokeDasharray="2,2"/>
+                            <text x="56" y={y30 + 4} fill="#ef4444" fontSize="3">30</text>
+                            <text x="6" y={(4 + y70) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">점수 없음</text>
+                            <text x="6" y={(y70 + y60) / 2 + 1} fill="#f59e0b" fontSize="2.8" opacity="0.8">숏만 +1</text>
+                            <text x="6" y={(y60 + y40) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.9">롱숏 +1</text>
+                            <text x="6" y={(y40 + y30) / 2 + 1} fill="#3b82f6" fontSize="2.8" opacity="0.8">롱만 +1</text>
+                            <text x="6" y={(y30 + 38) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">점수 없음</text>
                             <path d="M4,32 C10,30 16,26 22,20 C28,15 34,14 42,16 C50,18 58,17 68,14"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="40" cy="16" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
-                        ),
+                          )
+                        })(),
                       },
                       {
-                        key: 'scoreUseRVOL', label: 'RVOL', sub: '주간 거래량',
-                        hint: '"평소보다 많이 거래되고 있냐?"\n168봉(1주) 평균 대비 현재 거래량 비율.\n설정 배수 이상이면 점수 +1.',
-                        desc: '1주 평균 대비 거래량 급등 → 세력 개입 신호.',
+                        key: 'scoreUseRVOL', label: 'RVOL', sub: '거래량 급등 감지',
+                        hint: '"평소보다 거래가 활발한가?"\n최근 1주(168봉) 평균 거래량 대비 현재 거래량 비율.\n설정 배수(기본 1.5x) 이상이면 점수 +1.\n\n💡 1.5x = 평소의 1.5배 이상 거래 → 관심 급증\n💡 스킵 기준 이하 = 거래량 너무 적어 무시\n💡 거래량 급등 = 세력/기관 개입 가능성',
+                        desc: '1주 평균 대비 거래량 폭증 여부 감지. 거래량 없는 가짜 움직임을 걸러냄.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                             <Box>
@@ -1460,43 +1537,55 @@ export default function BacktestViewer() {
                             </Box>
                           </Box>
                         ),
-                        svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                        svg: (() => {
+                          const rv = Number(draft.rvolThreshold ?? params.rvolThreshold) || 1.5
+                          const sk = Number(draft.rvolSkip ?? params.rvolSkip) || 0.4
+                          const avgH = 12
+                          const spikeH = Math.min(avgH * rv, 28)
+                          const skipH = Math.max(avgH * sk, 2)
+                          const avgY = 34 - avgH
+                          const skipY = 34 - skipH
+                          return (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <rect x="4" y={skipY} width="64" height={34 - skipY} fill="#ef444406" rx="1"/>
                             <line x1="4" y1="34" x2="68" y2="34" stroke="#3f3f46" strokeWidth="0.5"/>
                             {[8,16,24,32,40,56,64].map((x,i) => {
                               const h = [9,7,10,8,6,11,8][i]
                               return <rect key={x} x={x-4} y={34-h} width={8} height={h} fill="#52525b" opacity={0.6} rx="0.5"/>
                             })}
-                            <rect x="44" y="12" width="8" height={22} fill="currentColor" opacity={0.85} rx="0.5"/>
-                            <line x1="4" y1="22" x2="68" y2="22" stroke="#f59e0b55" strokeWidth="0.8" strokeDasharray="3,2"/>
-                            <text x="5" y="20" fill="#f59e0b88" fontSize="4.5">1주 평균</text>
-                            <circle cx="48" cy="12" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <text x="32" y="9" fill="#10b981" fontSize="4">급등 → 점수↑</text>
+                            <rect x="44" y={34 - spikeH} width="8" height={spikeH} fill="currentColor" opacity={0.85} rx="0.5"/>
+                            <line x1="4" y1={avgY} x2="68" y2={avgY} stroke="#f59e0b55" strokeWidth="0.8" strokeDasharray="3,2"/>
+                            <text x="5" y={avgY - 1.5} fill="#f59e0b88" fontSize="3.5">avg</text>
+                            <line x1="4" y1={skipY} x2="68" y2={skipY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="2,2"/>
+                            <text x="5" y={skipY - 1.5} fill="#ef444488" fontSize="3">skip {sk}x</text>
+                            <circle cx="48" cy={34 - spikeH} r="2.5" fill="#10b981" opacity="0.9"/>
+                            <text x="52" y={34 - spikeH + 1} fill="#10b981" fontSize="3">롱숏 +1 ({rv}x)</text>
                           </svg>
-                        ),
+                          )
+                        })(),
                       },
                       {
-                        key: 'scoreUseIchi', label: '일목', sub: '구름대 위치',
-                        hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\n구름 위 = 상승 지지, 구름 아래 = 하락 저항.\nLong: 구름 위 → 점수 +1, Short: 구름 아래 → 점수 +1.',
-                        desc: '스팬A·B 구름대로 지지/저항 구조 파악.',
+                        key: 'scoreUseIchi', label: '일목', sub: '구름대 지지/저항',
+                        hint: '"가격이 구름 위냐 아래냐?"\n일목균형표의 스팬A·B가 만드는 구름대가 지지/저항 역할.\n\nLong: 가격이 구름 위에 있으면 점수 +1 (상승 지지)\nShort: 가격이 구름 아래에 있으면 점수 +1 (하락 저항)\n\n💡 구름이 두꺼울수록 지지/저항이 강함\n💡 구름 안에 있으면 방향 불확실 → 점수 없음',
+                        desc: '일목균형표 구름대로 "가격이 지지 위인지 저항 아래인지" 판단. 추세 방향 확인용.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <defs>
                               <linearGradient id="ichiG" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
                                 <stop offset="100%" stopColor="#10b981" stopOpacity="0.05"/>
                               </linearGradient>
                             </defs>
-                            <text x="5" y="8" fill="#10b98166" fontSize="4.5">가격이 구름 위 → Long 점수↑</text>
                             <path d="M4,22 C20,21 36,20 52,19 C60,19 64,19 68,19 L68,28 C64,28 60,28 52,27 C36,26 20,26 4,26 Z"
                               fill="url(#ichiG)"/>
                             <path d="M4,22 C20,21 36,20 52,19 L68,19" fill="none" stroke="#10b98177" strokeWidth="1"/>
                             <path d="M4,26 C20,26 36,26 52,27 L68,28" fill="none" stroke="#ef444455" strokeWidth="1"/>
-                            <text x="26" y="26" fill="#10b98155" fontSize="4.5">구름대</text>
                             <path d="M4,18 C14,15 26,12 38,10 C50,8 60,7 68,7"
                               fill="none" stroke="currentColor" strokeWidth="2"/>
                             <circle cx="38" cy="10" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <text x="42" y="9" fill="#10b981" fontSize="3">롱 +1</text>
+                            <text x="42" y="36" fill="#ef4444" fontSize="3" opacity="0.5">숏 +1</text>
                           </svg>
                         ),
                       },
