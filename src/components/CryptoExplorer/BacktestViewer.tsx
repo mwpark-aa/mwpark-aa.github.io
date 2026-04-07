@@ -1283,7 +1283,7 @@ export default function BacktestViewer() {
                           </Box>
                         ),
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             {/* 횡보 구간 배경 */}
                             <rect x="4" y="4" width="28" height="30" fill="#ffffff04" rx="1"/>
                             <text x="10" y="36" fill="#52525b" fontSize="5">횡보</text>
@@ -1308,7 +1308,7 @@ export default function BacktestViewer() {
                         desc: '거래량 누적으로 기관/세력 매수 여부 파악.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <polyline points="4,30 14,29 24,27 32,25 38,24 44,22 52,19 60,17 68,15"
                               fill="none" stroke="#71717a" strokeWidth="1" strokeDasharray="2,2"/>
                             <polyline points="4,32 12,31 20,29 28,27 34,26 40,22 48,17 56,12 64,9 68,8"
@@ -1334,7 +1334,7 @@ export default function BacktestViewer() {
                           </Box>
                         ),
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <rect x="4" y="4" width="64" height="10" fill="#ef444410" rx="1"/>
                             <text x="5" y="11" fill="#ef444488" fontSize="4.5">과열 구간 (점수 ✕)</text>
                             <rect x="4" y="14" width="64" height="16" fill="#10b98110" rx="1"/>
@@ -1352,7 +1352,7 @@ export default function BacktestViewer() {
                         desc: '단기-장기 이평 교차로 추세 전환 모멘텀 포착.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <text x="5" y="8" fill="#10b98166" fontSize="4.5">양수 히스토그램 → 점수 +1</text>
                             <line x1="4" y1="20" x2="68" y2="20" stroke="#3f3f46" strokeWidth="0.8"/>
                             {[8,14,20].map((x,i) => {
@@ -1390,7 +1390,7 @@ export default function BacktestViewer() {
                           </Box>
                         ),
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <rect x="4" y="4" width="64" height="8" fill="#ef444410" rx="1"/>
                             <line x1="4" y1="12" x2="68" y2="12" stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
                             <text x="5" y="10" fill="#ef444488" fontSize="4.5">80 — Long 점수 ✕</text>
@@ -1425,7 +1425,7 @@ export default function BacktestViewer() {
                           </Box>
                         ),
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <rect x="4" y="4" width="64" height="8" fill="#ef444410" rx="1"/>
                             <text x="5" y="10" fill="#ef444488" fontSize="4.5">70 — 점수 ✕</text>
                             <rect x="4" y="12" width="64" height="16" fill="#3b82f610" rx="1"/>
@@ -1461,7 +1461,7 @@ export default function BacktestViewer() {
                           </Box>
                         ),
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <line x1="4" y1="34" x2="68" y2="34" stroke="#3f3f46" strokeWidth="0.5"/>
                             {[8,16,24,32,40,56,64].map((x,i) => {
                               const h = [9,7,10,8,6,11,8][i]
@@ -1481,7 +1481,7 @@ export default function BacktestViewer() {
                         desc: '스팬A·B 구름대로 지지/저항 구조 파악.',
                         settings: null,
                         svg: (
-                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: 38 }}>
+                          <svg viewBox="0 0 72 38" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <defs>
                               <linearGradient id="ichiG" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
@@ -1515,44 +1515,54 @@ export default function BacktestViewer() {
                             </Typography>
                           </Box>
                         </Box>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(4,1fr)' }, gap: 1 }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 1 }}>
                           {indicatorList.map(({ key, label, sub, hint, desc, svg, settings }) => {
                             const on = params[key] as unknown as boolean
                             return (
                               <Box key={String(key)}
                                 onClick={() => setParams(p => ({ ...p, [key]: !p[key] }))}
                                 sx={{
-                                  p: 1.25, borderRadius: 2, border: '1px solid', cursor: 'pointer', userSelect: 'none',
+                                  display: 'flex', flexDirection: 'row', gap: 0,
+                                  borderRadius: 2, border: '1px solid', cursor: 'pointer', userSelect: 'none',
                                   borderColor: on ? '#3b82f666' : '#27272a',
                                   background: on ? '#3b82f610' : '#18181b',
+                                  overflow: 'hidden',
                                   transition: 'all 0.15s',
                                   '&:hover': { borderColor: on ? '#3b82f699' : '#3f3f46', background: on ? '#3b82f618' : '#1c1c1f' },
                                 }}>
-                                {/* 미니 차트 */}
-                                <Box sx={{ mb: 1, color: on ? '#60a5fa' : '#3f3f46', transition: 'color 0.15s',
-                                  borderRadius: 1, border: '1px solid', borderColor: on ? '#3b82f622' : '#27272a',
-                                  background: on ? '#0f172a' : '#111113', p: 0.5 }}>
-                                  {svg}
-                                </Box>
-                                {/* 헤더 */}
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.25 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                                      background: on ? '#3b82f6' : '#3f3f46',
-                                      boxShadow: on ? '0 0 6px #3b82f6aa' : 'none', transition: 'all 0.15s' }} />
-                                    <Typography sx={{ fontSize: 12, fontWeight: 800, lineHeight: 1,
-                                      color: on ? '#93c5fd' : '#71717a' }}>{label}</Typography>
+                                {/* 좌측: 텍스트 + 설정 */}
+                                <Box sx={{ flex: '0 0 52%', p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                                        background: on ? '#3b82f6' : '#3f3f46',
+                                        boxShadow: on ? '0 0 6px #3b82f6aa' : 'none', transition: 'all 0.15s' }} />
+                                      <Typography sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1,
+                                        color: on ? '#93c5fd' : '#71717a' }}>{label}</Typography>
+                                    </Box>
+                                    <HintTooltip id={`pill-${String(key)}`} text={hint} />
                                   </Box>
-                                  <HintTooltip id={`pill-${String(key)}`} text={hint} />
+                                  <Typography sx={{ fontSize: 9, fontWeight: 600, color: on ? '#60a5fa99' : '#52525b' }}>{sub}</Typography>
+                                  <Typography sx={{ fontSize: 9, color: on ? '#71717a' : '#3f3f46', lineHeight: 1.45, flex: 1 }}>{desc}</Typography>
+                                  {settings && on && (
+                                    <Box onClick={e => e.stopPropagation()}
+                                      sx={{ pt: 0.75, mt: 0.25, borderTop: '1px solid #3b82f622' }}>
+                                      {settings}
+                                    </Box>
+                                  )}
                                 </Box>
-                                <Typography sx={{ fontSize: 9, fontWeight: 600, color: on ? '#60a5fa99' : '#52525b', mb: 0.5 }}>{sub}</Typography>
-                                <Typography sx={{ fontSize: 9, color: on ? '#71717a' : '#3f3f46', lineHeight: 1.4, mb: settings && on ? 1 : 0 }}>{desc}</Typography>
-                                {settings && on && (
-                                  <Box onClick={e => e.stopPropagation()}
-                                    sx={{ pt: 1, mt: 0.5, borderTop: '1px solid #3b82f622' }}>
-                                    {settings}
+                                {/* 우측: 차트 (가득 채움) */}
+                                <Box sx={{
+                                  flex: 1, minWidth: 0, alignSelf: 'stretch',
+                                  color: on ? '#60a5fa' : '#3f3f46', transition: 'color 0.15s',
+                                  borderLeft: '1px solid', borderColor: on ? '#3b82f622' : '#27272a',
+                                  background: on ? '#0a1628' : '#111113',
+                                  display: 'flex', alignItems: 'stretch',
+                                }}>
+                                  <Box component="span" sx={{ display: 'flex', width: '100%', height: '100%', minHeight: 100 }}>
+                                    {svg}
                                   </Box>
-                                )}
+                                </Box>
                               </Box>
                             )
                           })}
