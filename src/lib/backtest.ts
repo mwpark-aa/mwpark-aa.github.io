@@ -31,6 +31,7 @@ export interface BacktestParams {
   scoreUseIchi: boolean
   fixedTP: number   // 고정 익절 % (현물 기준, 0 = ATR 자동)
   fixedSL: number   // 고정 손절 % (현물 기준, 0 = ATR 자동)
+  tpslMode: 'auto' | 'fixed'  // auto=손익비 필터, fixed=고정 TP/SL
   useDailyTrend: boolean  // 일봉 추세 필터 (MTF): 일봉 MA120 방향과 일치할 때만 진입
 }
 
@@ -337,19 +338,27 @@ function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
   let tp: number | null = null, sl: number | null = null
 
   if (isLong) {
-    sl = p.fixedSL > 0
-      ? Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
-      : longSL(close, row.swing_low ?? null, row.atr14 ?? null)
-    tp = p.fixedTP > 0
-      ? Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : p.minRR)) * 1e6) / 1e6
+    if (p.tpslMode === 'fixed' && p.fixedSL > 0) {
+      sl = Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
+    } else {
+      sl = longSL(close, row.swing_low ?? null, row.atr14 ?? null)
+    }
+    if (p.tpslMode === 'fixed' && p.fixedTP > 0) {
+      tp = Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
+    } else {
+      tp = Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : p.minRR)) * 1e6) / 1e6
+    }
   } else if (isShort) {
-    sl = p.fixedSL > 0
-      ? Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
-      : shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
-    tp = p.fixedTP > 0
-      ? Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : p.minRR)) * 1e6) / 1e6
+    if (p.tpslMode === 'fixed' && p.fixedSL > 0) {
+      sl = Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
+    } else {
+      sl = shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
+    }
+    if (p.tpslMode === 'fixed' && p.fixedTP > 0) {
+      tp = Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
+    } else {
+      tp = Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : p.minRR)) * 1e6) / 1e6
+    }
   }
   const rr = tp != null && sl != null && sl !== close
     ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
@@ -360,28 +369,68 @@ function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
 
 function scoreLong(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
-  if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  if (p.scoreUseOBV   && row.obv != null && row.obv_ma20 != null && row.obv > row.obv_ma20) s++
-  if (p.scoreUseMFI   && row.mfi14 != null && row.mfi14 < p.mfiThreshold) s++
-  if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist > 0) s++
-  if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k < p.stochOverbought) s++
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
-  if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
-  if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
+  // ADX: 추세 존재 → +1, 횡보 → 0
+  if (p.scoreUseADX && row.adx14 != null) {
+    if (row.adx14 > p.adxThreshold) s++
+  }
+  // OBV: 스마트머니 매집 → +1, 이탈 → -1
+  if (p.scoreUseOBV && row.obv != null && row.obv_ma20 != null) {
+    if (row.obv > row.obv_ma20) s++; else s--
+  }
+  // MFI: 과열 아님 → +1, 과열(≥80) → -1
+  if (p.scoreUseMFI && row.mfi14 != null) {
+    if (row.mfi14 < p.mfiThreshold) s++; else if (row.mfi14 >= 80) s--
+  }
+  // MACD: 상승 모멘텀 → +1, 하락 → -1
+  if (p.scoreUseMACD && row.macd_hist != null) {
+    if (row.macd_hist > 0) s++; else s--
+  }
+  // Stoch: 과매수 아님 → +1, 과매수 → -1
+  if (p.scoreUseStoch && row.stoch_k != null) {
+    if (row.stoch_k < p.stochOverbought) s++; else s--
+  }
+  // RSI: 건강 구간(30~60) → +1, 과매수(≥70) → -1
+  if (p.scoreUseRSI && row.rsi14 != null) {
+    if (row.rsi14 > 30 && row.rsi14 < 60) s++; else if (row.rsi14 >= 70) s--
+  }
+  // RVOL: 거래량 급증 → +1
+  if (p.scoreUseRVOL && rv >= p.rvolThreshold) s++
+  // 일목: 구름 위 → +1
+  if (p.scoreUseIchi && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close > row.ichimoku_a && row.close > row.ichimoku_b) s++
   return s
 }
 
 function scoreShort(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
-  if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  if (p.scoreUseOBV   && row.obv != null && row.obv_ma20 != null && row.obv < row.obv_ma20) s++
-  if (p.scoreUseMFI   && row.mfi14 != null && row.mfi14 < p.mfiThreshold) s++
-  if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist < 0) s++
-  if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k > p.stochOversold) s++
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
-  if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
-  if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
+  // ADX: 추세 존재 → +1, 횡보 → 0
+  if (p.scoreUseADX && row.adx14 != null) {
+    if (row.adx14 > p.adxThreshold) s++
+  }
+  // OBV: 스마트머니 분산 → +1, 매집 → -1
+  if (p.scoreUseOBV && row.obv != null && row.obv_ma20 != null) {
+    if (row.obv < row.obv_ma20) s++; else s--
+  }
+  // MFI: 자금 과열(>threshold) → +1, 고갈(≤20) → -1
+  if (p.scoreUseMFI && row.mfi14 != null) {
+    if (row.mfi14 > p.mfiThreshold) s++; else if (row.mfi14 <= 20) s--
+  }
+  // MACD: 하락 모멘텀 → +1, 상승 → -1
+  if (p.scoreUseMACD && row.macd_hist != null) {
+    if (row.macd_hist < 0) s++; else s--
+  }
+  // Stoch: 과매도 아님 → +1, 과매도 → -1
+  if (p.scoreUseStoch && row.stoch_k != null) {
+    if (row.stoch_k > p.stochOversold) s++; else s--
+  }
+  // RSI: 건강 구간(40~70) → +1, 과매도(≤30) → -1
+  if (p.scoreUseRSI && row.rsi14 != null) {
+    if (row.rsi14 > 40 && row.rsi14 < 70) s++; else if (row.rsi14 <= 30) s--
+  }
+  // RVOL: 거래량 급증 → +1
+  if (p.scoreUseRVOL && rv >= p.rvolThreshold) s++
+  // 일목: 구름 아래 → +1
+  if (p.scoreUseIchi && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close < row.ichimoku_a && row.close < row.ichimoku_b) s++
   return s
 }
@@ -583,8 +632,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (tp == null || sl == null) continue
       const short = SELL_SIGNALS.has(signal_type)
       if (short ? sl <= row.close : sl >= row.close) continue
-      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
-      if (p.fixedTP === 0 && p.fixedSL === 0 && rr != null && rr < p.minRRRatio) continue
+      // auto 모드에서만 minRRRatio 필터 적용
+      if (p.tpslMode === 'auto' && rr != null && rr < p.minRRRatio) continue
       if (score < p.minScore) continue
       // 인터벌 MA120 추세 필터 (단일 타임프레임)
       if (row.ma120 != null) {
