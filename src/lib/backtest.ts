@@ -580,7 +580,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const signals = detectSignals(rows, i, cd, p)
     for (const sig of signals) {
       const { signal_type, tp, sl, rr, score } = sig
-      cd[signal_type] = SIGNAL_COOLDOWN
       if (tp == null || sl == null) continue
       const short = SELL_SIGNALS.has(signal_type)
       if (short ? sl <= row.close : sl >= row.close) continue
@@ -600,6 +599,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           if (short  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
         }
       }
+      // 모든 필터 통과 후 쿨다운 소모 (점수 미달 신호가 쿨다운 잡아먹는 것 방지)
+      cd[signal_type] = SIGNAL_COOLDOWN
       const { quantity, capitalUsed } = positionSize(capital, row.close, sl, p.leverage)
       if (quantity <= 0) continue
       pos = {

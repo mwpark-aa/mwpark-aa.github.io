@@ -742,7 +742,7 @@ export default function BacktestViewer() {
       minRRRatio:     parseFloat(draft.minRRRatio)     || params.minRRRatio,
       rsiOversold:    parseFloat(draft.rsiOversold)    || params.rsiOversold,
       rsiOverbought:  parseFloat(draft.rsiOverbought)  || params.rsiOverbought,
-      minScore:       parseFloat(draft.minScore)       || params.minScore,
+      minScore:       isNaN(parseFloat(draft.minScore)) ? params.minScore : parseFloat(draft.minScore),
       initialCapital: parseFloat(draft.initialCapital) || params.initialCapital,
       adxThreshold:   parseFloat(draft.adxThreshold)   || params.adxThreshold,
       mfiThreshold:   parseFloat(draft.mfiThreshold)   || params.mfiThreshold,
