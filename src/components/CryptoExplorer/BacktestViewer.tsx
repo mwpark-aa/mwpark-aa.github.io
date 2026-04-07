@@ -1214,7 +1214,7 @@ export default function BacktestViewer() {
                         { key: 'scoreUseStoch', label: 'Stoch', sub: '스토캐스틱',   hint: '"최근 범위에서 위쪽이냐 아래쪽이냐"\n최근 N봉 고-저 박스 안에서 현재가 위치.\nLong은 상한 미만, Short는 하한 초과 시 점수 +1.' },
                         { key: 'scoreUseRSI',   label: 'RSI',   sub: 'RSI 건강구간', hint: '"얼마나 빠르게 올라왔냐"\n14봉 상승폭 vs 하락폭 비율 (0~100).\n과매도~과매수 사이 건강 구간에 있을 때 점수 +1.' },
                         { key: 'scoreUseRVOL',  label: 'RVOL',  sub: '주간 거래량',  hint: '"평소보다 많이 거래되고 있냐?"\n168봉(1주) 평균 대비 현재 거래량 비율.\n설정 배수 이상이면 점수 +1.' },
-                        { key: 'scoreUseIchi',  label: '일목',  sub: '구름대 위치',   hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\nLong: 구름 위 → 점수 +1\nShort: 구름 아래 → 점수 +1\n활성화 시 구름 이탈하면 자동 청산.' },
+                        { key: 'scoreUseIchi',  label: '일목',  sub: '구름대 위치',   hint: '"현재 가격이 구름대(스팬A·B) 위/아래에 있냐?"\nLong: 구름 위 → 점수 +1\nShort: 구름 아래 → 점수 +1' },
                       ] as { key: keyof BacktestParams; label: string; sub: string; hint: string }[]).map(({ key, label, sub, hint }) => {
                         const on = params[key] as unknown as boolean
                         return (

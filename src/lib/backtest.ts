@@ -538,17 +538,8 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
         ? row.high >= tp1Val * (1 + BELOW_TP1_BUFFER)
         : row.low  <= tp1Val * (1 - BELOW_TP1_BUFFER))
 
-      // 일목 구름 이탈 청산 (scoreUseIchi 활성화 시)
-      // 롱: 종가가 구름 아래로 이탈 / 숏: 종가가 구름 위로 이탈
-      const cloudBreak = p.scoreUseIchi
-        && row.ichimoku_a != null && row.ichimoku_b != null
-        && (short
-          ? row.close > Math.max(row.ichimoku_a!, row.ichimoku_b!)
-          : row.close < Math.min(row.ichimoku_a!, row.ichimoku_b!))
-
       let exitPrice: number | null = null, exitReason = ''
-      if      (cloudBreak) { exitPrice = row.close; exitReason = 'CLOUD_EXIT' }
-      else if (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
+      if      (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
       else if (tpHit)    { exitPrice = pos.tp; exitReason = 'TP' }
       else if (trailHit) { exitPrice = short ? pos.peakPrice * (1 + TRAILING_STOP_PCT) : pos.peakPrice * (1 - TRAILING_STOP_PCT); exitReason = 'TRAIL' }
       else if (belowTp1) { exitPrice = tp1Val; exitReason = 'BELOW_TP1' }
