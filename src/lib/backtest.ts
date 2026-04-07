@@ -29,6 +29,8 @@ export interface BacktestParams {
   rvolThreshold: number
   rvolSkip: number
   scoreUseIchi: boolean
+  fixedTP: number   // 고정 익절 % (현물 기준, 0 = ATR 자동)
+  fixedSL: number   // 고정 손절 % (현물 기준, 0 = ATR 자동)
 }
 
 export interface BacktestTrade {
@@ -328,14 +330,25 @@ function shortSL(close: number, swingHigh: number | null, atr: number | null): n
   return Math.round((swingHigh ? swingHigh * 1.002 : close * 1.02) * 1e6) / 1e6
 }
 
-function calcTPSL(type: string, close: number, row: Candle, minRR: number) {
+function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
+  const isLong = LONG_SIGNALS.includes(type) || type === 'GOLDEN_CROSS'
+  const isShort = SHORT_SIGNALS.includes(type)
   let tp: number | null = null, sl: number | null = null
-  if (LONG_SIGNALS.includes(type) || type === 'GOLDEN_CROSS') {
-    sl = longSL(close, row.swing_low ?? null, row.atr14 ?? null)
-    tp = Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : minRR)) * 1e6) / 1e6
-  } else if (SHORT_SIGNALS.includes(type)) {
-    sl = shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
-    tp = Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : minRR)) * 1e6) / 1e6
+
+  if (isLong) {
+    sl = p.fixedSL > 0
+      ? Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
+      : longSL(close, row.swing_low ?? null, row.atr14 ?? null)
+    tp = p.fixedTP > 0
+      ? Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
+      : Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : p.minRR)) * 1e6) / 1e6
+  } else if (isShort) {
+    sl = p.fixedSL > 0
+      ? Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
+      : shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
+    tp = p.fixedTP > 0
+      ? Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
+      : Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : p.minRR)) * 1e6) / 1e6
   }
   const rr = tp != null && sl != null && sl !== close
     ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
@@ -390,7 +403,7 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
 
   const fired: any[] = []
   const add = (type: string, row: Candle, score: number) => {
-    const { tp, sl, rr } = calcTPSL(type, close, row, p.minRR)
+    const { tp, sl, rr } = calcTPSL(type, close, row, p)
     fired.push({ signal_type: type, tp, sl, rr, score })
   }
 

@@ -715,6 +715,8 @@ export default function BacktestViewer() {
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
     scoreUseIchi: false,
+    fixedTP: 0,
+    fixedSL: 0,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
@@ -724,6 +726,7 @@ export default function BacktestViewer() {
     adxThreshold: '20', mfiThreshold: '50',
     stochOversold: '20', stochOverbought: '80',
     rvolThreshold: '1.5', rvolSkip: '0.4',
+    fixedTP: '0', fixedSL: '0',
   })
 
   const handleScrollTo = useCallback((ts: string) => {
@@ -746,6 +749,8 @@ export default function BacktestViewer() {
       stochOverbought:parseFloat(draft.stochOverbought)|| params.stochOverbought,
       rvolThreshold:  parseFloat(draft.rvolThreshold)  || params.rvolThreshold,
       rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
+      fixedTP:        parseFloat(draft.fixedTP)        || 0,
+      fixedSL:        parseFloat(draft.fixedSL)        || 0,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)
@@ -804,6 +809,8 @@ export default function BacktestViewer() {
         rvol_threshold: committed.rvolThreshold,
         rvol_skip: committed.rvolSkip,
         score_use_ichi: params.scoreUseIchi,
+        fixed_tp: committed.fixedTP,
+        fixed_sl: committed.fixedSL,
       }
       const resultPayload = {
         total_return_pct: data.total_return_pct,
@@ -873,8 +880,8 @@ export default function BacktestViewer() {
       stochOverbought: run.stoch_overbought ?? 80,
       rvolThreshold:   run.rvol_threshold   ?? 1.5,
       rvolSkip:        run.rvol_skip        ?? 0.4,
-      ichiTP:          (run as any).ichi_tp ?? 7.0,
-      ichiSL:          (run as any).ichi_sl ?? 2.5,
+      fixedTP:         (run as any).fixed_tp ?? 0,
+      fixedSL:         (run as any).fixed_sl ?? 0,
     }))
     setDraft({
       leverage: String(run.leverage),
@@ -890,6 +897,8 @@ export default function BacktestViewer() {
       stochOverbought: String(run.stoch_overbought ?? 80),
       rvolThreshold: String(run.rvol_threshold ?? 1.5),
       rvolSkip: String(run.rvol_skip ?? 0.4),
+      fixedTP: String((run as any).fixed_tp ?? 0),
+      fixedSL: String((run as any).fixed_sl ?? 0),
     })
     setShowHistory(false)
     setShowParams(true)
@@ -1162,6 +1171,33 @@ export default function BacktestViewer() {
                         <input type="number" min={0} max={7}
                           value={draft.minScore ?? String(params.minScore)} style={inputStyle}
                           onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* ── 고정 익절/손절 % ── */}
+                  <Box>
+                    <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>고정 익절/손절 % <Typography component="span" sx={{ fontSize: 9, color: '#3f3f46', ml: 0.5 }}>0 = ATR 자동계산</Typography></Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
+                      <Box>
+                        <LabelRow label="익절 % (+N)" hintId="fixedTP" hint={'"진입가 기준 N% 오르면 무조건 익절"\n현물 기준 (레버리지 무관).\n0이면 minRR 기반 ATR 자동계산 사용.'} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Typography sx={{ fontSize: 11, color: '#10b981', fontWeight: 700, flexShrink: 0 }}>+</Typography>
+                          <input type="number" min={0} max={100} step={0.5}
+                            value={draft.fixedTP ?? String(params.fixedTP)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, fixedTP: e.target.value }))} />
+                          <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
+                        </Box>
+                      </Box>
+                      <Box>
+                        <LabelRow label="손절 % (-M)" hintId="fixedSL" hint={'"진입가 기준 M% 내리면 무조건 손절"\n현물 기준 (레버리지 무관).\n0이면 스윙로우/ATR 자동계산 사용.'} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Typography sx={{ fontSize: 11, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>−</Typography>
+                          <input type="number" min={0} max={100} step={0.5}
+                            value={draft.fixedSL ?? String(params.fixedSL)} style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, fixedSL: e.target.value }))} />
+                          <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
