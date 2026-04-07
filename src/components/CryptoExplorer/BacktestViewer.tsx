@@ -1318,7 +1318,7 @@ export default function BacktestViewer() {
                     const indicatorList = [
                       {
                         key: 'scoreUseADX', label: 'ADX', sub: '추세 강도 필터',
-                        hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\nADX > 설정값이면 점수 +1.\n\n💡 20 미만 = 횡보(추세 없음)\n💡 20~40 = 약한 추세\n💡 40 이상 = 강한 추세',
+                        hint: '"지금 추세가 있긴 한가?"\n방향 무관, 추세 강도만 측정 (0~100).\n\n✅ ADX > 설정값 → +1 (추세 존재)\n⛔ ADX ≤ 설정값 → 가감점 없음 (횡보)\n\n💡 20 미만 = 횡보(추세 없음)\n💡 20~40 = 약한 추세\n💡 40 이상 = 강한 추세',
                         desc: '추세 방향(롱/숏)은 무관하고 "추세가 존재하는가"만 판단. 횡보장에서 불필요한 진입을 막아줌.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
@@ -1338,7 +1338,7 @@ export default function BacktestViewer() {
                             <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
                             <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
                             <text x="8" y={thY - 2} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
-                            <text x="8" y={thY + 5} fill="#ef4444" fontSize="3" opacity="0.6">점수 없음</text>
+                            <text x="8" y={thY + 5} fill="#71717a" fontSize="3" opacity="0.6">가감점 없음</text>
                             <polyline points="4,22 8,20 12,23 16,21 20,24 24,21 28,22 34,19 40,15 48,11 56,8 64,6 68,5"
                               fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
                             <polyline points="4,30 10,30 18,29 26,27 32,23 40,17 50,12 60,9 68,8"
@@ -1350,7 +1350,7 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseOBV', label: 'OBV', sub: '스마트머니 추적',
-                        hint: '"큰손이 사고 있냐 팔고 있냐"\n양봉이면 거래량을 더하고, 음봉이면 빼서 누적.\nOBV가 20봉 평균(MA20)을 상향 돌파하면 점수 +1.\n\n💡 가격은 횡보인데 OBV 상승 → 세력 매집 가능성\n💡 가격 상승인데 OBV 하락 → 매도 압력 증가 경고',
+                        hint: '"큰손이 사고 있냐 팔고 있냐"\n양봉이면 거래량을 더하고, 음봉이면 빼서 누적.\n\n✅ OBV > MA20 → 롱 +1 / ⛔ 숏 -1 (매집 중)\n✅ OBV < MA20 → 숏 +1 / ⛔ 롱 -1 (이탈 중)\n\n💡 가격은 횡보인데 OBV 상승 → 세력 매집 가능성\n💡 가격 상승인데 OBV 하락 → 매도 압력 증가 경고',
                         desc: '거래량을 누적해서 "보이지 않는 매수/매도 압력"을 추적. 가격보다 먼저 움직이는 선행 지표.',
                         settings: null,
                         svg: (
@@ -1360,8 +1360,8 @@ export default function BacktestViewer() {
                             <polyline points="4,32 12,31 20,29 28,27 34,26 40,22 48,17 56,12 64,9 68,8"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="40" cy="22" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <text x="42" y="20" fill="#10b981" fontSize="3">롱 +1</text>
-                            <text x="5" y="35" fill="#ef4444" fontSize="3" opacity="0.5">OBV &lt; MA → 숏 +1</text>
+                            <text x="42" y="20" fill="#10b981" fontSize="3">롱 +1 / 숏 -1</text>
+                            <text x="5" y="35" fill="#ef4444" fontSize="3" opacity="0.5">OBV &lt; MA → 숏 +1 / 롱 -1</text>
                             <text x="5" y="8" fill="currentColor" fontSize="3.5" opacity="0.6">━ OBV</text>
                             <text x="5" y="14" fill="#71717a" fontSize="3.5">┅ MA20</text>
                           </svg>
@@ -1369,7 +1369,7 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseMFI', label: 'MFI', sub: '자금 유입/유출',
-                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n설정값(기본 50) 미만이면 과열 아님 → 점수 +1.\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)\n💡 RSI보다 거래량 반영해서 더 정확',
+                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n\n✅ MFI < 설정값 → 롱숏 +1 (과열 아님)\n⛔ MFI ≥ 80 → 롱 -1 (자금 과열, 사면 위험)\n⛔ MFI ≤ 20 → 숏 -1 (자금 고갈, 팔면 위험)\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)',
                         desc: '가격×거래량으로 "실제 자금"의 유입/유출을 측정. RSI의 거래량 보강 버전.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
@@ -1389,7 +1389,7 @@ export default function BacktestViewer() {
                             <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
                             <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
                             <text x="8" y={thY + 5} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
-                            <text x="8" y={thY - 2} fill="#ef4444" fontSize="3" opacity="0.6">과열 구간</text>
+                            <text x="8" y={thY - 2} fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과열)</text>
                             <path d="M4,8 C12,10 18,16 28,20 C36,23 44,22 52,18 C58,15 62,13 68,12"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="26" cy="20" r="2.5" fill="#10b981" opacity="0.9"/>
@@ -1399,15 +1399,15 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseMACD', label: 'MACD', sub: '추세 모멘텀',
-                        hint: '"상승/하락 가속도가 붙고 있냐?"\n단기(12봉) EMA - 장기(26봉) EMA = MACD선.\n히스토그램(막대)이 0선 위 = 상승 모멘텀 → Long 점수 +1\n히스토그램이 0선 아래 = 하락 모멘텀 → Short 점수 +1\n\n💡 막대가 점점 커지면 → 추세 가속 중\n💡 막대가 줄어들면 → 추세 약화, 전환 임박',
+                        hint: '"상승/하락 가속도가 붙고 있냐?"\n단기(12봉) EMA - 장기(26봉) EMA = MACD선.\n\n✅ 히스토그램 > 0 → 롱 +1 / ⛔ 숏 -1 (상승 모멘텀)\n✅ 히스토그램 < 0 → 숏 +1 / ⛔ 롱 -1 (하락 모멘텀)\n\n💡 막대가 점점 커지면 → 추세 가속 중\n💡 막대가 줄어들면 → 추세 약화, 전환 임박',
                         desc: '단기-장기 이평선 차이로 "추세의 가속도"를 측정. 0선 돌파가 핵심 신호.',
                         settings: null,
                         svg: (
                           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
                             <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b" strokeWidth="0.6"/>
                             <text x="62" y="19" fill="#52525b" fontSize="3">0</text>
-                            <text x="38" y="8" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
-                            <text x="6" y="38" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1</text>
+                            <text x="34" y="8" fill="#10b981" fontSize="3" opacity="0.8">롱 +1 / 숏 -1</text>
+                            <text x="6" y="38" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1 / 롱 -1</text>
                             {[8,14,20].map((x,i) => {
                               const h = [6,8,5][i]
                               return <rect key={x} x={x-3} y={21} width={6} height={h} fill="#ef444466" rx="0.5"/>
@@ -1422,7 +1422,7 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseStoch', label: 'Stoch', sub: '가격 위치 판단',
-                        hint: '"최근 가격 범위에서 지금 어디쯤이냐?"\n최근 N봉의 최고-최저 사이에서 현재가 위치를 0~100으로 표시.\n\nLong 진입 시: 80 미만이어야 점수 +1 (너무 높으면 위험)\nShort 진입 시: 20 초과여야 점수 +1 (너무 낮으면 위험)\n\n💡 80 이상 = 최근 고점 근처 (과매수)\n💡 20 이하 = 최근 저점 근처 (과매도)',
+                        hint: '"최근 가격 범위에서 지금 어디쯤이냐?"\n최근 N봉의 최고-최저 사이에서 현재가 위치를 0~100으로 표시.\n\n✅ Stoch < 80 → 롱 +1 / ⛔ ≥80 → 롱 -1 (과매수)\n✅ Stoch > 20 → 숏 +1 / ⛔ ≤20 → 숏 -1 (과매도)\n\n💡 80 이상 = 최근 고점 근처 (과매수, 사면 위험)\n💡 20 이하 = 최근 저점 근처 (과매도, 팔면 위험)',
                         desc: '최근 고-저 범위 내 현재가 위치를 %로 표시. "꼭대기에서 사지 말라"는 필터.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
@@ -1452,9 +1452,9 @@ export default function BacktestViewer() {
                             <rect x="4" y={osY} width="64" height={38 - osY} fill="#ef444408" rx="1"/>
                             <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
                             <text x="56" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
-                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏만 +1</text>
+                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1 / 롱 -1</text>
                             <text x="8" y={(obY + osY) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
-                            <text x="8" y="37" fill="#10b981" fontSize="3" opacity="0.6">롱만 +1</text>
+                            <text x="8" y="37" fill="#10b981" fontSize="3" opacity="0.6">롱 +1 / 숏 -1</text>
                             <line x1="4" y1={osY} x2="68" y2={osY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
                             <text x="56" y={osY + 4} fill="#ef4444" fontSize="3.5">{os}</text>
                             <path d="M4,10 C10,8 16,12 22,20 C26,26 30,30 36,28 C40,26 44,22 50,16 C56,11 62,9 68,10"
@@ -1466,7 +1466,7 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseRSI', label: 'RSI', sub: '과열/침체 필터',
-                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\nLong: 30~60 구간에서만 +1 (건강한 반등 구간)\nShort: 40~70 구간에서만 +1 (건강한 과매수 거부 구간)\n\n💡 70 이상 = 과매수 → 롱·숏 모두 점수 없음\n💡 30 이하 = 과매도 → 롱·숏 모두 점수 없음\n💡 40~60 = 롱숏 모두 점수 획득 구간',
+                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\n✅ 30~60 → 롱 +1 / ✅ 40~70 → 숏 +1\n⛔ RSI ≥ 70 → 롱 -1 (과매수, 사면 위험)\n⛔ RSI ≤ 30 → 숏 -1 (과매도, 팔면 위험)\n\n💡 40~60 = 롱숏 모두 점수 획득 구간\n💡 극단 구간은 감점으로 위험 경고',
                         desc: '14봉 상승/하락 비율로 과열·침체 판단. 극단 구간(과매수·과매도)을 피하는 안전 필터.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
@@ -1505,11 +1505,11 @@ export default function BacktestViewer() {
                             <text x="56" y={y40 - 1} fill="#3b82f6" fontSize="3">40</text>
                             <line x1="4" y1={y30} x2="68" y2={y30} stroke="#ef444455" strokeWidth="0.5" strokeDasharray="2,2"/>
                             <text x="56" y={y30 + 4} fill="#ef4444" fontSize="3">30</text>
-                            <text x="6" y={(4 + y70) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">점수 없음</text>
+                            <text x="6" y={(4 + y70) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">롱 -1</text>
                             <text x="6" y={(y70 + y60) / 2 + 1} fill="#f59e0b" fontSize="2.8" opacity="0.8">숏만 +1</text>
                             <text x="6" y={(y60 + y40) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.9">롱숏 +1</text>
                             <text x="6" y={(y40 + y30) / 2 + 1} fill="#3b82f6" fontSize="2.8" opacity="0.8">롱만 +1</text>
-                            <text x="6" y={(y30 + 38) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">점수 없음</text>
+                            <text x="6" y={(y30 + 38) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">숏 -1</text>
                             <path d="M4,32 C10,30 16,26 22,20 C28,15 34,14 42,16 C50,18 58,17 68,14"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="40" cy="16" r="2.5" fill="#10b981" opacity="0.9"/>
@@ -1566,7 +1566,7 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseIchi', label: '일목', sub: '구름대 지지/저항',
-                        hint: '"가격이 구름 위냐 아래냐?"\n일목균형표의 스팬A·B가 만드는 구름대가 지지/저항 역할.\n\nLong: 가격이 구름 위에 있으면 점수 +1 (상승 지지)\nShort: 가격이 구름 아래에 있으면 점수 +1 (하락 저항)\n\n💡 구름이 두꺼울수록 지지/저항이 강함\n💡 구름 안에 있으면 방향 불확실 → 점수 없음',
+                        hint: '"가격이 구름 위냐 아래냐?"\n일목균형표의 스팬A·B가 만드는 구름대가 지지/저항 역할.\n\n✅ 구름 위 → 롱 +1 / ⛔ 숏 -1 (상승 지지)\n✅ 구름 아래 → 숏 +1 / ⛔ 롱 -1 (하락 저항)\n\n💡 구름이 두꺼울수록 지지/저항이 강함\n💡 구름 안에 있으면 방향 불확실 → 가감점 없음',
                         desc: '일목균형표 구름대로 "가격이 지지 위인지 저항 아래인지" 판단. 추세 방향 확인용.',
                         settings: null,
                         svg: (
@@ -1584,8 +1584,8 @@ export default function BacktestViewer() {
                             <path d="M4,18 C14,15 26,12 38,10 C50,8 60,7 68,7"
                               fill="none" stroke="currentColor" strokeWidth="2"/>
                             <circle cx="38" cy="10" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <text x="42" y="9" fill="#10b981" fontSize="3">롱 +1</text>
-                            <text x="42" y="36" fill="#ef4444" fontSize="3" opacity="0.5">숏 +1</text>
+                            <text x="38" y="9" fill="#10b981" fontSize="3">롱 +1 / 숏 -1</text>
+                            <text x="38" y="36" fill="#ef4444" fontSize="3" opacity="0.5">숏 +1 / 롱 -1</text>
                           </svg>
                         ),
                       },
