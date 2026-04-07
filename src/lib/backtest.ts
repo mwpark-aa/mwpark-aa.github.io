@@ -583,7 +583,8 @@ function simulate(rows: Candle[], p: BacktestParams): BacktestResult {
       if (tp == null || sl == null) continue
       const short = SELL_SIGNALS.has(signal_type)
       if (short ? sl <= row.close : sl >= row.close) continue
-      if (rr != null && rr < p.minRRRatio) continue
+      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
+      if (p.fixedTP === 0 && p.fixedSL === 0 && rr != null && rr < p.minRRRatio) continue
       if (score < p.minScore) continue
       // MA120 trend filter
       if (row.ma120 != null) {
