@@ -1369,11 +1369,11 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseMFI', label: 'MFI', sub: '자금 유입/유출',
-                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n\n✅ MFI < 설정값 → 롱숏 +1 (과열 아님)\n⛔ MFI ≥ 80 → 롱 -1 (자금 과열, 사면 위험)\n⛔ MFI ≤ 20 → 숏 -1 (자금 고갈, 팔면 위험)\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)',
+                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n\n✅ MFI < 설정값 → 롱 +1 (과열 아님, 상승 여력)\n✅ MFI > 설정값 → 숏 +1 (자금 과열, 하락 압력)\n⛔ MFI ≥ 80 → 롱 -1 (자금 과열, 사면 위험)\n⛔ MFI ≤ 20 → 숏 -1 (자금 고갈, 팔면 위험)\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)',
                         desc: '가격×거래량으로 "실제 자금"의 유입/유출을 측정. RSI의 거래량 보강 버전.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
-                            <Typography sx={{ fontSize: 9, color: '#60a5fa99' }}>이 값 미만일 때 점수 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과열 아님 기준)</Typography></Typography>
+                            <Typography sx={{ fontSize: 9, color: '#60a5fa99' }}>기준값 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(미만→롱+1, 초과→숏+1)</Typography></Typography>
                             <input type="number" min={10} max={90}
                               value={draft.mfiThreshold ?? String(params.mfiThreshold)} style={smInput}
                               onChange={e => setDraft(d => ({ ...d, mfiThreshold: e.target.value }))} />
@@ -1388,8 +1388,9 @@ export default function BacktestViewer() {
                             <rect x="4" y={thY} width="64" height={38 - thY} fill="#10b98108" rx="1"/>
                             <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
                             <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
-                            <text x="8" y={thY + 5} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
-                            <text x="8" y={thY - 2} fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과열)</text>
+                            <text x="8" y={thY + 5} fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
+                            <text x="42" y={thY - 2} fill="#10b981" fontSize="3" opacity="0.8">숏 +1</text>
+                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과열)</text>
                             <path d="M4,8 C12,10 18,16 28,20 C36,23 44,22 52,18 C58,15 62,13 68,12"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
                             <circle cx="26" cy="20" r="2.5" fill="#10b981" opacity="0.9"/>
