@@ -975,26 +975,28 @@ export default function BacktestViewer() {
         <Card sx={{ background: '#111113', border: '1px solid #27272a', borderRadius: 3 }}>
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             {/* Row 1: symbol + run */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: 12, color: '#71717a', fontWeight: 600 }}>코인</Typography>
-              <Box sx={{ display: 'flex', gap: 0.75 }}>
-                {CRYPTO_SYMBOLS.map((sym) => (
-                    <Box
-                        key={sym}
-                        component="button"
-                        onClick={() => setSelectedSymbol(sym)}
-                        sx={{
-                          px: 1.5, py: 0.5, borderRadius: 1.5, border: '1px solid',
-                          borderColor: selectedSymbol === sym ? '#3b82f6' : '#27272a',
-                          background: selectedSymbol === sym ? '#3b82f620' : 'transparent',
-                          color: selectedSymbol === sym ? '#3b82f6' : '#71717a',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
-                          '&:hover': { borderColor: '#3b82f666', color: '#a1a1aa' },
-                        }}
-                    >{sym}</Box>
-                ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography sx={{ fontSize: 12, color: '#71717a', fontWeight: 600 }}>코인</Typography>
+                <Box sx={{ display: 'flex', gap: 0.75 }}>
+                  {CRYPTO_SYMBOLS.map((sym) => (
+                      <Box
+                          key={sym}
+                          component="button"
+                          onClick={() => setSelectedSymbol(sym)}
+                          sx={{
+                            px: 1.5, py: 0.5, borderRadius: 1.5, border: '1px solid',
+                            borderColor: selectedSymbol === sym ? '#3b82f6' : '#27272a',
+                            background: selectedSymbol === sym ? '#3b82f620' : 'transparent',
+                            color: selectedSymbol === sym ? '#3b82f6' : '#71717a',
+                            fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                            '&:hover': { borderColor: '#3b82f666', color: '#a1a1aa' },
+                          }}
+                      >{sym}</Box>
+                  ))}
+                </Box>
               </Box>
-              <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+              <Box sx={{ ml: { xs: 0, sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Box
                     component="button"
                     onClick={() => { setShowHistory(v => !v); setShowParams(false) }}
@@ -1049,7 +1051,10 @@ export default function BacktestViewer() {
                         아직 실행 이력이 없어요
                       </Typography>
                   ) : (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 280, overflowY: 'auto',
+                      <Box sx={{ overflowX: 'auto',
+                        '&::-webkit-scrollbar': { height: 3 },
+                        '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 } }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 280, overflowY: 'auto', minWidth: 480,
                         '&::-webkit-scrollbar': { width: 3 },
                         '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 } }}>
                         {history.map((run) => {
@@ -1089,6 +1094,7 @@ export default function BacktestViewer() {
                           )
                         })}
                       </Box>
+                    </Box>
                   )}
                 </Box>
             )}
@@ -1098,7 +1104,7 @@ export default function BacktestViewer() {
                 <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #1f1f23', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
                   {/* ── 기간 + 인터벌 ── */}
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px', gap: 1.5 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 100px' }, gap: 1.5 }}>
                     <Box>
                       <LabelRow label="시작일" />
                       <input type="date" value={params.startDate} style={inputStyle}
@@ -1109,7 +1115,7 @@ export default function BacktestViewer() {
                       <input type="date" value={params.endDate} style={inputStyle}
                           onChange={e => setParams(p => ({ ...p, endDate: e.target.value }))} />
                     </Box>
-                    <Box>
+                    <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
                       <LabelRow label="캔들 단위" hintId="interval" hint={'1h = 1시간봉, 4h = 4시간봉, 1d = 일봉.\n짧을수록 거래 횟수 많고 노이즈 많음.'} />
                       <select value={params.interval} style={{ ...inputStyle, cursor: 'pointer' }}
                           onChange={e => setParams(p => ({ ...p, interval: e.target.value }))}>
@@ -1121,7 +1127,7 @@ export default function BacktestViewer() {
                   {/* ── 전략 기본 설정 ── */}
                   <Box>
                     <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>전략 기본 설정</Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 1.5 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 1.5 }}>
                       <Box>
                         <LabelRow label="레버리지" hintId="leverage" hint={'"얼마나 크게 배팅하냐"\n10x면 $1,000으로 $10,000 포지션.\n높을수록 수익·손실 폭 커지고 청산 위험 증가.'} />
                         <input type="number" min={1} max={200}
@@ -1493,6 +1499,8 @@ export default function BacktestViewer() {
                   )}
                 </Box>
 
+                {/* Scrollable trade table */}
+                <Box sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { height: 3 }, '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 } }}>
                 {/* Header */}
                 <Box
                     sx={{
@@ -1502,6 +1510,7 @@ export default function BacktestViewer() {
                       px: 1.5,
                       py: 0.75,
                       mb: 0.5,
+                      minWidth: 460,
                       borderBottom: '1px solid #27272a',
                     }}
                 >
@@ -1536,6 +1545,7 @@ export default function BacktestViewer() {
                       gap: 0.5,
                       minHeight: 100,
                       maxHeight: 600,
+                      minWidth: 460,
                       overflowY: 'auto',
                       pr: 0.5,
                       '&::-webkit-scrollbar': { width: 3 },
@@ -1563,6 +1573,7 @@ export default function BacktestViewer() {
                       </Box>
                   )}
                 </Box>
+                </Box>{/* end overflowX wrapper */}
               </CardContent>
             </Card>
         )}
