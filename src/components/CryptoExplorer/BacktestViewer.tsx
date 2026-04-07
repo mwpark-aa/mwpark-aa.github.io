@@ -695,7 +695,7 @@ export default function BacktestViewer() {
     endDate: defaultEndDate,
     interval: '1h',
     leverage: 5,
-    minRR: 2.2,
+    minRR: 1.5,
     minRRRatio: 1.8,
     rsiOversold: 35,
     rsiOverbought: 65,
@@ -721,7 +721,7 @@ export default function BacktestViewer() {
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
   const [draft, setDraft] = useState<Record<string, string>>({
-    leverage: '5', minRR: '2.2', minRRRatio: '1.8',
+    leverage: '5', minRR: '1.5', minRRRatio: '1.8',
     rsiOversold: '35', rsiOverbought: '65', minScore: '4', initialCapital: '10000',
     adxThreshold: '20', mfiThreshold: '50',
     stochOversold: '20', stochOverbought: '80',
@@ -782,58 +782,62 @@ export default function BacktestViewer() {
       const candleData = await fetchOHLCV(selectedSymbol, params.interval, startMs, endMs)
       setCandles(candleData)
 
-      // 동일 파라미터 이력이 있으면 결과만 업데이트, 없으면 신규 저장
-      const paramFilter = {
-        symbol: selectedSymbol,
-        interval: params.interval,
-        start_date: params.startDate,
-        end_date: params.endDate,
-        leverage: committed.leverage,
-        min_rr: committed.minRR,
-        min_rr_ratio: committed.minRRRatio,
-        rsi_oversold: committed.rsiOversold,
-        rsi_overbought: committed.rsiOverbought,
-        min_score: committed.minScore,
-        initial_capital: committed.initialCapital,
-        score_use_adx: params.scoreUseADX,
-        score_use_obv: params.scoreUseOBV,
-        score_use_mfi: params.scoreUseMFI,
-        score_use_macd: params.scoreUseMACD,
-        score_use_stoch: params.scoreUseStoch,
-        score_use_rsi: params.scoreUseRSI,
-        score_use_rvol: params.scoreUseRVOL,
-        adx_threshold: committed.adxThreshold,
-        mfi_threshold: committed.mfiThreshold,
-        stoch_oversold: committed.stochOversold,
-        stoch_overbought: committed.stochOverbought,
-        rvol_threshold: committed.rvolThreshold,
-        rvol_skip: committed.rvolSkip,
-        score_use_ichi: params.scoreUseIchi,
-        fixed_tp: committed.fixedTP,
-        fixed_sl: committed.fixedSL,
-      }
-      const resultPayload = {
-        total_return_pct: data.total_return_pct,
-        win_rate: data.win_rate,
-        max_drawdown_pct: data.max_drawdown_pct,
-        sharpe_ratio: data.sharpe_ratio,
-        profit_factor: data.profit_factor,
-        total_trades: data.total_trades,
-      }
-      const { data: existing } = await supabase
-        .from('backtest_runs')
-        .select('id')
-        .match(paramFilter)
-        .limit(1)
+      // DB 저장은 백테스트 결과와 독립적으로 처리 (실패해도 결과는 표시)
+      try {
+        const paramFilter = {
+          symbol: selectedSymbol,
+          interval: params.interval,
+          start_date: params.startDate,
+          end_date: params.endDate,
+          leverage: committed.leverage,
+          min_rr: committed.minRR,
+          min_rr_ratio: committed.minRRRatio,
+          rsi_oversold: committed.rsiOversold,
+          rsi_overbought: committed.rsiOverbought,
+          min_score: committed.minScore,
+          initial_capital: committed.initialCapital,
+          score_use_adx: params.scoreUseADX,
+          score_use_obv: params.scoreUseOBV,
+          score_use_mfi: params.scoreUseMFI,
+          score_use_macd: params.scoreUseMACD,
+          score_use_stoch: params.scoreUseStoch,
+          score_use_rsi: params.scoreUseRSI,
+          score_use_rvol: params.scoreUseRVOL,
+          adx_threshold: committed.adxThreshold,
+          mfi_threshold: committed.mfiThreshold,
+          stoch_oversold: committed.stochOversold,
+          stoch_overbought: committed.stochOverbought,
+          rvol_threshold: committed.rvolThreshold,
+          rvol_skip: committed.rvolSkip,
+          score_use_ichi: params.scoreUseIchi,
+          fixed_tp: committed.fixedTP,
+          fixed_sl: committed.fixedSL,
+        }
+        const resultPayload = {
+          total_return_pct: data.total_return_pct,
+          win_rate: data.win_rate,
+          max_drawdown_pct: data.max_drawdown_pct,
+          sharpe_ratio: data.sharpe_ratio,
+          profit_factor: data.profit_factor,
+          total_trades: data.total_trades,
+        }
+        const { data: existing } = await supabase
+          .from('backtest_runs')
+          .select('id')
+          .match(paramFilter)
+          .limit(1)
 
-      if (existing && existing.length > 0) {
-        await supabase.from('backtest_runs')
-          .update({ ...resultPayload, created_at: new Date().toISOString() })
-          .eq('id', existing[0].id)
-      } else {
-        await supabase.from('backtest_runs').insert({ ...paramFilter, ...resultPayload })
+        if (existing && existing.length > 0) {
+          await supabase.from('backtest_runs')
+            .update({ ...resultPayload, created_at: new Date().toISOString() })
+            .eq('id', existing[0].id)
+        } else {
+          await supabase.from('backtest_runs').insert({ ...paramFilter, ...resultPayload })
+        }
+        loadHistory()
+      } catch (dbErr) {
+        console.warn('[backtest] DB 저장 실패 (백테스트 결과에는 영향 없음):', dbErr)
       }
-      loadHistory()
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     } finally {
@@ -841,16 +845,74 @@ export default function BacktestViewer() {
     }
   }, [selectedSymbol, params, draft])
 
-  const loadHistory = useCallback(async () => {
+  const applyBestParams = useCallback((runs: RunHistory[]) => {
+    if (runs.length === 0) return
+    const best = runs.reduce((a, b) =>
+      (a.total_return_pct ?? -Infinity) >= (b.total_return_pct ?? -Infinity) ? a : b
+    )
+    setSelectedSymbol(best.symbol as CryptoSymbol)
+    setParams(p => ({
+      ...p,
+      interval: best.interval,
+      leverage: best.leverage,
+      minRR: best.min_rr,
+      minRRRatio: best.min_rr_ratio ?? p.minRRRatio,
+      rsiOversold: best.rsi_oversold,
+      rsiOverbought: best.rsi_overbought,
+      minScore: best.min_score,
+      initialCapital: best.initial_capital ?? p.initialCapital,
+      scoreUseADX:  best.score_use_adx  ?? true,
+      scoreUseOBV:  best.score_use_obv  ?? true,
+      scoreUseMFI:  best.score_use_mfi  ?? true,
+      scoreUseMACD: best.score_use_macd ?? true,
+      scoreUseStoch:best.score_use_stoch?? true,
+      scoreUseRSI:  best.score_use_rsi  ?? true,
+      scoreUseRVOL: best.score_use_rvol ?? true,
+      adxThreshold:    best.adx_threshold    ?? 20,
+      mfiThreshold:    best.mfi_threshold    ?? 50,
+      stochOversold:   best.stoch_oversold   ?? 20,
+      stochOverbought: best.stoch_overbought ?? 80,
+      rvolThreshold:   best.rvol_threshold   ?? 1.5,
+      rvolSkip:        best.rvol_skip        ?? 0.4,
+      scoreUseIchi:    (best as any).score_use_ichi ?? false,
+      fixedTP:         (best as any).fixed_tp ?? 0,
+      fixedSL:         (best as any).fixed_sl ?? 0,
+      // 날짜는 유지 (현재 선택된 날짜 사용)
+    }))
+    setDraft(d => ({
+      ...d,
+      leverage: String(best.leverage),
+      minRR: String(best.min_rr),
+      minRRRatio: String(best.min_rr_ratio ?? 1.8),
+      rsiOversold: String(best.rsi_oversold),
+      rsiOverbought: String(best.rsi_overbought),
+      minScore: String(best.min_score),
+      initialCapital: String(best.initial_capital ?? 10000),
+      adxThreshold: String(best.adx_threshold ?? 20),
+      mfiThreshold: String(best.mfi_threshold ?? 50),
+      stochOversold: String(best.stoch_oversold ?? 20),
+      stochOverbought: String(best.stoch_overbought ?? 80),
+      rvolThreshold: String(best.rvol_threshold ?? 1.5),
+      rvolSkip: String(best.rvol_skip ?? 0.4),
+      fixedTP: String((best as any).fixed_tp ?? 0),
+      fixedSL: String((best as any).fixed_sl ?? 0),
+    }))
+  }, [])
+
+  const loadHistory = useCallback(async (applyBest = false) => {
     const { data } = await supabase
       .from('backtest_runs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50)
-    if (data) setHistory(data as RunHistory[])
-  }, [])
+    if (data) {
+      const runs = data as RunHistory[]
+      setHistory(runs)
+      if (applyBest) applyBestParams(runs)
+    }
+  }, [applyBestParams])
 
-  useEffect(() => { loadHistory() }, [loadHistory])
+  useEffect(() => { loadHistory(true) }, [loadHistory])
 
   const applyHistoryParams = (run: RunHistory) => {
     setSelectedSymbol(run.symbol as CryptoSymbol)
