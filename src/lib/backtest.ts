@@ -105,11 +105,6 @@ const TRAILING_STOP_PCT    = 0.025
 const BELOW_TP1_BUFFER     = 0.01
 const DAILY_LOSS_LIMIT_PCT = 0.06
 
-const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH']
-const SHORT_SIGNALS = ['MA20_BREAKDOWN', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'DEATH_CROSS']
-// GOLDEN_CROSS 제거됨 (scoreUseGoldenCross로 이미 추세 반영)
-const HIGH_CONF     = new Set(['DEATH_CROSS'])
-const SELL_SIGNALS  = new Set(['DEATH_CROSS', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'MA20_BREAKDOWN'])
 
 // ── Binance fetch ──────────────────────────────────────────────────────────────
 
@@ -366,8 +361,8 @@ function shortSL(close: number, swingHigh: number | null, atr: number | null): n
 }
 
 function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
-  const isLong = LONG_SIGNALS.includes(type)
-  const isShort = SHORT_SIGNALS.includes(type)
+  const isLong = type === 'LONG'
+  const isShort = type === 'SHORT'
   let tp: number | null = null, sl: number | null = null
 
   if (isLong) {
@@ -587,8 +582,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         continue
       }
 
-      // Partial exit (high confidence only)
-      if (HIGH_CONF.has(pos.signal_type) && !pos.partialDone) {
+      // Partial exit
+      if (!pos.partialDone) {
         const tp1 = short
           ? pos.avgEntry - (pos.avgEntry - pos.tp) * PARTIAL_TP_FACTOR
           : pos.avgEntry + (pos.tp - pos.avgEntry) * PARTIAL_TP_FACTOR
@@ -664,7 +659,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     for (const sig of signals) {
       const { signal_type, score } = sig
       if (score < p.minScore) continue
-      const short = SELL_SIGNALS.has(signal_type)
+      const short = signal_type === 'SHORT'
 
       // 인터벌 MA120 추세 필터 (단일 타임프레임)
       if (row.ma120 != null) {
@@ -691,8 +686,10 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (newTp == null || newSl == null) continue
       if (short ? newSl <= entryPrice : newSl >= entryPrice) continue
 
-      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
-      if (p.fixedTP === 0 && p.fixedSL === 0 && newRr != null && newRr < p.minRRRatio) continue
+      // auto 모드: rr = minRR 고정이므로 minRRRatio 필터는 minRR 이하일 때만 의미있음
+      if (p.tpslMode === 'auto' && newRr != null && newRr < p.minRR) continue
+      // fixed 모드: 계산된 RR이 minRRRatio 미만이면 스킵
+      if (p.tpslMode === 'fixed' && newRr != null && newRr < p.minRRRatio) continue
 
       // 모든 필터 통과 후 쿨다운 소모
       cd[signal_type] = SIGNAL_COOLDOWN
