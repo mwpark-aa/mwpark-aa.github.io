@@ -32,6 +32,7 @@ export interface BacktestParams {
   fixedSL: number   // 고정 손절 % (현물 기준, 0 = ATR 자동)
   tpslMode: 'auto' | 'fixed'  // auto=손익비 필터, fixed=고정 TP/SL
   useDailyTrend: boolean  // 일봉 추세 필터 (MTF): 일봉 MA120 방향과 일치할 때만 진입
+  scoreExitThreshold: number  // 점수 기반 청산: 점수가 이 값 이하로 내려가면 매도 (0 = 비활성화)
 }
 
 export interface BacktestTrade {
@@ -619,9 +620,13 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       const belowTp1 = pos.partialDone && (short
         ? row.high >= tp1Val * (1 + BELOW_TP1_BUFFER)
         : row.low  <= tp1Val * (1 - BELOW_TP1_BUFFER))
+      // 점수 기반 청산
+      const currentScore = short ? scoreShort(row, p) : scoreLong(row, p)
+      const scoreExit = p.scoreExitThreshold > 0 && currentScore <= p.scoreExitThreshold
 
       let exitPrice: number | null = null, exitReason = ''
       if      (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
+      else if (scoreExit) { exitPrice = row.close; exitReason = 'SCORE_EXIT' }
       else if (tpHit)    { exitPrice = pos.tp; exitReason = 'TP' }
       else if (trailHit) { exitPrice = short ? pos.peakPrice * (1 + TRAILING_STOP_PCT) : pos.peakPrice * (1 - TRAILING_STOP_PCT); exitReason = 'TRAIL' }
       else if (belowTp1) { exitPrice = tp1Val; exitReason = 'BELOW_TP1' }

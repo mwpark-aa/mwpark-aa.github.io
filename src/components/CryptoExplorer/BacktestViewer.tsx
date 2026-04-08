@@ -449,11 +449,22 @@ const TradeRow = memo(function TradeRow({
             '&:hover > *': { background: `${dirColor}0a !important` },
             transition: 'opacity 0.15s',
           }}
-      >
+      >}
+
         {entries.map((e, ei) => {
           const sc = entryMarkerColor(e.step)
           const isFirst = ei === 0
           const isLast = ei === entries.length - 1
+
+          const exitReasonMap: Record<string, string> = {
+            'TP': '익절',
+            'SL': '손절',
+            'TRAIL': '추적손절',
+            'BELOW_TP1': '부분익절',
+            'TIMEOUT': '강제종료',
+            'LIQUIDATED': '청산',
+            'SCORE_EXIT': '신호약화'
+          }
 
           return (
               <Box
@@ -639,8 +650,16 @@ const TradeRow = memo(function TradeRow({
                           {trade.signal_details.match(/점수:\s*(\d+\/\d+)/)?.[1] || `점수: ${trade.score}`}
                         </Typography>
                       )}
+                      <Box sx={{ display: 'flex', gap: 1, fontSize: 8, color: '#64748b' }}>
+                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
+                          목표: {fmtPrice(trade.tp)}
+                        </Typography>
+                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
+                          손절: {fmtPrice(trade.sl)}
+                        </Typography>
+                      </Box>
                       <Typography sx={{ fontSize: 8, color: win ? '#10b981' : '#ec4899', fontWeight: 600 }}>
-                        청산: {trade.exit_reason}
+                        청산: {exitReasonMap[trade.exit_reason] || trade.exit_reason}
                       </Typography>
                     </Box>
                 ) : (
@@ -783,6 +802,7 @@ export default function BacktestViewer() {
     fixedSL: 0,
     tpslMode: 'auto' as const,
     useDailyTrend: false,
+    scoreExitThreshold: 0,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
@@ -793,6 +813,7 @@ export default function BacktestViewer() {
     adxThreshold: '20',
     rvolThreshold: '1.5', rvolSkip: '0.4',
     fixedTP: '0', fixedSL: '0',
+    scoreExitThreshold: '0',
   })
 
   const handleScrollTo = useCallback((ts: string) => {
@@ -815,6 +836,7 @@ export default function BacktestViewer() {
       fedLiquidityMAPeriod: parseInt(draft.fedLiquidityMAPeriod)   || params.fedLiquidityMAPeriod,
       fixedTP:        parseFloat(draft.fixedTP)        || 0,
       fixedSL:        parseFloat(draft.fixedSL)        || 0,
+      scoreExitThreshold: parseFloat(draft.scoreExitThreshold) || 0,
       tpslMode:       params.tpslMode,
       useDailyTrend:  params.useDailyTrend,
     }
@@ -880,6 +902,7 @@ export default function BacktestViewer() {
           fed_liquidity_ma_period: params.fedLiquidityMAPeriod,
           fixed_tp: committed.fixedTP,
           fixed_sl: committed.fixedSL,
+          score_exit_threshold: committed.scoreExitThreshold,
           use_daily_trend: params.useDailyTrend,
         }
         const resultPayload = {
@@ -943,6 +966,7 @@ export default function BacktestViewer() {
       fedLiquidityMAPeriod: (best as any).fed_liquidity_ma_period ?? 13,
       fixedTP:         (best as any).fixed_tp ?? 0,
       fixedSL:         (best as any).fixed_sl ?? 0,
+      scoreExitThreshold: (best as any).score_exit_threshold ?? 0,
       useDailyTrend:   (best as any).use_daily_trend ?? false,
       // 날짜는 유지 (현재 선택된 날짜 사용)
     }))
@@ -960,6 +984,7 @@ export default function BacktestViewer() {
       rvolSkip: String(best.rvol_skip ?? 0.4),
       fixedTP: String((best as any).fixed_tp ?? 0),
       fixedSL: String((best as any).fixed_sl ?? 0),
+      scoreExitThreshold: String((best as any).score_exit_threshold ?? 0),
     }))
   }, [])
 
@@ -1005,6 +1030,7 @@ export default function BacktestViewer() {
       rvolSkip:        run.rvol_skip        ?? 0.4,
       fixedTP:         (run as any).fixed_tp ?? 0,
       fixedSL:         (run as any).fixed_sl ?? 0,
+      scoreExitThreshold: (run as any).score_exit_threshold ?? 0,
       useDailyTrend:   (run as any).use_daily_trend ?? false,
     }))
     setDraft({
@@ -1020,6 +1046,7 @@ export default function BacktestViewer() {
       rvolSkip: String(run.rvol_skip ?? 0.4),
       fixedTP: String((run as any).fixed_tp ?? 0),
       fixedSL: String((run as any).fixed_sl ?? 0),
+      scoreExitThreshold: String((run as any).score_exit_threshold ?? 0),
     })
     setShowHistory(false)
     setShowParams(true)
