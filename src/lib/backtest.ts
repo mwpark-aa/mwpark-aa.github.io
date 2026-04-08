@@ -19,6 +19,7 @@ export interface BacktestParams {
   scoreUseRSI: boolean
   scoreUseMACD: boolean
   scoreUseRVOL: boolean
+  scoreUseBB: boolean
   adxThreshold: number
   rvolThreshold: number
   rvolSkip: number
@@ -97,7 +98,6 @@ const RISK_PER_TRADE   = 0.04
 const SL_ATR_MIN       = 0.6
 const SL_ATR_MAX       = 2.6
 const SWING_LOOKBACK   = 4
-const VOLUME_MULT      = 1.1
 const SIGNAL_COOLDOWN  = 4
 const PARTIAL_TP_FACTOR    = 0.5
 const PARTIAL_FRACTION     = 0.65
@@ -408,6 +408,8 @@ function scoreLong(row: Candle, p: BacktestParams): number {
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist > 0) s++
   // RVOL: 거래량 급증 → +1
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
+  // 볼린저밴드: 하단 터치 → +1
+  if (p.scoreUseBB && row.bb_lower != null && row.close <= row.bb_lower) s++
   // 일목: 구름 위 → +1
   if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close > row.ichimoku_a && row.close > row.ichimoku_b) s++
@@ -428,6 +430,8 @@ function scoreShort(row: Candle, p: BacktestParams): number {
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist < 0) s++
   // RVOL: 거래량 급증 → +1
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
+  // 볼린저밴드: 상단 터치 → +1
+  if (p.scoreUseBB && row.bb_upper != null && row.close >= row.bb_upper) s++
   // 일목: 구름 아래 → +1
   if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close < row.ichimoku_a && row.close < row.ichimoku_b) s++
@@ -442,7 +446,7 @@ function scoreShort(row: Candle, p: BacktestParams): number {
 
 function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p: BacktestParams) {
   if (i < 1) return []
-  const prev = rows[i - 1], curr = rows[i], close = curr.close
+  const curr = rows[i]
   if ((curr.vol_rvol168 ?? 1.0) < p.rvolSkip) return []
   const ready = (t: string) => (cd[t] ?? 0) <= 0
 
@@ -450,9 +454,9 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
   const swL = Math.min(...win.map(r => r.low)), swH = Math.max(...win.map(r => r.high))
   const rL: Candle = { ...curr, swing_low: swL }, rS: Candle = { ...curr, swing_high: swH }
 
-  const up = curr.ma20 != null && curr.ma60 != null && curr.ma20 > curr.ma60 && close > curr.ma60
-  const dn = curr.ma20 != null && curr.ma60 != null && curr.ma20 < curr.ma60 && close < curr.ma60
-  const volOk = curr.vol_ma20 == null || curr.volume >= curr.vol_ma20 * VOLUME_MULT
+  const close = curr.close
+  const isUptrend = curr.ma20 != null && curr.ma60 != null && curr.ma20 > curr.ma60 && close > curr.ma60
+  const isDowntrend = curr.ma20 != null && curr.ma60 != null && curr.ma20 < curr.ma60 && close < curr.ma60
 
   const fired: any[] = []
   const add = (type: string, row: Candle, score: number) => {
@@ -460,29 +464,15 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
     fired.push({ signal_type: type, tp, sl, rr, score })
   }
 
-  if (up && curr.ma20 != null && prev.ma20 != null
-    && prev.close <= prev.ma20 && close > curr.ma20
-    && volOk && ready('MA20_PULLBACK'))
-    add('MA20_PULLBACK', rL, scoreLong(rL, p))
+  // LONG: 상승추세 + 점수 확인
+  if (isUptrend && ready('LONG')) {
+    add('LONG', rL, scoreLong(rL, p))
+  }
 
-  if (up && prev.bb_lower != null && prev.close <= prev.bb_lower
-    && curr.bb_lower != null && close > curr.bb_lower
-    && volOk && ready('BB_LOWER_TOUCH'))
-    add('BB_LOWER_TOUCH', rL, scoreLong(rL, p))
-
-  if (dn && curr.ma20 != null && prev.ma20 != null
-    && prev.close >= prev.ma20 && close < curr.ma20
-    && volOk && ready('MA20_BREAKDOWN'))
-    add('MA20_BREAKDOWN', rS, scoreShort(rS, p))
-
-  if (dn && prev.bb_upper != null && prev.close >= prev.bb_upper
-    && curr.bb_upper != null && close < curr.bb_upper
-    && volOk && ready('BB_UPPER_TOUCH'))
-    add('BB_UPPER_TOUCH', rS, scoreShort(rS, p))
-
-  if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
-    && prev.ma20 >= prev.ma60 && curr.ma20 < curr.ma60 && close < curr.ma60 && ready('DEATH_CROSS'))
-    add('DEATH_CROSS', rS, scoreShort(rS, p))
+  // SHORT: 하락추세 + 점수 확인
+  if (isDowntrend && ready('SHORT')) {
+    add('SHORT', rS, scoreShort(rS, p))
+  }
 
   return fired
 }
@@ -518,8 +508,8 @@ function buildSignalDetails(signal_type: string, row: Candle, score: number, rr:
 
   // 점수
   const maxScore = (p.scoreUseADX ? 1 : 0) + (p.scoreUseRSI ? 1 : 0) + (p.scoreUseMACD ? 1 : 0)
-                 + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseIchi ? 1 : 0) + (p.scoreUseGoldenCross ? 1 : 0)
-                 + (p.scoreUseFedLiquidity ? 1 : 0)
+                 + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseBB ? 1 : 0) + (p.scoreUseIchi ? 1 : 0)
+                 + (p.scoreUseGoldenCross ? 1 : 0) + (p.scoreUseFedLiquidity ? 1 : 0)
   parts.push(`점수: ${score}/${maxScore}`)
 
   // 손익비 (고정TP/SL이 아닐 때만)

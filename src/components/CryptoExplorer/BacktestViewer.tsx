@@ -791,6 +791,7 @@ export default function BacktestViewer() {
     scoreUseRSI: true,
     scoreUseMACD: true,
     scoreUseRVOL: true,
+    scoreUseBB: false,
     adxThreshold: 20,
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
@@ -896,6 +897,7 @@ export default function BacktestViewer() {
         // insert용 전체 파라미터 (신규 컬럼 포함)
         const insertPayload = {
           ...matchFilter,
+          score_use_bb: params.scoreUseBB,
           score_use_ichi: params.scoreUseIchi,
           score_use_golden_cross: params.scoreUseGoldenCross,
           score_use_fed_liquidity: params.scoreUseFedLiquidity,
@@ -960,6 +962,7 @@ export default function BacktestViewer() {
       adxThreshold:    best.adx_threshold    ?? 20,
       rvolThreshold:   best.rvol_threshold   ?? 1.5,
       rvolSkip:        best.rvol_skip        ?? 0.4,
+      scoreUseBB:      (best as any).score_use_bb ?? false,
       scoreUseIchi:    (best as any).score_use_ichi ?? false,
       scoreUseGoldenCross: (best as any).score_use_golden_cross ?? true,
       scoreUseFedLiquidity: (best as any).score_use_fed_liquidity ?? false,
@@ -1021,6 +1024,7 @@ export default function BacktestViewer() {
       scoreUseRSI:  run.score_use_rsi  ?? true,
       scoreUseMACD: run.score_use_macd ?? true,
       scoreUseRVOL: run.score_use_rvol ?? true,
+      scoreUseBB:   (run as any).score_use_bb ?? false,
       scoreUseIchi: (run as any).score_use_ichi ?? false,
       scoreUseGoldenCross: (run as any).score_use_golden_cross ?? true,
       scoreUseFedLiquidity: (run as any).score_use_fed_liquidity ?? false,
@@ -1519,6 +1523,26 @@ export default function BacktestViewer() {
                           </svg>
                           )
                         })(),
+                      },
+                      {
+                        key: 'scoreUseBB', label: 'BB', sub: '볼린저밴드 극값',
+                        hint: '"극단적인 가격 움직임인가?"\n볼린저밴드는 20일 이평선±2표준편차.\n\n✅ 하단 터치 → 롱 +1 (극도의 약세, 반등 신호)\n⛔ 점수 없음 (중간)\n✅ 상단 터치 → 숏 +1 (극도의 강세, 조정 신호)\n\n💡 밴드가 좁을수록 변동성 낮음\n💡 밴드가 넓을수록 변동성 높음\n💡 극값에서 역추적 가능성 높음',
+                        desc: '가격이 BB 상단/하단 극값에 닿을 때만 점수 부여. 변동성 극값에서의 반전 신호.',
+                        settings: null,
+                        svg: (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            <line x1="4" y1="8" x2="68" y2="8" stroke="#10b98155" strokeWidth="1" strokeDasharray="2,2"/>
+                            <line x1="4" y1="34" x2="68" y2="34" stroke="#ef444455" strokeWidth="1" strokeDasharray="2,2"/>
+                            <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b77" strokeWidth="0.8"/>
+                            <text x="8" y="6" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
+                            <text x="8" y="36" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1</text>
+                            <text x="54" y="22" fill="#52525b" fontSize="3" opacity="0.6">20MA</text>
+                            <path d="M4,21 L12,18 L20,15 L28,17 L36,14 L44,16 L52,18 L60,15 L68,17"
+                              fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.7"/>
+                            <circle cx="28" cy="8" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <circle cx="44" cy="34" r="2.5" fill="#ef4444" opacity="0.9"/>
+                          </svg>
+                        ),
                       },
                       {
                         key: 'scoreUseIchi', label: '일목', sub: '구름대 지지/저항',
