@@ -447,7 +447,10 @@ function scoreShort(row: Candle, p: BacktestParams): number {
 function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p: BacktestParams) {
   if (i < 1) return []
   const curr = rows[i]
-  if ((curr.vol_rvol168 ?? 1.0) < p.rvolSkip) return []
+
+  // RVOL 필터: scoreUseRVOL이 활성화된 경우에만 적용
+  if (p.scoreUseRVOL && (curr.vol_rvol168 ?? 1.0) < p.rvolSkip) return []
+
   const ready = (t: string) => (cd[t] ?? 0) <= 0
 
   const lb = Math.min(SWING_LOOKBACK, i), win = rows.slice(i - lb, i + 1)
@@ -457,9 +460,9 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
   const close = curr.close
 
   // MA 추세 필터: scoreUseGoldenCross가 활성화되면 적용
-  const shouldCheckMA = p.scoreUseGoldenCross && curr.ma20 != null && curr.ma60 != null
-  const isUptrend = !p.scoreUseGoldenCross || (shouldCheckMA && curr.ma20! > curr.ma60! && close > curr.ma60!)
-  const isDowntrend = !p.scoreUseGoldenCross || (shouldCheckMA && curr.ma20! < curr.ma60! && close < curr.ma60!)
+  const hasValidMA = curr.ma20 != null && curr.ma60 != null
+  const isUptrend = !p.scoreUseGoldenCross || (hasValidMA && curr.ma20! > curr.ma60! && close > curr.ma60!)
+  const isDowntrend = !p.scoreUseGoldenCross || (hasValidMA && curr.ma20! < curr.ma60! && close < curr.ma60!)
 
   const fired: any[] = []
   const add = (type: string, row: Candle, score: number) => {
