@@ -2,14 +2,15 @@ export const CRYPTO_SYMBOLS = ['ETH', 'SOL', 'XRP'] as const
 export type CryptoSymbol = (typeof CRYPTO_SYMBOLS)[number]
 
 export const SIGNAL_LABELS: Record<string, string> = {
-  // 롱 시그널
+  SCORE_LONG:  '롱 진입',
+  SCORE_SHORT: '숏 진입',
+  // 레거시 (구 기록 호환용)
   GOLDEN_CROSS:   '골든크로스',
   RSI_OVERSOLD:   'RSI 과매도',
   BB_LOWER_TOUCH: 'BB 하단터치',
   ML_BUY:         'ML 매수',
   RL_BUY:         'RL 롱',
   MA20_PULLBACK:  'MA20 풀백',
-  // 숏 시그널
   DEATH_CROSS:    '데스크로스',
   RSI_OVERBOUGHT: 'RSI 과매수',
   BB_UPPER_TOUCH: 'BB 상단터치',

@@ -46,6 +46,7 @@ interface BacktestResult {
   profit_factor: number | null
   trade_log: any[]
   equity_curve: number[]
+  fed_latest_net_liquidity?: number | null
 }
 
 interface AddEntry {
@@ -777,6 +778,9 @@ export default function BacktestViewer() {
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
     scoreUseIchi: false,
+    scoreUseGoldenCross: true,
+    scoreUseFedLiquidity: false,
+    fedLiquidityMAPeriod: 13,
     fixedTP: 0,
     fixedSL: 0,
     tpslMode: 'auto' as const,
@@ -812,7 +816,8 @@ export default function BacktestViewer() {
       stochOversold:  parseFloat(draft.stochOversold)  || params.stochOversold,
       stochOverbought:parseFloat(draft.stochOverbought)|| params.stochOverbought,
       rvolThreshold:  parseFloat(draft.rvolThreshold)  || params.rvolThreshold,
-      rvolSkip:       parseFloat(draft.rvolSkip)       || params.rvolSkip,
+      rvolSkip:             parseFloat(draft.rvolSkip)             || params.rvolSkip,
+      fedLiquidityMAPeriod: parseInt(draft.fedLiquidityMAPeriod)   || params.fedLiquidityMAPeriod,
       fixedTP:        parseFloat(draft.fixedTP)        || 0,
       fixedSL:        parseFloat(draft.fixedSL)        || 0,
       tpslMode:       params.tpslMode,
@@ -850,7 +855,8 @@ export default function BacktestViewer() {
 
       // DB 저장은 백테스트 결과와 독립적으로 처리 (실패해도 결과는 표시)
       try {
-        const paramFilter = {
+        // match용 핵심 파라미터 (중복 감지)
+        const matchFilter = {
           symbol: selectedSymbol,
           interval: params.interval,
           start_date: params.startDate,
@@ -875,7 +881,14 @@ export default function BacktestViewer() {
           stoch_overbought: committed.stochOverbought,
           rvol_threshold: committed.rvolThreshold,
           rvol_skip: committed.rvolSkip,
+        }
+        // insert용 전체 파라미터 (신규 컬럼 포함)
+        const insertPayload = {
+          ...matchFilter,
           score_use_ichi: params.scoreUseIchi,
+          score_use_golden_cross: params.scoreUseGoldenCross,
+          score_use_fed_liquidity: params.scoreUseFedLiquidity,
+          fed_liquidity_ma_period: params.fedLiquidityMAPeriod,
           fixed_tp: committed.fixedTP,
           fixed_sl: committed.fixedSL,
           use_daily_trend: params.useDailyTrend,
@@ -891,15 +904,15 @@ export default function BacktestViewer() {
         const { data: existing } = await supabase
           .from('backtest_runs')
           .select('id')
-          .match(paramFilter)
+          .match(matchFilter)
           .limit(1)
 
         if (existing && existing.length > 0) {
           await supabase.from('backtest_runs')
-            .update({ ...resultPayload, created_at: new Date().toISOString() })
+            .update({ ...insertPayload, ...resultPayload, created_at: new Date().toISOString() })
             .eq('id', existing[0].id)
         } else {
-          await supabase.from('backtest_runs').insert({ ...paramFilter, ...resultPayload })
+          await supabase.from('backtest_runs').insert({ ...insertPayload, ...resultPayload })
         }
         loadHistory()
       } catch (dbErr) {
@@ -942,6 +955,9 @@ export default function BacktestViewer() {
       rvolThreshold:   best.rvol_threshold   ?? 1.5,
       rvolSkip:        best.rvol_skip        ?? 0.4,
       scoreUseIchi:    (best as any).score_use_ichi ?? false,
+      scoreUseGoldenCross: (best as any).score_use_golden_cross ?? true,
+      scoreUseFedLiquidity: (best as any).score_use_fed_liquidity ?? false,
+      fedLiquidityMAPeriod: (best as any).fed_liquidity_ma_period ?? 13,
       fixedTP:         (best as any).fixed_tp ?? 0,
       fixedSL:         (best as any).fixed_sl ?? 0,
       useDailyTrend:   (best as any).use_daily_trend ?? false,
@@ -1004,6 +1020,9 @@ export default function BacktestViewer() {
       scoreUseRSI:  run.score_use_rsi  ?? true,
       scoreUseRVOL: run.score_use_rvol ?? true,
       scoreUseIchi: (run as any).score_use_ichi ?? false,
+      scoreUseGoldenCross: (run as any).score_use_golden_cross ?? true,
+      scoreUseFedLiquidity: (run as any).score_use_fed_liquidity ?? false,
+      fedLiquidityMAPeriod: (run as any).fed_liquidity_ma_period ?? 13,
       adxThreshold:    run.adx_threshold    ?? 20,
       mfiThreshold:    run.mfi_threshold    ?? 50,
       stochOversold:   run.stoch_oversold   ?? 20,
@@ -1623,9 +1642,62 @@ export default function BacktestViewer() {
                           </svg>
                         ),
                       },
+                      {
+                        key: 'scoreUseGoldenCross', label: 'MA Cross', sub: '골든/데드크로스 방향',
+                        hint: '"MA20이 MA60 위냐 아래냐?"\n골든크로스(MA20>MA60)·데드크로스(MA20<MA60) 방향으로 점수 부여.\n\n✅ 롱 진입 시 MA20 > MA60 → +1 (골든크로스 영역)\n✅ 숏 진입 시 MA20 < MA60 → +1 (데드크로스 영역)\n\n💡 크로스 발생 시점이 아닌, 크로스 이후 영역 전체에 적용\n💡 추세 방향 필터로 사용 — 역추세 진입을 억제',
+                        desc: 'MA20·MA60 크로스 방향으로 추세 정렬 여부를 판단. 골든크로스 영역이면 롱 +1, 데드크로스 영역이면 숏 +1.',
+                        settings: null,
+                        svg: (
+                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+                            {/* MA60 */}
+                            <polyline points="4,30 16,28 28,26 40,24 52,22 68,20"
+                              fill="none" stroke="#f59e0b" strokeWidth="1.2" strokeDasharray="3,2"/>
+                            {/* MA20 — crosses over MA60 */}
+                            <polyline points="4,34 12,32 22,28 32,23 44,18 56,14 68,12"
+                              fill="none" stroke="currentColor" strokeWidth="1.8"/>
+                            {/* cross point */}
+                            <circle cx="26" cy="26" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <text x="28" y="25" fill="#10b981" fontSize="3">골든크로스</text>
+                            <text x="28" y="30" fill="#10b981" fontSize="3">롱 +1</text>
+                            <text x="5" y="10" fill="currentColor" fontSize="3.5" opacity="0.6">━ MA20</text>
+                            <text x="5" y="16" fill="#f59e0b" fontSize="3.5">┅ MA60</text>
+                            <text x="5" y="38" fill="#ef4444" fontSize="3" opacity="0.5">데드크로스 → 숏 +1</text>
+                          </svg>
+                        ),
+                      },
+                      {
+                        key: 'scoreUseFedLiquidity', label: '연준 유동성', sub: '대차대조표·TGA·역레포',
+                        hint: '"연준이 시중에 유동성을 공급 중인가, 회수 중인가?"\n순유동성 = Fed 대차대조표(WALCL) − TGA(재무부 계좌) − 역레포(RRP)\n\n📊 판단 기준 (MA 기준선)\n  ✅ 순유동성이 MA 위 + 상승 중 → 확실한 유동성 확장 → 롱 +1\n  ✅ 순유동성이 MA 아래 + 하락 중 → 확실한 유동성 수축 → 숏 +1\n  ⬜ 한쪽만 해당 (MA 위이지만 하락, 또는 MA 아래이지만 상승) → 혼재 → 0점\n\n💡 MA 기간 설정으로 기준선 민감도 조절 가능 (기본 13주 ≈ 분기)\n💡 FRED API 키 필요: Supabase secrets에 FRED_API_KEY 설정',
+                        desc: '순유동성(대차대조표−TGA−역레포)이 MA 기준선 대비 높은 수준이면서 상승 중일 때만 롱 +1. 낮은 수준이면서 하락 중일 때만 숏 +1. 혼재 시 0.',
+                        settings: (() => {
+                          const fedVal = result?.fed_latest_net_liquidity
+                          return (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                <Typography sx={{ fontSize: 9, color: '#60a5fa99', whiteSpace: 'nowrap' }}>MA 기간</Typography>
+                                <input type="number" min={4} max={52}
+                                  value={draft.fedLiquidityMAPeriod ?? String(params.fedLiquidityMAPeriod)}
+                                  style={{ ...inputStyle, width: 44 }}
+                                  onChange={e => setDraft(d => ({ ...d, fedLiquidityMAPeriod: e.target.value }))} />
+                                <Typography sx={{ fontSize: 9, color: '#52525b' }}>주</Typography>
+                              </Box>
+                              {fedVal != null && (
+                                <Typography sx={{ fontSize: 9, color: '#a3e63566', lineHeight: 1.4 }}>
+                                  최근 순유동성: <span style={{ color: '#a3e635', fontWeight: 700 }}>{fedVal.toLocaleString('en-US', { maximumFractionDigits: 0 })} B</span>
+                                  {' '}({(fedVal / 1000).toFixed(1)} T)
+                                </Typography>
+                              )}
+                            </Box>
+                          )
+                        })(),
+                        svg: null,
+                      },
                     ] as { key: keyof BacktestParams; label: string; sub: string; hint: string; desc: string; settings: React.ReactNode; svg: React.ReactNode }[]
 
                     const activeCount = indicatorList.filter(({ key }) => params[key] as unknown as boolean).length
+                    // 추천 점수: 활성 지표의 약 55% (최소 1)
+                    const recommendedScore = Math.max(1, Math.round(activeCount * 0.55))
+                    const currentMinScore = parseInt(draft.minScore ?? String(params.minScore)) || params.minScore
 
                     return (
                       <Box>
@@ -1642,6 +1714,22 @@ export default function BacktestViewer() {
                             <input type="number" min={0} max={7}
                               value={draft.minScore ?? String(params.minScore)} style={{ ...inputStyle, width: 48 }}
                               onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
+                            {/* 추천 점수 칩 */}
+                            <Box
+                              onClick={() => setDraft(d => ({ ...d, minScore: String(recommendedScore) }))}
+                              sx={{
+                                px: 0.9, py: 0.3, borderRadius: 10, cursor: 'pointer', userSelect: 'none',
+                                background: currentMinScore === recommendedScore ? '#a3e63520' : '#27272a',
+                                border: '1px solid',
+                                borderColor: currentMinScore === recommendedScore ? '#a3e63566' : '#3f3f46',
+                                transition: 'all 0.15s',
+                                '&:hover': { borderColor: '#a3e63599', background: '#a3e63518' },
+                              }}>
+                              <Typography sx={{ fontSize: 9, fontWeight: 700,
+                                color: currentMinScore === recommendedScore ? '#a3e635' : '#71717a' }}>
+                                추천 {recommendedScore}
+                              </Typography>
+                            </Box>
                           </Box>
                         </Box>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 1 }}>
@@ -1680,18 +1768,20 @@ export default function BacktestViewer() {
                                     </Box>
                                   )}
                                 </Box>
-                                {/* 우측: 차트 (가득 채움) */}
-                                <Box sx={{
-                                  flex: 1, minWidth: 0, alignSelf: 'stretch',
-                                  color: on ? '#60a5fa' : '#3f3f46', transition: 'color 0.15s',
-                                  borderLeft: '1px solid', borderColor: on ? '#3b82f622' : '#27272a',
-                                  background: on ? '#0a1628' : '#111113',
-                                  display: 'flex', alignItems: 'stretch',
-                                }}>
-                                  <Box component="span" sx={{ display: 'flex', width: '100%', height: '100%', minHeight: 100 }}>
-                                    {svg}
+                                {/* 우측: 차트 (svg 없으면 숨김) */}
+                                {svg && (
+                                  <Box sx={{
+                                    flex: 1, minWidth: 0, alignSelf: 'stretch',
+                                    color: on ? '#60a5fa' : '#3f3f46', transition: 'color 0.15s',
+                                    borderLeft: '1px solid', borderColor: on ? '#3b82f622' : '#27272a',
+                                    background: on ? '#0a1628' : '#111113',
+                                    display: 'flex', alignItems: 'stretch',
+                                  }}>
+                                    <Box component="span" sx={{ display: 'flex', width: '100%', height: '100%', minHeight: 100 }}>
+                                      {svg}
+                                    </Box>
                                   </Box>
-                                </Box>
+                                )}
                               </Box>
                             )
                           })}
