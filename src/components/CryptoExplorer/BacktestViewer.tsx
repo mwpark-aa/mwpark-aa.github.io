@@ -653,13 +653,13 @@ const TradeRow = memo(function TradeRow({
                       )}
                       <Typography sx={{ fontSize: 9, color: win ? '#10b981' : '#ec4899', lineHeight: 1.3 }}>
                         {exitReasonMap[trade.exit_reason]}
-                        {trade.exit_reason === 'TP' && `: $${trade.tp?.toFixed(2)}`}
-                        {trade.exit_reason === 'SL' && `: $${trade.sl?.toFixed(2)}`}
-                        {trade.exit_reason === 'TRAIL' && `: $${trade.exit_price?.toFixed(2)}`}
-                        {trade.exit_reason === 'BELOW_TP1' && `: $${trade.exit_price?.toFixed(2)}`}
-                        {trade.exit_reason === 'TIMEOUT' && `: $${trade.exit_price?.toFixed(2)}`}
-                        {trade.exit_reason === 'LIQUIDATED' && `: $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)}`}
-                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && `${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'TP' && ` : $${trade.tp?.toFixed(2)}`}
+                        {trade.exit_reason === 'SL' && ` : $${trade.sl?.toFixed(2)}`}
+                        {trade.exit_reason === 'TRAIL' && ` : $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'BELOW_TP1' && ` : $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'TIMEOUT' && ` : $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'LIQUIDATED' && ` : $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)}`}
+                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && ` ${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
                       </Typography>
                     </Box>
                 ) : (
@@ -1407,8 +1407,8 @@ export default function BacktestViewer() {
                       },
                       {
                         key: 'scoreUseRSI', label: 'RSI', sub: '과열/침체 필터',
-                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\n✅ 하한과 상한 사이 → 롱 +1 / 숏 +1 (건강한 구간)\n⛔ 상한 이상 → 롱 -1 (과매수, 사면 위험)\n⛔ 하한 이하 → 숏 -1 (과매도, 팔면 위험)\n\n💡 기본값: 35~65 (온건) / 30~70 (적극) / 20~80 (공격적)\n💡 범위가 좁을수록 신중한 진입, 넓을수록 적극적',
-                        desc: '14봉 상승/하락 비율로 과열·침체 판단. 건강한 가격 범위(과매수·과매도 아님) 필터.',
+                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\n✅ 하한 이하 → 롱 +1 (과매도, 반등 신호)\n⛔ 점수 없음 (사이 범위)\n✅ 상한 이상 → 숏 +1 (과매수, 하락 신호)\n\n💡 기본값: 35~65 (온건) / 30~70 (적극) / 20~80 (공격적)\n💡 범위가 좁을수록 극단적 신호만 포착, 넓을수록 넓은 신호 포착',
+                        desc: '과매도 구간에서 롱 진입, 과매수 구간에서 숏 진입. 중립 구간에는 점수 없음.',
                         settings: (
                           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                             <Box>
@@ -1432,19 +1432,20 @@ export default function BacktestViewer() {
                           const obY = 4 + (1 - ob / 100) * 34
                           return (
                           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height={osY - 4} fill="#ef444408" rx="1"/>
-                            <rect x="4" y={osY} width="64" height={obY - osY} fill="#10b98108" rx="1"/>
-                            <rect x="4" y={obY} width="64" height={38 - obY} fill="#ef444408" rx="1"/>
-                            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="56" y={osY - 1.5} fill="#ef4444" fontSize="3.5">{os}</text>
+                            <rect x="4" y="4" width="64" height={osY - 4} fill="#10b98118" rx="1"/>
+                            <rect x="4" y={osY} width="64" height={obY - osY} fill="#52525b18" rx="1"/>
+                            <rect x="4" y={obY} width="64" height={38 - obY} fill="#ef444418" rx="1"/>
+                            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2"/>
+                            <text x="56" y={osY - 1.5} fill="#10b981" fontSize="3.5">{os}</text>
                             <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
                             <text x="56" y={obY + 4} fill="#ef4444" fontSize="3.5">{ob}</text>
-                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏 -1 (과매도)</text>
-                            <text x="8" y={(osY + obY) / 2} fill="#10b981" fontSize="3" opacity="0.8">롱 +1 / 숏 +1</text>
-                            <text x="8" y="37" fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과매수)</text>
-                            <path d="M4,20 C12,18 18,15 26,12 C34,10 42,10 50,15 C58,20 64,25 68,28"
-                              fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="50" cy="15" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <text x="8" y="8" fill="#10b981" fontSize="3" opacity="0.8">롱 +1 (반등)</text>
+                            <text x="8" y={(osY + obY) / 2} fill="#52525b" fontSize="3" opacity="0.6">점수 없음</text>
+                            <text x="8" y="37" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1 (하락)</text>
+                            <path d="M4,10 C12,12 18,15 26,18 C34,20 42,20 50,15 C58,10 64,8 68,6"
+                              fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7"/>
+                            <circle cx="26" cy="18" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <circle cx="50" cy="15" r="2.5" fill="#ef4444" opacity="0.9"/>
                           </svg>
                           )
                         })(),

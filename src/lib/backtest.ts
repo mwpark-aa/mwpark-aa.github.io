@@ -402,8 +402,8 @@ function scoreLong(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
   // ADX: 추세 존재 → +1
   if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  // RSI: 건강 구간(과매수/과매도 아님) → +1
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
+  // RSI: 과매도(반등 신호) → +1
+  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 < p.rsiOversold) s++
   // MACD: 상승 모멘텀 → +1
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist > 0) s++
   // RVOL: 거래량 급증 → +1
@@ -422,8 +422,8 @@ function scoreShort(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
   // ADX: 추세 존재 → +1
   if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  // RSI: 건강 구간(과매수/과매도 아님) → +1
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
+  // RSI: 과매수(하락 신호) → +1
+  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOverbought) s++
   // MACD: 하락 모멘텀 → +1
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist < 0) s++
   // RVOL: 거래량 급증 → +1
