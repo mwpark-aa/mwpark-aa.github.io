@@ -16,16 +16,12 @@ export interface BacktestParams {
   minScore: number
   initialCapital: number
   scoreUseADX: boolean
-  scoreUseOBV: boolean
-  scoreUseMFI: boolean
-  scoreUseMACD: boolean
-  scoreUseStoch: boolean
   scoreUseRSI: boolean
+  scoreUseMACD: boolean
   scoreUseRVOL: boolean
+  rsiOversold: number
+  rsiOverbought: number
   adxThreshold: number
-  mfiThreshold: number
-  stochOversold: number
-  stochOverbought: number
   rvolThreshold: number
   rvolSkip: number
   scoreUseIchi: boolean
@@ -40,6 +36,7 @@ export interface BacktestParams {
 
 export interface BacktestTrade {
   signal_type: string
+  signal_details: string  // 신호 조건 상세 정보
   direction: 'LONG' | 'SHORT'
   entry_price: number
   exit_price: number
@@ -84,8 +81,8 @@ interface Candle {
   bb_upper?: number | null; bb_lower?: number | null
   rsi14?: number | null; atr14?: number | null
   vol_ma20?: number | null; vol_rvol168?: number
-  adx14?: number | null; obv?: number; obv_ma20?: number | null
-  mfi14?: number | null; macd_hist?: number | null; stoch_k?: number | null
+  adx14?: number | null
+  mfi14?: number | null; macd_hist?: number | null
   ichimoku_a?: number | null; ichimoku_b?: number | null
   swing_low?: number; swing_high?: number
   // 연준 유동성 (대차대조표 - TGA - 역레포)
@@ -287,15 +284,6 @@ function adx14(rows: Candle[]): (number | null)[] {
   return out
 }
 
-function obv(rows: Candle[]): number[] {
-  const r = [0]
-  for (let i = 1; i < rows.length; i++) {
-    r.push(rows[i].close > rows[i-1].close ? r[i-1] + rows[i].volume
-         : rows[i].close < rows[i-1].close ? r[i-1] - rows[i].volume
-         : r[i-1])
-  }
-  return r
-}
 
 function mfi14(rows: Candle[]): (number | null)[] {
   const n = rows.length; const r: (number | null)[] = Array(n).fill(null)
@@ -323,15 +311,6 @@ function macdHist(closes: number[]): (number | null)[] {
   return r
 }
 
-function stochK(rows: Candle[], p = 14): (number | null)[] {
-  const r: (number | null)[] = Array(rows.length).fill(null)
-  for (let i = p - 1; i < rows.length; i++) {
-    let lo = Infinity, hi = -Infinity
-    for (let j = i - p + 1; j <= i; j++) { lo = Math.min(lo, rows[j].low); hi = Math.max(hi, rows[j].high) }
-    r[i] = hi !== lo ? (rows[i].close - lo) / (hi - lo) * 100 : 50
-  }
-  return r
-}
 
 function computeIndicators(rows: Candle[]): void {
   const closes = rows.map(r => r.close), vols = rows.map(r => r.volume)
@@ -340,8 +319,7 @@ function computeIndicators(rows: Candle[]): void {
   const rsi = rsi14(closes), atr = atr14(rows)
   const vm20 = sma(vols, 20), vm168 = sma(vols, 168)
   const adx = adx14(rows)
-  const obvRaw = obv(rows), obvMa = sma(obvRaw, 20)
-  const mfi = mfi14(rows), macd = macdHist(closes), stoch = stochK(rows)
+  const mfi = mfi14(rows), macd = macdHist(closes)
 
   // 일목균형표: Span A/B (26봉 뒤에 그려지므로 현재봉 기준 26봉 전 값)
   const hl2 = rows.map(r => (r.high + r.low) / 2)
@@ -355,8 +333,8 @@ function computeIndicators(rows: Candle[]): void {
     rows[i].rsi14 = rsi[i]; rows[i].atr14 = atr[i]
     rows[i].vol_ma20 = vm20[i]
     rows[i].vol_rvol168 = b168 ? Math.round(vols[i] / b168 * 1000) / 1000 : 1.0
-    rows[i].adx14 = adx[i]; rows[i].obv = obvRaw[i]; rows[i].obv_ma20 = obvMa[i]
-    rows[i].mfi14 = mfi[i]; rows[i].macd_hist = macd[i]; rows[i].stoch_k = stoch[i]
+    rows[i].adx14 = adx[i]
+    rows[i].mfi14 = mfi[i]; rows[i].macd_hist = macd[i]
     // 일목 스팬: 현재봉의 구름은 26봉 전 tenkan/kijun으로 계산
     const shift = 26
     if (i >= shift) {
@@ -394,19 +372,25 @@ function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
   let tp: number | null = null, sl: number | null = null
 
   if (isLong) {
-    sl = p.fixedSL > 0
-      ? Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
-      : longSL(close, row.swing_low ?? null, row.atr14 ?? null)
-    tp = p.fixedTP > 0
-      ? Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close + (close - sl) * p.minRR) * 1e6) / 1e6
+    if (p.tpslMode === 'fixed' && p.fixedSL > 0 && p.fixedTP > 0) {
+      // 고정 TP/SL 모드
+      sl = Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
+      tp = Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
+    } else {
+      // 자동 TP/SL 모드 (minRR 기반)
+      sl = longSL(close, row.swing_low ?? null, row.atr14 ?? null)
+      tp = Math.round((close + (close - sl) * p.minRR) * 1e6) / 1e6
+    }
   } else if (isShort) {
-    sl = p.fixedSL > 0
-      ? Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
-      : shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
-    tp = p.fixedTP > 0
-      ? Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close - (sl - close) * p.minRR) * 1e6) / 1e6
+    if (p.tpslMode === 'fixed' && p.fixedSL > 0 && p.fixedTP > 0) {
+      // 고정 TP/SL 모드
+      sl = Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
+      tp = Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
+    } else {
+      // 자동 TP/SL 모드 (minRR 기반)
+      sl = shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
+      tp = Math.round((close - (sl - close) * p.minRR) * 1e6) / 1e6
+    }
   }
   const rr = tp != null && sl != null && sl !== close
     ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
@@ -419,22 +403,16 @@ function scoreLong(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
   // ADX: 추세 존재 → +1
   if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  // OBV: 스마트머니 매집 → +1
-  if (p.scoreUseOBV   && row.obv != null && row.obv_ma20 != null && row.obv > row.obv_ma20) s++
-  // MFI: 자금 과열 아님 → +1
-  if (p.scoreUseMFI   && row.mfi14 != null && row.mfi14 < p.mfiThreshold) s++
+  // RSI: 건강 구간(과매수/과매도 아님) → +1
+  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   // MACD: 상승 모멘텀 → +1
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist > 0) s++
-  // Stoch: 과매수 아님 → +1
-  if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k < p.stochOverbought) s++
-  // RSI: 건강 구간 → +1 (UI 파라미터 사용)
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   // RVOL: 거래량 급증 → +1
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
   // 일목: 구름 위 → +1
   if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close > row.ichimoku_a && row.close > row.ichimoku_b) s++
-  // 골든크로스 영역(MA20 > MA60) → +1
+  // MA 추세: 상승 추세(MA20 > MA60) → +1
   if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null && row.ma20 > row.ma60) s++
   // 연준 유동성 확장 확정(MA 위 + 상승) → +1
   if (p.scoreUseFedLiquidity && row.fed_state === 1) s++
@@ -445,22 +423,16 @@ function scoreShort(row: Candle, p: BacktestParams): number {
   let s = 0; const rv = row.vol_rvol168 ?? 1.0
   // ADX: 추세 존재 → +1
   if (p.scoreUseADX   && row.adx14 != null && row.adx14 > p.adxThreshold) s++
-  // OBV: 스마트머니 분산 → +1
-  if (p.scoreUseOBV   && row.obv != null && row.obv_ma20 != null && row.obv < row.obv_ma20) s++
-  // MFI: 자금 과열 → +1
-  if (p.scoreUseMFI   && row.mfi14 != null && row.mfi14 > p.mfiThreshold) s++
+  // RSI: 건강 구간(과매수/과매도 아님) → +1
+  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   // MACD: 하락 모멘텀 → +1
   if (p.scoreUseMACD  && row.macd_hist != null && row.macd_hist < 0) s++
-  // Stoch: 과매도 아님 → +1
-  if (p.scoreUseStoch && row.stoch_k != null && row.stoch_k > p.stochOversold) s++
-  // RSI: 건강 구간 → +1 (UI 파라미터 사용)
-  if (p.scoreUseRSI   && row.rsi14 != null && row.rsi14 > p.rsiOversold && row.rsi14 < p.rsiOverbought) s++
   // RVOL: 거래량 급증 → +1
   if (p.scoreUseRVOL  && rv >= p.rvolThreshold) s++
   // 일목: 구름 아래 → +1
   if (p.scoreUseIchi  && row.ichimoku_a != null && row.ichimoku_b != null
     && row.close < row.ichimoku_a && row.close < row.ichimoku_b) s++
-  // 데드크로스 영역(MA20 < MA60) → +1
+  // MA 추세: 하락 추세(MA20 < MA60) → +1
   if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null && row.ma20 < row.ma60) s++
   // 연준 유동성 수축 확정(MA 아래 + 하락) → +1
   if (p.scoreUseFedLiquidity && row.fed_state === -1) s++
@@ -491,33 +463,22 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
 
   if (up && curr.ma20 != null && prev.ma20 != null
     && prev.close <= prev.ma20 && close > curr.ma20
-    && curr.rsi14 != null && curr.rsi14 > p.rsiOversold && curr.rsi14 < p.rsiOverbought
     && volOk && ready('MA20_PULLBACK'))
     add('MA20_PULLBACK', rL, scoreLong(rL, p))
 
-  if (up && curr.rsi14 != null && prev.rsi14 != null
-    && prev.rsi14 < p.rsiOversold && curr.rsi14 > prev.rsi14 && curr.rsi14 < p.rsiOverbought - 15
-    && ready('RSI_OVERSOLD'))
-    add('RSI_OVERSOLD', rL, scoreLong(rL, p))
-
   if (up && prev.bb_lower != null && prev.close <= prev.bb_lower
     && curr.bb_lower != null && close > curr.bb_lower
-    && curr.rsi14 != null && curr.rsi14 < p.rsiOverbought - 15 && volOk && ready('BB_LOWER_TOUCH'))
+    && volOk && ready('BB_LOWER_TOUCH'))
     add('BB_LOWER_TOUCH', rL, scoreLong(rL, p))
 
   if (dn && curr.ma20 != null && prev.ma20 != null
     && prev.close >= prev.ma20 && close < curr.ma20
-    && curr.rsi14 != null && curr.rsi14 > p.rsiOversold + 15 && curr.rsi14 < p.rsiOverbought
     && volOk && ready('MA20_BREAKDOWN'))
     add('MA20_BREAKDOWN', rS, scoreShort(rS, p))
 
-  if (dn && curr.rsi14 != null && prev.rsi14 != null
-    && prev.rsi14 > p.rsiOverbought && curr.rsi14 < prev.rsi14 && curr.rsi14 > 50 && ready('RSI_OVERBOUGHT'))
-    add('RSI_OVERBOUGHT', rS, scoreShort(rS, p))
-
   if (dn && prev.bb_upper != null && prev.close >= prev.bb_upper
     && curr.bb_upper != null && close < curr.bb_upper
-    && curr.rsi14 != null && curr.rsi14 > 50 && volOk && ready('BB_UPPER_TOUCH'))
+    && volOk && ready('BB_UPPER_TOUCH'))
     add('BB_UPPER_TOUCH', rS, scoreShort(rS, p))
 
   if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
@@ -525,6 +486,49 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
     add('DEATH_CROSS', rS, scoreShort(rS, p))
 
   return fired
+}
+
+// ── Signal Details Builder ────────────────────────────────────────────────────────
+
+function buildSignalDetails(signal_type: string, row: Candle, score: number, rr: number | null, p: BacktestParams): string {
+  const parts: string[] = []
+
+  // 신호명
+  parts.push(signal_type)
+
+  // MA 상태
+  if (row.ma20 != null && row.ma60 != null) {
+    const maState = row.ma20 > row.ma60 ? '상승' : '하락'
+    parts.push(`MA: ${maState}`)
+  }
+
+  // RSI
+  if (row.rsi14 != null) {
+    parts.push(`RSI: ${Math.round(row.rsi14)}`)
+  }
+
+  // ADX
+  if (row.adx14 != null) {
+    parts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
+  }
+
+  // MACD
+  if (row.macd_hist != null) {
+    parts.push(`MACD: ${row.macd_hist > 0 ? '+' : ''}${Math.round(row.macd_hist * 1000) / 1000}`)
+  }
+
+  // 점수
+  const maxScore = (p.scoreUseADX ? 1 : 0) + (p.scoreUseRSI ? 1 : 0) + (p.scoreUseMACD ? 1 : 0)
+                 + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseIchi ? 1 : 0) + (p.scoreUseGoldenCross ? 1 : 0)
+                 + (p.scoreUseFedLiquidity ? 1 : 0)
+  parts.push(`점수: ${score}/${maxScore}`)
+
+  // 손익비 (고정TP/SL이 아닐 때만)
+  if (rr != null && (p.fixedTP === 0 && p.fixedSL === 0)) {
+    parts.push(`RR: ${rr.toFixed(2)}`)
+  }
+
+  return parts.join(' | ')
 }
 
 // ── Position sizing ────────────────────────────────────────────────────────────
@@ -568,7 +572,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (liqHit) {
         capital -= pos.capitalUsed
         trades.push({
-          signal_type: pos.signal_type, direction: pos.direction,
+          signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
           entry_price: pos.entryPrice, exit_price: liqPrice,
           tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
           capital_used: pos.capitalUsed,
@@ -630,7 +634,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         const pnlPct = net / pos.capitalUsed * 100
 
         trades.push({
-          signal_type: pos.signal_type, direction: pos.direction,
+          signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
           entry_price: pos.entryPrice, exit_price: exitPrice,
           tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
           capital_used: pos.capitalUsed,
@@ -693,8 +697,10 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       const { quantity, capitalUsed } = positionSize(capital, entryPrice, newSl, p.leverage)
       if (quantity <= 0) continue
 
+      const signalDetails = buildSignalDetails(signal_type, row, score, newRr, p)
       pos = {
-        signal_type, direction: short ? 'SHORT' : 'LONG',
+        signal_type, signal_details: signalDetails,
+        direction: short ? 'SHORT' : 'LONG',
         entryPrice, avgEntry: entryPrice,
         tp: newTp, sl: newSl, quantity, origQuantity: quantity,
         capitalUsed, peakPrice: entryPrice,
@@ -715,7 +721,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const net = gross - comm + (pos.partialPnl || 0)
     capital += gross - comm
     trades.push({
-      signal_type: pos.signal_type, direction: pos.direction,
+      signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
       entry_price: pos.entryPrice, exit_price: ep,
       tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
       capital_used: pos.capitalUsed,

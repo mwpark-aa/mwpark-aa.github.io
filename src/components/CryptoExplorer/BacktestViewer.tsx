@@ -60,6 +60,7 @@ interface AddEntry {
 interface BacktestTrade {
   id: string
   signal_type: string
+  signal_details: string
   direction: 'LONG' | 'SHORT'
   entry_ts: string
   exit_ts: string
@@ -591,6 +592,14 @@ const TradeRow = memo(function TradeRow({
                                   <Typography sx={{ fontSize: 10, color: '#a1a1aa', lineHeight: 1.4 }}>
                                     {SIGNAL_DESCRIPTIONS[trade.signal_type].summary}
                                   </Typography>
+                                  {trade.signal_details && (
+                                    <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #f59e0b' }}>
+                                      <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>진입 시점 지표</Typography>
+                                      <Typography sx={{ fontSize: 9, color: '#d4d4d8', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                                        {trade.signal_details}
+                                      </Typography>
+                                    </Box>
+                                  )}
                                   <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #3b82f6' }}>
                                     <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>진입 조건</Typography>
                                     <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
@@ -605,7 +614,19 @@ const TradeRow = memo(function TradeRow({
                                   </Box>
                                 </Box>
                             ) : (
-                                SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#f4f4f5' }}>
+                                    {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
+                                  </Typography>
+                                  {trade.signal_details && (
+                                    <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #f59e0b' }}>
+                                      <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>진입 시점 지표</Typography>
+                                      <Typography sx={{ fontSize: 9, color: '#d4d4d8', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                                        {trade.signal_details}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
                             )
                           }
                       >
@@ -721,16 +742,10 @@ interface RunHistory {
   min_score: number
   initial_capital: number
   score_use_adx: boolean
-  score_use_obv: boolean
-  score_use_mfi: boolean
-  score_use_macd: boolean
-  score_use_stoch: boolean
   score_use_rsi: boolean
+  score_use_macd: boolean
   score_use_rvol: boolean
   adx_threshold: number
-  mfi_threshold: number
-  stoch_oversold: number
-  stoch_overbought: number
   rvol_threshold: number
   rvol_skip: number
   total_return_pct: number
@@ -760,21 +775,15 @@ export default function BacktestViewer() {
     leverage: 5,
     minRR: 1.5,
     minRRRatio: 1.8,
-    rsiOversold: 35,
-    rsiOverbought: 65,
     minScore: 4,
     initialCapital: 10000,
+    rsiOversold: 35,
+    rsiOverbought: 65,
     scoreUseADX: true,
-    scoreUseOBV: true,
-    scoreUseMFI: true,
-    scoreUseMACD: true,
-    scoreUseStoch: true,
     scoreUseRSI: true,
+    scoreUseMACD: true,
     scoreUseRVOL: true,
     adxThreshold: 20,
-    mfiThreshold: 50,
-    stochOversold: 20,
-    stochOverbought: 80,
     rvolThreshold: 1.5,
     rvolSkip: 0.4,
     scoreUseIchi: false,
@@ -790,9 +799,9 @@ export default function BacktestViewer() {
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
   const [draft, setDraft] = useState<Record<string, string>>({
     leverage: '5', minRR: '1.5', minRRRatio: '1.8',
-    rsiOversold: '35', rsiOverbought: '65', minScore: '4', initialCapital: '10000',
-    adxThreshold: '20', mfiThreshold: '50',
-    stochOversold: '20', stochOverbought: '80',
+    minScore: '4', initialCapital: '10000',
+    rsiOversold: '35', rsiOverbought: '65',
+    adxThreshold: '20',
     rvolThreshold: '1.5', rvolSkip: '0.4',
     fixedTP: '0', fixedSL: '0',
   })
@@ -812,9 +821,6 @@ export default function BacktestViewer() {
       minScore:       isNaN(parseFloat(draft.minScore)) ? params.minScore : parseFloat(draft.minScore),
       initialCapital: parseFloat(draft.initialCapital) || params.initialCapital,
       adxThreshold:   parseFloat(draft.adxThreshold)   || params.adxThreshold,
-      mfiThreshold:   parseFloat(draft.mfiThreshold)   || params.mfiThreshold,
-      stochOversold:  parseFloat(draft.stochOversold)  || params.stochOversold,
-      stochOverbought:parseFloat(draft.stochOverbought)|| params.stochOverbought,
       rvolThreshold:  parseFloat(draft.rvolThreshold)  || params.rvolThreshold,
       rvolSkip:             parseFloat(draft.rvolSkip)             || params.rvolSkip,
       fedLiquidityMAPeriod: parseInt(draft.fedLiquidityMAPeriod)   || params.fedLiquidityMAPeriod,
@@ -869,16 +875,10 @@ export default function BacktestViewer() {
           min_score: committed.minScore,
           initial_capital: committed.initialCapital,
           score_use_adx: params.scoreUseADX,
-          score_use_obv: params.scoreUseOBV,
-          score_use_mfi: params.scoreUseMFI,
-          score_use_macd: params.scoreUseMACD,
-          score_use_stoch: params.scoreUseStoch,
           score_use_rsi: params.scoreUseRSI,
+          score_use_macd: params.scoreUseMACD,
           score_use_rvol: params.scoreUseRVOL,
           adx_threshold: committed.adxThreshold,
-          mfi_threshold: committed.mfiThreshold,
-          stoch_oversold: committed.stochOversold,
-          stoch_overbought: committed.stochOverbought,
           rvol_threshold: committed.rvolThreshold,
           rvol_skip: committed.rvolSkip,
         }
@@ -937,21 +937,15 @@ export default function BacktestViewer() {
       leverage: best.leverage,
       minRR: best.min_rr,
       minRRRatio: best.min_rr_ratio ?? p.minRRRatio,
-      rsiOversold: best.rsi_oversold,
-      rsiOverbought: best.rsi_overbought,
+      rsiOversold: best.rsi_oversold ?? 35,
+      rsiOverbought: best.rsi_overbought ?? 65,
       minScore: best.min_score,
       initialCapital: best.initial_capital ?? p.initialCapital,
       scoreUseADX:  best.score_use_adx  ?? true,
-      scoreUseOBV:  best.score_use_obv  ?? true,
-      scoreUseMFI:  best.score_use_mfi  ?? true,
-      scoreUseMACD: best.score_use_macd ?? true,
-      scoreUseStoch:best.score_use_stoch?? true,
       scoreUseRSI:  best.score_use_rsi  ?? true,
+      scoreUseMACD: best.score_use_macd ?? true,
       scoreUseRVOL: best.score_use_rvol ?? true,
       adxThreshold:    best.adx_threshold    ?? 20,
-      mfiThreshold:    best.mfi_threshold    ?? 50,
-      stochOversold:   best.stoch_oversold   ?? 20,
-      stochOverbought: best.stoch_overbought ?? 80,
       rvolThreshold:   best.rvol_threshold   ?? 1.5,
       rvolSkip:        best.rvol_skip        ?? 0.4,
       scoreUseIchi:    (best as any).score_use_ichi ?? false,
@@ -968,14 +962,11 @@ export default function BacktestViewer() {
       leverage: String(best.leverage),
       minRR: String(best.min_rr),
       minRRRatio: String(best.min_rr_ratio ?? 1.8),
-      rsiOversold: String(best.rsi_oversold),
-      rsiOverbought: String(best.rsi_overbought),
+      rsiOversold: String(best.rsi_oversold ?? 35),
+      rsiOverbought: String(best.rsi_overbought ?? 65),
       minScore: String(best.min_score),
       initialCapital: String(best.initial_capital ?? 10000),
       adxThreshold: String(best.adx_threshold ?? 20),
-      mfiThreshold: String(best.mfi_threshold ?? 50),
-      stochOversold: String(best.stoch_oversold ?? 20),
-      stochOverbought: String(best.stoch_overbought ?? 80),
       rvolThreshold: String(best.rvol_threshold ?? 1.5),
       rvolSkip: String(best.rvol_skip ?? 0.4),
       fixedTP: String((best as any).fixed_tp ?? 0),
@@ -1008,25 +999,19 @@ export default function BacktestViewer() {
       leverage: run.leverage,
       minRR: run.min_rr,
       minRRRatio: run.min_rr_ratio ?? p.minRRRatio,
-      rsiOversold: run.rsi_oversold,
-      rsiOverbought: run.rsi_overbought,
+      rsiOversold: run.rsi_oversold ?? 35,
+      rsiOverbought: run.rsi_overbought ?? 65,
       minScore: run.min_score,
       initialCapital: run.initial_capital ?? p.initialCapital,
       scoreUseADX:  run.score_use_adx  ?? true,
-      scoreUseOBV:  run.score_use_obv  ?? true,
-      scoreUseMFI:  run.score_use_mfi  ?? true,
-      scoreUseMACD: run.score_use_macd ?? true,
-      scoreUseStoch:run.score_use_stoch?? true,
       scoreUseRSI:  run.score_use_rsi  ?? true,
+      scoreUseMACD: run.score_use_macd ?? true,
       scoreUseRVOL: run.score_use_rvol ?? true,
       scoreUseIchi: (run as any).score_use_ichi ?? false,
       scoreUseGoldenCross: (run as any).score_use_golden_cross ?? true,
       scoreUseFedLiquidity: (run as any).score_use_fed_liquidity ?? false,
       fedLiquidityMAPeriod: (run as any).fed_liquidity_ma_period ?? 13,
       adxThreshold:    run.adx_threshold    ?? 20,
-      mfiThreshold:    run.mfi_threshold    ?? 50,
-      stochOversold:   run.stoch_oversold   ?? 20,
-      stochOverbought: run.stoch_overbought ?? 80,
       rvolThreshold:   run.rvol_threshold   ?? 1.5,
       rvolSkip:        run.rvol_skip        ?? 0.4,
       fixedTP:         (run as any).fixed_tp ?? 0,
@@ -1037,14 +1022,11 @@ export default function BacktestViewer() {
       leverage: String(run.leverage),
       minRR: String(run.min_rr),
       minRRRatio: String(run.min_rr_ratio ?? 1.8),
-      rsiOversold: String(run.rsi_oversold),
-      rsiOverbought: String(run.rsi_overbought),
+      rsiOversold: String(run.rsi_oversold ?? 35),
+      rsiOverbought: String(run.rsi_overbought ?? 65),
       minScore: String(run.min_score),
       initialCapital: String(run.initial_capital ?? 10000),
       adxThreshold: String(run.adx_threshold ?? 20),
-      mfiThreshold: String(run.mfi_threshold ?? 50),
-      stochOversold: String(run.stoch_oversold ?? 20),
-      stochOverbought: String(run.stoch_overbought ?? 80),
       rvolThreshold: String(run.rvol_threshold ?? 1.5),
       rvolSkip: String(run.rvol_skip ?? 0.4),
       fixedTP: String((run as any).fixed_tp ?? 0),
@@ -1280,7 +1262,14 @@ export default function BacktestViewer() {
                     <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
                       {([['auto', '🎯 손익비 필터 (자동)'], ['fixed', '📌 고정 TP/SL (%)']] as const).map(([mode, label]) => (
                         <Box key={mode}
-                          onClick={() => setParams(p => ({ ...p, tpslMode: mode }))}
+                          onClick={() => {
+                            if (mode === 'auto') {
+                              setParams(p => ({ ...p, tpslMode: mode, fixedTP: 0, fixedSL: 0 }))
+                              setDraft(d => ({ ...d, fixedTP: '0', fixedSL: '0' }))
+                            } else {
+                              setParams(p => ({ ...p, tpslMode: mode }))
+                            }
+                          }}
                           sx={{
                             flex: 1, py: 0.75, px: 1.5, borderRadius: 1.5, cursor: 'pointer', textAlign: 'center',
                             border: '1px solid', userSelect: 'none', transition: 'all 0.15s',
@@ -1401,51 +1390,45 @@ export default function BacktestViewer() {
                         })(),
                       },
                       {
-                        key: 'scoreUseOBV', label: 'OBV', sub: '스마트머니 추적',
-                        hint: '"큰손이 사고 있냐 팔고 있냐"\n양봉이면 거래량을 더하고, 음봉이면 빼서 누적.\n\n✅ OBV > MA20 → 롱 +1 / ⛔ 숏 -1 (매집 중)\n✅ OBV < MA20 → 숏 +1 / ⛔ 롱 -1 (이탈 중)\n\n💡 가격은 횡보인데 OBV 상승 → 세력 매집 가능성\n💡 가격 상승인데 OBV 하락 → 매도 압력 증가 경고',
-                        desc: '거래량을 누적해서 "보이지 않는 매수/매도 압력"을 추적. 가격보다 먼저 움직이는 선행 지표.',
-                        settings: null,
-                        svg: (
-                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <polyline points="4,30 14,29 24,27 32,25 38,24 44,22 52,19 60,17 68,15"
-                              fill="none" stroke="#71717a" strokeWidth="1" strokeDasharray="2,2"/>
-                            <polyline points="4,32 12,31 20,29 28,27 34,26 40,22 48,17 56,12 64,9 68,8"
-                              fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="40" cy="22" r="2.5" fill="#10b981" opacity="0.9"/>
-                            <text x="42" y="20" fill="#10b981" fontSize="3">롱 +1 / 숏 -1</text>
-                            <text x="5" y="35" fill="#ef4444" fontSize="3" opacity="0.5">OBV &lt; MA → 숏 +1 / 롱 -1</text>
-                            <text x="5" y="8" fill="currentColor" fontSize="3.5" opacity="0.6">━ OBV</text>
-                            <text x="5" y="14" fill="#71717a" fontSize="3.5">┅ MA20</text>
-                          </svg>
-                        ),
-                      },
-                      {
-                        key: 'scoreUseMFI', label: 'MFI', sub: '자금 유입/유출',
-                        hint: '"실제 돈이 들어오고 있냐?"\nRSI와 비슷하지만 거래량까지 반영 (0~100).\n\n✅ MFI < 설정값 → 롱 +1 (과열 아님, 상승 여력)\n✅ MFI > 설정값 → 숏 +1 (자금 과열, 하락 압력)\n⛔ MFI ≥ 80 → 롱 -1 (자금 과열, 사면 위험)\n⛔ MFI ≤ 20 → 숏 -1 (자금 고갈, 팔면 위험)\n\n💡 80 이상 = 과매수(돈이 너무 많이 들어옴)\n💡 20 이하 = 과매도(돈이 빠져나감)',
-                        desc: '가격×거래량으로 "실제 자금"의 유입/유출을 측정. RSI의 거래량 보강 버전.',
+                        key: 'scoreUseRSI', label: 'RSI', sub: '과열/침체 필터',
+                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\n✅ 하한과 상한 사이 → 롱 +1 / 숏 +1 (건강한 구간)\n⛔ 상한 이상 → 롱 -1 (과매수, 사면 위험)\n⛔ 하한 이하 → 숏 -1 (과매도, 팔면 위험)\n\n💡 기본값: 35~65 (온건) / 30~70 (적극) / 20~80 (공격적)\n💡 범위가 좁을수록 신중한 진입, 넓을수록 적극적',
+                        desc: '14봉 상승/하락 비율로 과열·침체 판단. 건강한 가격 범위(과매수·과매도 아님) 필터.',
                         settings: (
-                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.5 }}>
-                            <Typography sx={{ fontSize: 9, color: '#60a5fa99' }}>기준값 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(미만→롱+1, 초과→숏+1)</Typography></Typography>
-                            <input type="number" min={10} max={90}
-                              value={draft.mfiThreshold ?? String(params.mfiThreshold)} style={smInput}
-                              onChange={e => setDraft(d => ({ ...d, mfiThreshold: e.target.value }))} />
+                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                            <Box>
+                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>하한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매도)</Typography></Typography>
+                              <input type="number" min={10} max={45}
+                                value={draft.rsiOversold ?? String(params.rsiOversold)} style={smInput}
+                                onChange={e => setDraft(d => ({ ...d, rsiOversold: e.target.value }))} />
+                            </Box>
+                            <Box>
+                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>상한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매수)</Typography></Typography>
+                              <input type="number" min={55} max={90}
+                                value={draft.rsiOverbought ?? String(params.rsiOverbought)} style={smInput}
+                                onChange={e => setDraft(d => ({ ...d, rsiOverbought: e.target.value }))} />
+                            </Box>
                           </Box>
                         ),
                         svg: (() => {
-                          const v = Number(draft.mfiThreshold ?? params.mfiThreshold) || 50
-                          const thY = 4 + (1 - v / 100) * 34
+                          const os = Number(draft.rsiOversold ?? params.rsiOversold) || 35
+                          const ob = Number(draft.rsiOverbought ?? params.rsiOverbought) || 65
+                          const osY = 4 + (1 - os / 100) * 34
+                          const obY = 4 + (1 - ob / 100) * 34
                           return (
                           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height={thY - 4} fill="#ef444408" rx="1"/>
-                            <rect x="4" y={thY} width="64" height={38 - thY} fill="#10b98108" rx="1"/>
-                            <line x1="4" y1={thY} x2="68" y2={thY} stroke="#f59e0b88" strokeWidth="0.8" strokeDasharray="3,2"/>
-                            <text x="56" y={thY - 1.5} fill="#f59e0b" fontSize="3.5">{v}</text>
-                            <text x="8" y={thY + 5} fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
-                            <text x="42" y={thY - 2} fill="#10b981" fontSize="3" opacity="0.8">숏 +1</text>
-                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과열)</text>
-                            <path d="M4,8 C12,10 18,16 28,20 C36,23 44,22 52,18 C58,15 62,13 68,12"
+                            <rect x="4" y="4" width="64" height={osY - 4} fill="#ef444408" rx="1"/>
+                            <rect x="4" y={osY} width="64" height={obY - osY} fill="#10b98108" rx="1"/>
+                            <rect x="4" y={obY} width="64" height={38 - obY} fill="#ef444408" rx="1"/>
+                            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
+                            <text x="56" y={osY - 1.5} fill="#ef4444" fontSize="3.5">{os}</text>
+                            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
+                            <text x="56" y={obY + 4} fill="#ef4444" fontSize="3.5">{ob}</text>
+                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏 -1 (과매도)</text>
+                            <text x="8" y={(osY + obY) / 2} fill="#10b981" fontSize="3" opacity="0.8">롱 +1 / 숏 +1</text>
+                            <text x="8" y="37" fill="#ef4444" fontSize="3" opacity="0.6">롱 -1 (과매수)</text>
+                            <path d="M4,20 C12,18 18,15 26,12 C34,10 42,10 50,15 C58,20 64,25 68,28"
                               fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="26" cy="20" r="2.5" fill="#10b981" opacity="0.9"/>
+                            <circle cx="50" cy="15" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
                           )
                         })(),
@@ -1472,103 +1455,6 @@ export default function BacktestViewer() {
                             <circle cx="28" cy="21" r="2.5" fill="#10b981" opacity="0.9"/>
                           </svg>
                         ),
-                      },
-                      {
-                        key: 'scoreUseStoch', label: 'Stoch', sub: '가격 위치 판단',
-                        hint: '"최근 가격 범위에서 지금 어디쯤이냐?"\n최근 N봉의 최고-최저 사이에서 현재가 위치를 0~100으로 표시.\n\n✅ Stoch < 80 → 롱 +1 / ⛔ ≥80 → 롱 -1 (과매수)\n✅ Stoch > 20 → 숏 +1 / ⛔ ≤20 → 숏 -1 (과매도)\n\n💡 80 이상 = 최근 고점 근처 (과매수, 사면 위험)\n💡 20 이하 = 최근 저점 근처 (과매도, 팔면 위험)',
-                        desc: '최근 고-저 범위 내 현재가 위치를 %로 표시. "꼭대기에서 사지 말라"는 필터.',
-                        settings: (
-                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
-                            <Box>
-                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>과매도 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(Short↑)</Typography></Typography>
-                              <input type="number" min={0} max={50}
-                                value={draft.stochOversold ?? String(params.stochOversold)} style={smInput}
-                                onChange={e => setDraft(d => ({ ...d, stochOversold: e.target.value }))} />
-                            </Box>
-                            <Box>
-                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>과매수 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(Long↑)</Typography></Typography>
-                              <input type="number" min={50} max={100}
-                                value={draft.stochOverbought ?? String(params.stochOverbought)} style={smInput}
-                                onChange={e => setDraft(d => ({ ...d, stochOverbought: e.target.value }))} />
-                            </Box>
-                          </Box>
-                        ),
-                        svg: (() => {
-                          const ob = Number(draft.stochOverbought ?? params.stochOverbought) || 80
-                          const os = Number(draft.stochOversold ?? params.stochOversold) || 20
-                          const obY = 4 + (1 - ob / 100) * 34
-                          const osY = 4 + (1 - os / 100) * 34
-                          return (
-                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height={obY - 4} fill="#ef444408" rx="1"/>
-                            <rect x="4" y={obY} width="64" height={osY - obY} fill="#3b82f608" rx="1"/>
-                            <rect x="4" y={osY} width="64" height={38 - osY} fill="#ef444408" rx="1"/>
-                            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="56" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
-                            <text x="8" y="8" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1 / 롱 -1</text>
-                            <text x="8" y={(obY + osY) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.8">롱숏 +1</text>
-                            <text x="8" y="37" fill="#10b981" fontSize="3" opacity="0.6">롱 +1 / 숏 -1</text>
-                            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2"/>
-                            <text x="56" y={osY + 4} fill="#ef4444" fontSize="3.5">{os}</text>
-                            <path d="M4,10 C10,8 16,12 22,20 C26,26 30,30 36,28 C40,26 44,22 50,16 C56,11 62,9 68,10"
-                              fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="50" cy="16" r="2.5" fill="#10b981" opacity="0.9"/>
-                          </svg>
-                          )
-                        })(),
-                      },
-                      {
-                        key: 'scoreUseRSI', label: 'RSI', sub: '과열/침체 필터',
-                        hint: '"지금 과열이냐 침체냐?"\n14봉 동안 상승폭 vs 하락폭 비율 (0~100).\n\n✅ 30~60 → 롱 +1 / ✅ 40~70 → 숏 +1\n⛔ RSI ≥ 70 → 롱 -1 (과매수, 사면 위험)\n⛔ RSI ≤ 30 → 숏 -1 (과매도, 팔면 위험)\n\n💡 40~60 = 롱숏 모두 점수 획득 구간\n💡 극단 구간은 감점으로 위험 경고',
-                        desc: '14봉 상승/하락 비율로 과열·침체 판단. 극단 구간(과매수·과매도)을 피하는 안전 필터.',
-                        settings: (
-                          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
-                            <Box>
-                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>하한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매도)</Typography></Typography>
-                              <input type="number" min={10} max={45}
-                                value={draft.rsiOversold ?? String(params.rsiOversold)} style={smInput}
-                                onChange={e => setDraft(d => ({ ...d, rsiOversold: e.target.value }))} />
-                            </Box>
-                            <Box>
-                              <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>상한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매수)</Typography></Typography>
-                              <input type="number" min={55} max={90}
-                                value={draft.rsiOverbought ?? String(params.rsiOverbought)} style={smInput}
-                                onChange={e => setDraft(d => ({ ...d, rsiOverbought: e.target.value }))} />
-                            </Box>
-                          </Box>
-                        ),
-                        svg: (() => {
-                          // 실제 봇 로직: 롱 30~60, 숏 40~70 (하드코딩)
-                          const y70 = 4 + (1 - 70 / 100) * 34
-                          const y60 = 4 + (1 - 60 / 100) * 34
-                          const y40 = 4 + (1 - 40 / 100) * 34
-                          const y30 = 4 + (1 - 30 / 100) * 34
-                          return (
-                          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-                            <rect x="4" y="4" width="64" height={y70 - 4} fill="#ef444408" rx="1"/>
-                            <rect x="4" y={y70} width="64" height={y60 - y70} fill="#f59e0b08" rx="1"/>
-                            <rect x="4" y={y60} width="64" height={y40 - y60} fill="#10b98110" rx="1"/>
-                            <rect x="4" y={y40} width="64" height={y30 - y40} fill="#3b82f608" rx="1"/>
-                            <rect x="4" y={y30} width="64" height={38 - y30} fill="#ef444408" rx="1"/>
-                            <line x1="4" y1={y70} x2="68" y2={y70} stroke="#ef444455" strokeWidth="0.5" strokeDasharray="2,2"/>
-                            <text x="56" y={y70 - 1} fill="#ef4444" fontSize="3">70</text>
-                            <line x1="4" y1={y60} x2="68" y2={y60} stroke="#f59e0b55" strokeWidth="0.5" strokeDasharray="2,2"/>
-                            <text x="56" y={y60 - 1} fill="#f59e0b" fontSize="3">60</text>
-                            <line x1="4" y1={y40} x2="68" y2={y40} stroke="#3b82f655" strokeWidth="0.5" strokeDasharray="2,2"/>
-                            <text x="56" y={y40 - 1} fill="#3b82f6" fontSize="3">40</text>
-                            <line x1="4" y1={y30} x2="68" y2={y30} stroke="#ef444455" strokeWidth="0.5" strokeDasharray="2,2"/>
-                            <text x="56" y={y30 + 4} fill="#ef4444" fontSize="3">30</text>
-                            <text x="6" y={(4 + y70) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">롱 -1</text>
-                            <text x="6" y={(y70 + y60) / 2 + 1} fill="#f59e0b" fontSize="2.8" opacity="0.8">숏만 +1</text>
-                            <text x="6" y={(y60 + y40) / 2 + 1} fill="#10b981" fontSize="3" opacity="0.9">롱숏 +1</text>
-                            <text x="6" y={(y40 + y30) / 2 + 1} fill="#3b82f6" fontSize="2.8" opacity="0.8">롱만 +1</text>
-                            <text x="6" y={(y30 + 38) / 2 + 1} fill="#ef4444" fontSize="2.8" opacity="0.6">숏 -1</text>
-                            <path d="M4,32 C10,30 16,26 22,20 C28,15 34,14 42,16 C50,18 58,17 68,14"
-                              fill="none" stroke="currentColor" strokeWidth="1.8"/>
-                            <circle cx="40" cy="16" r="2.5" fill="#10b981" opacity="0.9"/>
-                          </svg>
-                          )
-                        })(),
                       },
                       {
                         key: 'scoreUseRVOL', label: 'RVOL', sub: '거래량 급등 감지',
@@ -1643,9 +1529,9 @@ export default function BacktestViewer() {
                         ),
                       },
                       {
-                        key: 'scoreUseGoldenCross', label: 'MA Cross', sub: '골든/데드크로스 방향',
-                        hint: '"MA20이 MA60 위냐 아래냐?"\n골든크로스(MA20>MA60)·데드크로스(MA20<MA60) 방향으로 점수 부여.\n\n✅ 롱 진입 시 MA20 > MA60 → +1 (골든크로스 영역)\n✅ 숏 진입 시 MA20 < MA60 → +1 (데드크로스 영역)\n\n💡 크로스 발생 시점이 아닌, 크로스 이후 영역 전체에 적용\n💡 추세 방향 필터로 사용 — 역추세 진입을 억제',
-                        desc: 'MA20·MA60 크로스 방향으로 추세 정렬 여부를 판단. 골든크로스 영역이면 롱 +1, 데드크로스 영역이면 숏 +1.',
+                        key: 'scoreUseGoldenCross', label: 'MA 추세', sub: 'MA20 vs MA60 방향',
+                        hint: '"MA20이 MA60 위냐 아래냐? — 현재 추세가 어느 방향인가?"\n\n✅ 롱 점수: MA20 > MA60 → +1 (상승 추세 영역)\n✅ 숏 점수: MA20 < MA60 → +1 (하락 추세 영역)\n\n💡 신호 발생 여부와 무관하게, 항상 현재 MA 관계를 평가\n💡 역추세 진입 억제 역할 (진입 조건 필터로도 사용)',
+                        desc: 'MA20과 MA60의 상대 위치로 현재 추세를 판정. 상승 추세(MA20>MA60)면 롱 +1, 하락 추세면 숏 +1.',
                         settings: null,
                         svg: (
                           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
