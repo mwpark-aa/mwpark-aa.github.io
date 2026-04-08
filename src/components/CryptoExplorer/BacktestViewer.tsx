@@ -457,7 +457,7 @@ const TradeRow = memo(function TradeRow({
 
           const exitReasonMap: Record<string, string> = {
             'TP': '목표가 달성',
-            'SL': '청산가 손절',
+            'SL': '손절가 달성',
             'TRAIL': '추적손절',
             'BELOW_TP1': '부분익절',
             'TIMEOUT': '최대 보유기간 종료',
@@ -470,7 +470,7 @@ const TradeRow = memo(function TradeRow({
                   key={`${index}-${e.step}-${ei}`}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 90px',
+                    gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 1fr 90px',
                     gap: 0.75,
                     px: 1.5,
                     py: 0.55,
@@ -573,6 +573,20 @@ const TradeRow = memo(function TradeRow({
                 ) : (
                     <Box />
                 )}
+                {isFirst ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, fontSize: 8, color: '#64748b' }}>
+                      <Typography sx={{ fontSize: 10, color: '#ffffff' }}>
+                        목표: {fmtPrice(trade.tp)}
+                      </Typography>
+                      <Typography sx={{ fontSize: 10, color: '#ffffff' }}>
+                        손절: {fmtPrice(trade.sl)}
+                      </Typography>
+                    </Box>
+                    </Box>
+                ) : (
+                    <Box/>
+                )}
 
                 {/* 시그널 — 첫 행만 */}
                 {isFirst ? (
@@ -600,18 +614,6 @@ const TradeRow = memo(function TradeRow({
                                     <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>해석</Typography>
                                     <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
                                       {SIGNAL_DESCRIPTIONS[trade.signal_type].interpretation}
-                                    </Typography>
-                                  </Box>
-                                  <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #f59e0b' }}>
-                                    <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>청산 사유</Typography>
-                                    <Typography sx={{ fontSize: 9, color: '#d4d4d8', lineHeight: 1.3 }}>
-                                      {trade.exit_reason === 'TP' && `익절 (TP: $${trade.tp?.toFixed(2)})`}
-                                      {trade.exit_reason === 'SL' && `손절 (SL: $${trade.sl?.toFixed(2)})`}
-                                      {trade.exit_reason === 'TRAIL' && `추적손절 (청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'BELOW_TP1' && `부분익절 이하 (청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'TIMEOUT' && `강제종료 (마지막 캔들, 청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'LIQUIDATED' && `청산 (진입가: $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && `${trade.exit_reason} (청산가: $${trade.exit_price?.toFixed(2)})`}
                                     </Typography>
                                   </Box>
                                 </Box>
@@ -649,16 +651,15 @@ const TradeRow = memo(function TradeRow({
                           {trade.signal_details.match(/점수:\s*(\d+\/\d+)/)?.[1] || `점수: ${trade.score}`}
                         </Typography>
                       )}
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, fontSize: 8, color: '#64748b' }}>
-                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
-                          목표: {fmtPrice(trade.tp)}
-                        </Typography>
-                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
-                          손절: {fmtPrice(trade.sl)}
-                        </Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: 8, color: win ? '#10b981' : '#ec4899', fontWeight: 600 }}>
-                        청산: {exitReasonMap[trade.exit_reason] || trade.exit_reason}
+                      <Typography sx={{ fontSize: 9, color: win ? '#10b981' : '#ec4899', lineHeight: 1.3 }}>
+                        {exitReasonMap[trade.exit_reason]}
+                        {trade.exit_reason === 'TP' && `: $${trade.tp?.toFixed(2)}`}
+                        {trade.exit_reason === 'SL' && `: $${trade.sl?.toFixed(2)}`}
+                        {trade.exit_reason === 'TRAIL' && `: $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'BELOW_TP1' && `: $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'TIMEOUT' && `: $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'LIQUIDATED' && `: $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)}`}
+                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && `${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
                       </Typography>
                     </Box>
                 ) : (
@@ -1899,7 +1900,7 @@ export default function BacktestViewer() {
                 <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 90px',
+                      gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 1fr 90px',
                       gap: 1,
                       px: 1.5,
                       py: 0.75,
@@ -1914,7 +1915,8 @@ export default function BacktestViewer() {
                     '단계',
                     '진입일시/단가',
                     '청산일시/단가',
-                    '시그널/청산/목표/손절',
+                    '목표/손절',
+                    '시그널/청산',
                     '손익(수수료)',
                   ].map((h) => (
                       <Typography
