@@ -1634,6 +1634,12 @@ export default function BacktestViewer() {
                             </Box>
                           </Box>
                         </Box>
+                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 2 }}>
+                          <LabelRow label="신호약화 임계값" hintId="scoreExitThreshold" hint={'"점수가 떨어지면 매도"\n진입 후 현재 점수가 이 값 이하로 내려가면\n신호 약화로 판단하여 즉시 청산 (손절/익절 전).\n0 = 비활성화'} />
+                          <input type="number" min={0} max={7}
+                            value={draft.scoreExitThreshold ?? String(params.scoreExitThreshold)} style={{ ...inputStyle, width: 48 }}
+                            onChange={e => setDraft(d => ({ ...d, scoreExitThreshold: e.target.value }))} />
+                        </Box>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 1 }}>
                           {indicatorList.map(({ key, label, sub, hint, desc, svg, settings }) => {
                             const on = params[key] as unknown as boolean
