@@ -566,7 +566,7 @@ const TradeRow = memo(function TradeRow({
 
                 {/* 시그널 — 첫 행만 */}
                 {isFirst ? (
-                    <Box>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
                       <MuiTooltip
                           arrow
                           placement="top"
@@ -644,14 +644,16 @@ const TradeRow = memo(function TradeRow({
                           {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
                         </Typography>
                       </MuiTooltip>
-                      <Typography
-                          sx={{
-                            fontSize: 9,
-                            color: win ? '#10b981' : '#ec4899',
-                            fontWeight: 600,
-                          }}
-                      >
-                        {win ? '익절' : '손절'}
+                      {trade.score != null && (
+                        <Typography sx={{ fontSize: 8, color: '#8b5cf6', fontWeight: 600 }}>
+                          점수: {trade.score}/7
+                        </Typography>
+                      )}
+                      <Typography sx={{ fontSize: 8, color: '#64748b' }}>
+                        진입: {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
+                      </Typography>
+                      <Typography sx={{ fontSize: 8, color: win ? '#10b981' : '#ec4899', fontWeight: 600 }}>
+                        청산: {trade.exit_reason}
                       </Typography>
                     </Box>
                 ) : (
