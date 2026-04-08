@@ -101,13 +101,18 @@ const RISK_PER_TRADE   = 0.04
 const SL_ATR_MIN       = 0.6
 const SL_ATR_MAX       = 2.6
 const SWING_LOOKBACK   = 4
-const SIGNAL_COOLDOWN  = 20  // 진입 후 20캔들 동안 재진입 차단 (1h = 약 1일)
+const VOLUME_MULT      = 1.1
+const SIGNAL_COOLDOWN  = 4
 const PARTIAL_TP_FACTOR    = 0.5
 const PARTIAL_FRACTION     = 0.65
 const TRAILING_STOP_PCT    = 0.025
 const BELOW_TP1_BUFFER     = 0.01
 const DAILY_LOSS_LIMIT_PCT = 0.06
 
+const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH']
+const SHORT_SIGNALS = ['MA20_BREAKDOWN', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'DEATH_CROSS']
+const HIGH_CONF     = new Set(['DEATH_CROSS'])
+const SELL_SIGNALS  = new Set(['DEATH_CROSS', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'MA20_BREAKDOWN'])
 
 // ── Binance fetch ──────────────────────────────────────────────────────────────
 
@@ -382,6 +387,31 @@ function shortSL(close: number, swingHigh: number | null, atr: number | null): n
   return Math.round((swingHigh ? swingHigh * 1.002 : close * 1.02) * 1e6) / 1e6
 }
 
+function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
+  const isLong = LONG_SIGNALS.includes(type) || type === 'GOLDEN_CROSS'
+  const isShort = SHORT_SIGNALS.includes(type)
+  let tp: number | null = null, sl: number | null = null
+
+  if (isLong) {
+    sl = p.fixedSL > 0
+      ? Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
+      : longSL(close, row.swing_low ?? null, row.atr14 ?? null)
+    tp = p.fixedTP > 0
+      ? Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
+      : Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : p.minRR)) * 1e6) / 1e6
+  } else if (isShort) {
+    sl = p.fixedSL > 0
+      ? Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
+      : shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
+    tp = p.fixedTP > 0
+      ? Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
+      : Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : p.minRR)) * 1e6) / 1e6
+  }
+  const rr = tp != null && sl != null && sl !== close
+    ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
+  return { tp, sl, rr }
+}
+
 // ── Scoring ────────────────────────────────────────────────────────────────────
 
 function scoreLong(row: Candle, p: BacktestParams): number {
@@ -436,6 +466,70 @@ function scoreShort(row: Candle, p: BacktestParams): number {
   return s
 }
 
+// ── Signal detection ───────────────────────────────────────────────────────────
+
+function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p: BacktestParams) {
+  if (i < 1) return []
+  const prev = rows[i - 1], curr = rows[i], close = curr.close
+  if ((curr.vol_rvol168 ?? 1.0) < p.rvolSkip) return []
+  const ready = (t: string) => (cd[t] ?? 0) <= 0
+
+  const lb = Math.min(SWING_LOOKBACK, i), win = rows.slice(i - lb, i + 1)
+  const swL = Math.min(...win.map(r => r.low)), swH = Math.max(...win.map(r => r.high))
+  const rL: Candle = { ...curr, swing_low: swL }, rS: Candle = { ...curr, swing_high: swH }
+
+  const up = curr.ma20 != null && curr.ma60 != null && curr.ma20 > curr.ma60 && close > curr.ma60
+  const dn = curr.ma20 != null && curr.ma60 != null && curr.ma20 < curr.ma60 && close < curr.ma60
+  const volOk = curr.vol_ma20 == null || curr.volume >= curr.vol_ma20 * VOLUME_MULT
+
+  const fired: any[] = []
+  const add = (type: string, row: Candle, score: number) => {
+    const { tp, sl, rr } = calcTPSL(type, close, row, p)
+    fired.push({ signal_type: type, tp, sl, rr, score })
+  }
+
+  if (up && curr.ma20 != null && prev.ma20 != null
+    && prev.close <= prev.ma20 && close > curr.ma20
+    && curr.rsi14 != null && curr.rsi14 > p.rsiOversold && curr.rsi14 < p.rsiOverbought
+    && volOk && ready('MA20_PULLBACK'))
+    add('MA20_PULLBACK', rL, scoreLong(rL, p))
+
+  if (up && curr.rsi14 != null && prev.rsi14 != null
+    && prev.rsi14 < p.rsiOversold && curr.rsi14 > prev.rsi14 && curr.rsi14 < p.rsiOverbought - 15
+    && ready('RSI_OVERSOLD'))
+    add('RSI_OVERSOLD', rL, scoreLong(rL, p))
+
+  if (up && prev.bb_lower != null && prev.close <= prev.bb_lower
+    && curr.bb_lower != null && close > curr.bb_lower
+    && curr.rsi14 != null && curr.rsi14 < p.rsiOverbought - 15 && volOk && ready('BB_LOWER_TOUCH'))
+    add('BB_LOWER_TOUCH', rL, scoreLong(rL, p))
+
+  if (dn && curr.ma20 != null && prev.ma20 != null
+    && prev.close >= prev.ma20 && close < curr.ma20
+    && curr.rsi14 != null && curr.rsi14 > p.rsiOversold + 15 && curr.rsi14 < p.rsiOverbought
+    && volOk && ready('MA20_BREAKDOWN'))
+    add('MA20_BREAKDOWN', rS, scoreShort(rS, p))
+
+  if (dn && curr.rsi14 != null && prev.rsi14 != null
+    && prev.rsi14 > p.rsiOverbought && curr.rsi14 < prev.rsi14 && curr.rsi14 > 50 && ready('RSI_OVERBOUGHT'))
+    add('RSI_OVERBOUGHT', rS, scoreShort(rS, p))
+
+  if (dn && prev.bb_upper != null && prev.close >= prev.bb_upper
+    && curr.bb_upper != null && close < curr.bb_upper
+    && curr.rsi14 != null && curr.rsi14 > 50 && volOk && ready('BB_UPPER_TOUCH'))
+    add('BB_UPPER_TOUCH', rS, scoreShort(rS, p))
+
+  if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
+    && prev.ma20 <= prev.ma60 && curr.ma20 > curr.ma60 && ready('GOLDEN_CROSS'))
+    add('GOLDEN_CROSS', rL, scoreLong(rL, p))
+
+  if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
+    && prev.ma20 >= prev.ma60 && curr.ma20 < curr.ma60 && close < curr.ma60 && ready('DEATH_CROSS'))
+    add('DEATH_CROSS', rS, scoreShort(rS, p))
+
+  return fired
+}
+
 // ── Position sizing ────────────────────────────────────────────────────────────
 
 function positionSize(capital: number, entry: number, sl: number, leverage: number) {
@@ -457,9 +551,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
   let pos: any = null
   const cd: Record<string, number> = {}
   let wins = 0, losses = 0, peakEq = capital, maxDD = 0
-  // 이전 캔들 점수 (크로스오버 감지용)
-  let prevLScore = 0
-  let prevSScore = 0
 
   const iso = (ts: number) => new Date(ts).toISOString()
 
@@ -497,8 +588,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         continue
       }
 
-      // Partial exit
-      if (!pos.partialDone) {
+      // Partial exit (high confidence only)
+      if (HIGH_CONF.has(pos.signal_type) && !pos.partialDone) {
         const tp1 = short
           ? pos.avgEntry - (pos.avgEntry - pos.tp) * PARTIAL_TP_FACTOR
           : pos.avgEntry + (pos.tp - pos.avgEntry) * PARTIAL_TP_FACTOR
@@ -566,77 +657,41 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const dailyPnl = trades.filter(t => new Date(t.exit_ts).toDateString() === today).reduce((s, t) => s + t.net_pnl, 0)
     if (dailyPnl < -p.initialCapital * DAILY_LOSS_LIMIT_PCT) continue
 
-    // ── 점수 기반 진입 ────────────────────────────────────────────────────────
-    // 극저거래량 캔들 스킵
-    if ((row.vol_rvol168 ?? 1.0) < p.rvolSkip) continue
-
-    const lb = Math.min(SWING_LOOKBACK, i)
-    const win = rows.slice(i - lb, i + 1)
-    const swingLow  = Math.min(...win.map(r => r.low))
-    const swingHigh = Math.max(...win.map(r => r.high))
-    const rL: Candle = { ...row, swing_low: swingLow }
-    const rS: Candle = { ...row, swing_high: swingHigh }
-
-    const lScore = scoreLong(rL, p)
-    const sScore = scoreShort(rS, p)
-    const pL = prevLScore; const pS = prevSScore
-    prevLScore = lScore;   prevSScore = sScore
-
-    // MA120 추세 필터 + 점수 크로스오버 (이번 캔들에 처음 기준치 돌파한 경우만 진입)
-    const ma120 = row.ma120
-    let longOk  = lScore >= p.minScore && pL < p.minScore && (ma120 == null || row.close > ma120) && (cd['LONG']  ?? 0) <= 0
-    let shortOk = sScore >= p.minScore && pS < p.minScore && (ma120 == null || row.close < ma120) && (cd['SHORT'] ?? 0) <= 0
-
-    // 일봉 추세 필터 (MTF)
-    if (dailyMap) {
-      const daily = getDailyBar(dailyMap, row.timestamp)
-      if (daily && daily.ma120 != null) {
-        if (longOk  && daily.close < daily.ma120) longOk  = false
-        if (shortOk && daily.close > daily.ma120) shortOk = false
+    const signals = detectSignals(rows, i, cd, p)
+    for (const sig of signals) {
+      const { signal_type, tp, sl, rr, score } = sig
+      if (tp == null || sl == null) continue
+      const short = SELL_SIGNALS.has(signal_type)
+      if (short ? sl <= row.close : sl >= row.close) continue
+      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
+      if (p.fixedTP === 0 && p.fixedSL === 0 && rr != null && rr < p.minRRRatio) continue
+      if (score < p.minScore) continue
+      // 인터벌 MA120 추세 필터 (단일 타임프레임)
+      if (row.ma120 != null) {
+        if (short && row.close > row.ma120) continue
+        if (!short && row.close < row.ma120) continue
       }
-    }
-
-    if (!longOk && !shortOk) continue
-
-    // 둘 다 조건 만족이면 점수 높은 방향 우선
-    const goLong = longOk && (!shortOk || lScore >= sScore)
-    const score  = goLong ? lScore : sScore
-
-    // SL / TP 계산
-    let sl: number, tp: number
-    if (p.tpslMode === 'fixed' && p.fixedSL > 0 && p.fixedTP > 0) {
-      sl = goLong
-        ? Math.round(row.close * (1 - p.fixedSL / 100) * 1e6) / 1e6
-        : Math.round(row.close * (1 + p.fixedSL / 100) * 1e6) / 1e6
-      tp = goLong
-        ? Math.round(row.close * (1 + p.fixedTP / 100) * 1e6) / 1e6
-        : Math.round(row.close * (1 - p.fixedTP / 100) * 1e6) / 1e6
-      const rr = Math.abs(tp - row.close) / Math.abs(row.close - sl)
-      if (rr < p.minRRRatio) continue
-    } else {
-      sl = goLong
-        ? longSL(row.close, swingLow, row.atr14 ?? null)
-        : shortSL(row.close, swingHigh, row.atr14 ?? null)
-      tp = goLong
-        ? Math.round((row.close + (row.close - sl) * p.minRR) * 1e6) / 1e6
-        : Math.round((row.close - (sl - row.close) * p.minRR) * 1e6) / 1e6
-    }
-
-    // SL이 현재가와 같거나 반대 방향이면 스킵
-    if (goLong ? sl >= row.close : sl <= row.close) continue
-
-    const { quantity, capitalUsed } = positionSize(capital, row.close, sl, p.leverage)
-    if (quantity <= 0) continue
-
-    cd['LONG'] = SIGNAL_COOLDOWN; cd['SHORT'] = SIGNAL_COOLDOWN
-    pos = {
-      signal_type: goLong ? 'SCORE_LONG' : 'SCORE_SHORT',
-      direction: goLong ? 'LONG' : 'SHORT',
-      entryPrice: row.close, avgEntry: row.close,
-      tp, sl, quantity, origQuantity: quantity,
-      capitalUsed, peakPrice: row.close,
-      score, entryTs: iso(row.timestamp),
-      partialDone: false, partialPnl: 0,
+      // 일봉 추세 필터 (MTF): 일봉 MA120 방향 확인
+      if (dailyMap) {
+        const daily = getDailyBar(dailyMap, row.timestamp)
+        if (daily && daily.ma120 != null) {
+          if (!short && daily.close < daily.ma120) continue   // 일봉 하락장 → 롱 스킵
+          if (short  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
+        }
+      }
+      // 모든 필터 통과 후 쿨다운 소모 (점수 미달 신호가 쿨다운 잡아먹는 것 방지)
+      cd[signal_type] = SIGNAL_COOLDOWN
+      const { quantity, capitalUsed } = positionSize(capital, row.close, sl, p.leverage)
+      if (quantity <= 0) continue
+      pos = {
+        signal_type, direction: short ? 'SHORT' : 'LONG',
+        entryPrice: row.close, avgEntry: row.close,
+        tp, sl, quantity, origQuantity: quantity,
+        capitalUsed, peakPrice: row.close,
+        score, entryTs: iso(row.timestamp),
+        partialDone: false, partialPnl: 0,
+      }
+      break
     }
   }
 
