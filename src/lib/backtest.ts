@@ -455,8 +455,11 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
   const rL: Candle = { ...curr, swing_low: swL }, rS: Candle = { ...curr, swing_high: swH }
 
   const close = curr.close
-  const isUptrend = curr.ma20 != null && curr.ma60 != null && curr.ma20 > curr.ma60 && close > curr.ma60
-  const isDowntrend = curr.ma20 != null && curr.ma60 != null && curr.ma20 < curr.ma60 && close < curr.ma60
+
+  // MA 추세 필터: scoreUseGoldenCross가 활성화되면 적용
+  const shouldCheckMA = p.scoreUseGoldenCross && curr.ma20 != null && curr.ma60 != null
+  const isUptrend = !p.scoreUseGoldenCross || (shouldCheckMA && curr.ma20! > curr.ma60! && close > curr.ma60!)
+  const isDowntrend = !p.scoreUseGoldenCross || (shouldCheckMA && curr.ma20! < curr.ma60! && close < curr.ma60!)
 
   const fired: any[] = []
   const add = (type: string, row: Candle, score: number) => {
@@ -466,12 +469,14 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
 
   // LONG: 상승추세 + 점수 확인
   if (isUptrend && ready('LONG')) {
-    add('LONG', rL, scoreLong(rL, p))
+    const score = scoreLong(rL, p)
+    if (score > 0) add('LONG', rL, score)
   }
 
   // SHORT: 하락추세 + 점수 확인
   if (isDowntrend && ready('SHORT')) {
-    add('SHORT', rS, scoreShort(rS, p))
+    const score = scoreShort(rS, p)
+    if (score > 0) add('SHORT', rS, score)
   }
 
   return fired
