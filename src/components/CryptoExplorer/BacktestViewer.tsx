@@ -1603,19 +1603,26 @@ export default function BacktestViewer() {
 
                     return (
                       <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-                          <Typography sx={{ ...labelSx, color: '#a1a1aa' }}>지표 선택</Typography>
-                          <Box sx={{ px: 1, py: 0.25, borderRadius: 10, background: activeCount > 0 ? '#3b82f620' : '#27272a',
-                            border: '1px solid', borderColor: activeCount > 0 ? '#3b82f644' : '#3f3f46' }}>
-                            <Typography sx={{ fontSize: 10, color: activeCount > 0 ? '#93c5fd' : '#52525b', fontWeight: 700 }}>
-                              {activeCount} / {indicatorList.length} 활성화
-                            </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ ...labelSx, color: '#a1a1aa' }}>지표 선택</Typography>
+                            <Box sx={{ px: 1, py: 0.25, borderRadius: 10, background: activeCount > 0 ? '#3b82f620' : '#27272a',
+                              border: '1px solid', borderColor: activeCount > 0 ? '#3b82f644' : '#3f3f46' }}>
+                              <Typography sx={{ fontSize: 10, color: activeCount > 0 ? '#93c5fd' : '#52525b', fontWeight: 700 }}>
+                                {activeCount} / {indicatorList.length} 활성화
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
-                            <LabelRow label="매수 기준 점수" hintId="minScore" hint={'"진입에 필요한 최소 점수"\n활성화된 지표들이 각각 +1/-1 점수를 부여.\n합산 점수가 이 값 이상이어야 실제 진입.\n높을수록 신중한 진입, 0이면 조건 없이 진입.'} />
-                            <input type="number" min={0} max={7}
-                              value={draft.minScore ?? String(params.minScore)} style={{ ...inputStyle, width: 48 }}
-                              onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
+                        </Box>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                          {/* 매수 기준 점수 */}
+                          <Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
+                              <LabelRow label="매수 기준 점수" hintId="minScore" hint={'"진입에 필요한 최소 점수"\n활성화된 지표들이 각각 +1/-1 점수를 부여.\n합산 점수가 이 값 이상이어야 실제 진입.\n높을수록 신중한 진입, 0이면 조건 없이 진입.'} />
+                              <input type="number" min={0} max={7}
+                                value={draft.minScore ?? String(params.minScore)} style={{ ...inputStyle, width: 48 }}
+                                onChange={e => setDraft(d => ({ ...d, minScore: e.target.value }))} />
+                            </Box>
                             {/* 추천 점수 칩 */}
                             <Box
                               onClick={() => setDraft(d => ({ ...d, minScore: String(recommendedScore) }))}
@@ -1626,6 +1633,7 @@ export default function BacktestViewer() {
                                 borderColor: currentMinScore === recommendedScore ? '#a3e63566' : '#3f3f46',
                                 transition: 'all 0.15s',
                                 '&:hover': { borderColor: '#a3e63599', background: '#a3e63518' },
+                                width: 'fit-content',
                               }}>
                               <Typography sx={{ fontSize: 9, fontWeight: 700,
                                 color: currentMinScore === recommendedScore ? '#a3e635' : '#71717a' }}>
@@ -1633,12 +1641,15 @@ export default function BacktestViewer() {
                               </Typography>
                             </Box>
                           </Box>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 2 }}>
-                          <LabelRow label="신호약화 임계값" hintId="scoreExitThreshold" hint={'"점수가 떨어지면 매도"\n진입 후 현재 점수가 이 값 이하로 내려가면\n신호 약화로 판단하여 즉시 청산 (손절/익절 전).\n0 = 비활성화'} />
-                          <input type="number" min={0} max={7}
-                            value={draft.scoreExitThreshold ?? String(params.scoreExitThreshold)} style={{ ...inputStyle, width: 48 }}
-                            onChange={e => setDraft(d => ({ ...d, scoreExitThreshold: e.target.value }))} />
+                          {/* 신호약화 임계값 */}
+                          <Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <LabelRow label="신호약화 임계값" hintId="scoreExitThreshold" hint={'"점수가 떨어지면 매도"\n진입 후 현재 점수가 이 값 이하로 내려가면\n신호 약화로 판단하여 즉시 청산 (손절/익절 전).\n0 = 비활성화'} />
+                              <input type="number" min={0} max={7}
+                                value={draft.scoreExitThreshold ?? String(params.scoreExitThreshold)} style={{ ...inputStyle, width: 48 }}
+                                onChange={e => setDraft(d => ({ ...d, scoreExitThreshold: e.target.value }))} />
+                            </Box>
+                          </Box>
                         </Box>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' }, gap: 1 }}>
                           {indicatorList.map(({ key, label, sub, hint, desc, svg, settings }) => {

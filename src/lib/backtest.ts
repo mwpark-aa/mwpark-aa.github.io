@@ -19,8 +19,6 @@ export interface BacktestParams {
   scoreUseRSI: boolean
   scoreUseMACD: boolean
   scoreUseRVOL: boolean
-  rsiOversold: number
-  rsiOverbought: number
   adxThreshold: number
   rvolThreshold: number
   rvolSkip: number
