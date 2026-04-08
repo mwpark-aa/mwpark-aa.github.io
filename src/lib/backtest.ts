@@ -111,6 +111,7 @@ const DAILY_LOSS_LIMIT_PCT = 0.06
 
 const LONG_SIGNALS  = ['MA20_PULLBACK', 'RSI_OVERSOLD', 'BB_LOWER_TOUCH']
 const SHORT_SIGNALS = ['MA20_BREAKDOWN', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'DEATH_CROSS']
+// GOLDEN_CROSS 제거됨 (scoreUseGoldenCross로 이미 추세 반영)
 const HIGH_CONF     = new Set(['DEATH_CROSS'])
 const SELL_SIGNALS  = new Set(['DEATH_CROSS', 'RSI_OVERBOUGHT', 'BB_UPPER_TOUCH', 'MA20_BREAKDOWN'])
 
@@ -388,7 +389,7 @@ function shortSL(close: number, swingHigh: number | null, atr: number | null): n
 }
 
 function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
-  const isLong = LONG_SIGNALS.includes(type) || type === 'GOLDEN_CROSS'
+  const isLong = LONG_SIGNALS.includes(type)
   const isShort = SHORT_SIGNALS.includes(type)
   let tp: number | null = null, sl: number | null = null
 
@@ -398,14 +399,14 @@ function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
       : longSL(close, row.swing_low ?? null, row.atr14 ?? null)
     tp = p.fixedTP > 0
       ? Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close + (close - sl) * (type === 'GOLDEN_CROSS' ? 2.0 : p.minRR)) * 1e6) / 1e6
+      : Math.round((close + (close - sl) * p.minRR) * 1e6) / 1e6
   } else if (isShort) {
     sl = p.fixedSL > 0
       ? Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
       : shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
     tp = p.fixedTP > 0
       ? Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
-      : Math.round((close - (sl - close) * (type === 'DEATH_CROSS' ? 3.0 : p.minRR)) * 1e6) / 1e6
+      : Math.round((close - (sl - close) * p.minRR) * 1e6) / 1e6
   }
   const rr = tp != null && sl != null && sl !== close
     ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
@@ -518,10 +519,6 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
     && curr.bb_upper != null && close < curr.bb_upper
     && curr.rsi14 != null && curr.rsi14 > 50 && volOk && ready('BB_UPPER_TOUCH'))
     add('BB_UPPER_TOUCH', rS, scoreShort(rS, p))
-
-  if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
-    && prev.ma20 <= prev.ma60 && curr.ma20 > curr.ma60 && ready('GOLDEN_CROSS'))
-    add('GOLDEN_CROSS', rL, scoreLong(rL, p))
 
   if (curr.ma20 != null && curr.ma60 != null && prev.ma20 != null && prev.ma60 != null
     && prev.ma20 >= prev.ma60 && curr.ma20 < curr.ma60 && close < curr.ma60 && ready('DEATH_CROSS'))
@@ -659,13 +656,10 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
 
     const signals = detectSignals(rows, i, cd, p)
     for (const sig of signals) {
-      const { signal_type, tp, sl, rr, score } = sig
-      if (tp == null || sl == null) continue
-      const short = SELL_SIGNALS.has(signal_type)
-      if (short ? sl <= row.close : sl >= row.close) continue
-      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
-      if (p.fixedTP === 0 && p.fixedSL === 0 && rr != null && rr < p.minRRRatio) continue
+      const { signal_type, score } = sig
       if (score < p.minScore) continue
+      const short = SELL_SIGNALS.has(signal_type)
+
       // 인터벌 MA120 추세 필터 (단일 타임프레임)
       if (row.ma120 != null) {
         if (short && row.close > row.ma120) continue
@@ -679,16 +673,32 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           if (short  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
         }
       }
-      // 모든 필터 통과 후 쿨다운 소모 (점수 미달 신호가 쿨다운 잡아먹는 것 방지)
+
+      // 다음 캔들에서 진입 (현실적인 시뮬레이션)
+      const nextRow = rows[i + 1]
+      if (!nextRow) continue
+
+      const entryPrice = nextRow.open
+
+      // SL/TP를 진입가(next open) 기준으로 재계산
+      const { tp: newTp, sl: newSl, rr: newRr } = calcTPSL(signal_type, entryPrice, row, p)
+      if (newTp == null || newSl == null) continue
+      if (short ? newSl <= entryPrice : newSl >= entryPrice) continue
+
+      // 고정 TP/SL 설정 시 사용자가 직접 지정한 것이므로 minRRRatio 필터 스킵
+      if (p.fixedTP === 0 && p.fixedSL === 0 && newRr != null && newRr < p.minRRRatio) continue
+
+      // 모든 필터 통과 후 쿨다운 소모
       cd[signal_type] = SIGNAL_COOLDOWN
-      const { quantity, capitalUsed } = positionSize(capital, row.close, sl, p.leverage)
+      const { quantity, capitalUsed } = positionSize(capital, entryPrice, newSl, p.leverage)
       if (quantity <= 0) continue
+
       pos = {
         signal_type, direction: short ? 'SHORT' : 'LONG',
-        entryPrice: row.close, avgEntry: row.close,
-        tp, sl, quantity, origQuantity: quantity,
-        capitalUsed, peakPrice: row.close,
-        score, entryTs: iso(row.timestamp),
+        entryPrice, avgEntry: entryPrice,
+        tp: newTp, sl: newSl, quantity, origQuantity: quantity,
+        capitalUsed, peakPrice: entryPrice,
+        score, entryTs: iso(nextRow.timestamp),
         partialDone: false, partialPnl: 0,
       }
       break
