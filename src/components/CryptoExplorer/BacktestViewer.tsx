@@ -449,19 +449,18 @@ const TradeRow = memo(function TradeRow({
             '&:hover > *': { background: `${dirColor}0a !important` },
             transition: 'opacity 0.15s',
           }}
-      >}
-
+      >
         {entries.map((e, ei) => {
           const sc = entryMarkerColor(e.step)
           const isFirst = ei === 0
           const isLast = ei === entries.length - 1
 
           const exitReasonMap: Record<string, string> = {
-            'TP': '익절',
-            'SL': '손절',
+            'TP': '목표가 달성',
+            'SL': '청산가 손절',
             'TRAIL': '추적손절',
             'BELOW_TP1': '부분익절',
-            'TIMEOUT': '강제종료',
+            'TIMEOUT': '최대 보유기간 종료',
             'LIQUIDATED': '청산',
             'SCORE_EXIT': '신호약화'
           }
@@ -471,7 +470,7 @@ const TradeRow = memo(function TradeRow({
                   key={`${index}-${e.step}-${ei}`}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 90px',
+                    gridTemplateColumns: '20px 36px 52px 1fr 1fr 80px 80px 1fr 90px',
                     gap: 0.75,
                     px: 1.5,
                     py: 0.55,
@@ -650,16 +649,32 @@ const TradeRow = memo(function TradeRow({
                           {trade.signal_details.match(/점수:\s*(\d+\/\d+)/)?.[1] || `점수: ${trade.score}`}
                         </Typography>
                       )}
-                      <Box sx={{ display: 'flex', gap: 1, fontSize: 8, color: '#64748b' }}>
-                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
-                          목표: {fmtPrice(trade.tp)}
-                        </Typography>
-                        <Typography sx={{ fontSize: 8, color: '#64748b' }}>
-                          손절: {fmtPrice(trade.sl)}
-                        </Typography>
-                      </Box>
                       <Typography sx={{ fontSize: 8, color: win ? '#10b981' : '#ec4899', fontWeight: 600 }}>
                         청산: {exitReasonMap[trade.exit_reason] || trade.exit_reason}
+                      </Typography>
+                    </Box>
+                ) : (
+                    <Box />
+                )}
+
+                {/* 목표가 — 첫 행만 */}
+                {isFirst ? (
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontSize: 8, color: '#64748b', mb: 0.2 }}>목표</Typography>
+                      <Typography sx={{ fontSize: 9, color: '#ffffff', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {fmtPrice(trade.tp)}
+                      </Typography>
+                    </Box>
+                ) : (
+                    <Box />
+                )}
+
+                {/* 손절가 — 첫 행만 */}
+                {isFirst ? (
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontSize: 8, color: '#64748b', mb: 0.2 }}>손절</Typography>
+                      <Typography sx={{ fontSize: 9, color: '#ffffff', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {fmtPrice(trade.sl)}
                       </Typography>
                     </Box>
                 ) : (
@@ -1900,7 +1915,7 @@ export default function BacktestViewer() {
                 <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '20px 36px 52px 1fr 1fr 1fr 90px',
+                      gridTemplateColumns: '20px 36px 52px 1fr 1fr 80px 80px 1fr 90px',
                       gap: 1,
                       px: 1.5,
                       py: 0.75,
@@ -1915,6 +1930,8 @@ export default function BacktestViewer() {
                     '단계',
                     '진입일시/단가',
                     '청산일시/단가',
+                    '목표가',
+                    '손절가',
                     '시그널/청산',
                     '손익(수수료)',
                   ].map((h) => (
