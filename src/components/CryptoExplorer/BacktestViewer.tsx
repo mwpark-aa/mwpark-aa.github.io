@@ -586,18 +586,6 @@ const TradeRow = memo(function TradeRow({
                           title={
                             SIGNAL_DESCRIPTIONS[trade.signal_type] ? (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#f4f4f5' }}>
-                                    {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
-                                  </Typography>
-                                  <Typography sx={{ fontSize: 10, color: '#a1a1aa', lineHeight: 1.4 }}>
-                                    {SIGNAL_DESCRIPTIONS[trade.signal_type].summary}
-                                  </Typography>
-                                  <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #3b82f6' }}>
-                                    <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>진입 조건</Typography>
-                                    <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
-                                      {SIGNAL_DESCRIPTIONS[trade.signal_type].condition}
-                                    </Typography>
-                                  </Box>
                                   <Box sx={{ pl: 1, borderLeft: '2px solid #a855f7' }}>
                                     <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>해석</Typography>
                                     <Typography sx={{ fontSize: 10, color: '#d4d4d8', lineHeight: 1.3 }}>
@@ -618,22 +606,11 @@ const TradeRow = memo(function TradeRow({
                                   </Box>
                                 </Box>
                             ) : (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#f4f4f5' }}>
-                                    {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
+                                <Box sx={{ pl: 1, borderLeft: '2px solid #a855f7' }}>
+                                  <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>해석</Typography>
+                                  <Typography sx={{ fontSize: 9, color: '#d4d4d8', lineHeight: 1.3 }}>
+                                    추가 설명 없음
                                   </Typography>
-                                  <Box sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid #f59e0b' }}>
-                                    <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>청산 사유</Typography>
-                                    <Typography sx={{ fontSize: 9, color: '#d4d4d8', lineHeight: 1.3 }}>
-                                      {trade.exit_reason === 'TP' && `익절 (TP: $${trade.tp?.toFixed(2)})`}
-                                      {trade.exit_reason === 'SL' && `손절 (SL: $${trade.sl?.toFixed(2)})`}
-                                      {trade.exit_reason === 'TRAIL' && `추적손절 (청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'BELOW_TP1' && `부분익절 이하 (청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'TIMEOUT' && `강제종료 (마지막 캔들, 청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {trade.exit_reason === 'LIQUIDATED' && `청산 (진입가: $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)})`}
-                                      {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && `${trade.exit_reason} (청산가: $${trade.exit_price?.toFixed(2)})`}
-                                    </Typography>
-                                  </Box>
                                 </Box>
                             )
                           }
@@ -657,14 +634,11 @@ const TradeRow = memo(function TradeRow({
                           {trade.signal_details}
                         </Typography>
                       )}
-                      {trade.score != null && (
+                      {trade.signal_details && (
                         <Typography sx={{ fontSize: 8, color: '#8b5cf6', fontWeight: 600 }}>
-                          점수: {trade.score}/7
+                          {trade.signal_details.match(/점수:\s*(\d+\/\d+)/)?.[1] || `점수: ${trade.score}`}
                         </Typography>
                       )}
-                      <Typography sx={{ fontSize: 8, color: '#64748b' }}>
-                        진입: {SIGNAL_LABELS[trade.signal_type] ?? trade.signal_type}
-                      </Typography>
                       <Typography sx={{ fontSize: 8, color: win ? '#10b981' : '#ec4899', fontWeight: 600 }}>
                         청산: {trade.exit_reason}
                       </Typography>
