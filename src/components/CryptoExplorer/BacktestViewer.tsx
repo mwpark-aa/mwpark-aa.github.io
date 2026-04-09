@@ -61,6 +61,7 @@ interface BacktestTrade {
   id: string
   signal_type: string
   signal_details: string
+  exit_details?: string
   direction: 'LONG' | 'SHORT'
   entry_ts: string
   exit_ts: string
@@ -557,7 +558,7 @@ const TradeRow = memo(function TradeRow({
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
                       {trade.signal_details && (
                         <Typography sx={{ fontSize: 8, color: '#f59e0b', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
-                          {trade.signal_details}
+                          진입: {trade.signal_details}
                         </Typography>
                       )}
                       <Typography sx={{ fontSize: 9, color: win ? '#10b981' : '#ec4899', lineHeight: 1.3 }}>
@@ -566,10 +567,16 @@ const TradeRow = memo(function TradeRow({
                         {trade.exit_reason === 'SL' && ` : $${trade.sl?.toFixed(2)}`}
                         {trade.exit_reason === 'TRAIL' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'BELOW_TP1' && ` : $${trade.exit_price?.toFixed(2)}`}
+                        {trade.exit_reason === 'DATA_END' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'TIMEOUT' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'LIQUIDATED' && ` : $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)}`}
-                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && ` ${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
+                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'DATA_END', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && ` ${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
                       </Typography>
+                      {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details && (
+                        <Typography sx={{ fontSize: 8, color: '#ec4899', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
+                          청산: {trade.exit_details}
+                        </Typography>
+                      )}
                     </Box>
                 ) : (
                     <Box />

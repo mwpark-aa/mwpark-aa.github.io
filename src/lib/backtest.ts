@@ -36,6 +36,7 @@ export interface BacktestParams {
 export interface BacktestTrade {
   signal_type: string
   signal_details: string  // 신호 조건 상세 정보
+  exit_details?: string   // SCORE_EXIT 시 청산 시점의 점수 상태
   direction: 'LONG' | 'SHORT'
   entry_price: number
   exit_price: number
@@ -590,8 +591,41 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         // UI 표시: pnl은 순수 포지션 손익만, commission은 별도
         const pnlPct = gross / pos.capitalUsed * 100
 
+        // SCORE_EXIT 시 exit_details 생성
+        let exitDetails: string | undefined
+        if (scoreExit) {
+          const exitDetailsParts: string[] = []
+
+          // 현재 지표 값 표시
+          if (p.scoreUseRSI && row.rsi14 != null) {
+            exitDetailsParts.push(`RSI: ${Math.round(row.rsi14)}`)
+          }
+          if (p.scoreUseADX && row.adx14 != null) {
+            exitDetailsParts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
+          }
+          if (p.scoreUseMACD && row.macd_hist != null) {
+            exitDetailsParts.push(`MACD: ${row.macd_hist > 0 ? '+' : ''}${Math.round(row.macd_hist * 1000) / 1000}`)
+          }
+          if (p.scoreUseRVOL && row.vol_rvol168 != null) {
+            exitDetailsParts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
+          }
+          if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null) {
+            const maState = row.ma20 > row.ma60 ? '상승' : '하락'
+            exitDetailsParts.push(`MA: ${maState}`)
+          }
+
+          // 현재 점수
+          const maxScore = (p.scoreUseADX ? 1 : 0) + (p.scoreUseRSI ? 1 : 0) + (p.scoreUseMACD ? 1 : 0)
+                         + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseBB ? 1 : 0) + (p.scoreUseIchi ? 1 : 0)
+                         + (p.scoreUseGoldenCross ? 1 : 0) + (p.scoreUseFedLiquidity ? 1 : 0)
+          exitDetailsParts.push(`점수: ${currentScore}/${maxScore}`)
+
+          exitDetails = exitDetailsParts.join(' | ')
+        }
+
         trades.push({
-          signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
+          signal_type: pos.signal_type, signal_details: pos.signal_details, exit_details: exitDetails,
+          direction: pos.direction,
           entry_price: pos.entryPrice, exit_price: exitPrice,
           tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
           capital_used: pos.capitalUsed,
@@ -708,7 +742,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       entry_ts: finalEntry, exit_ts: finalExit,
       commission: Math.round(comm * 10000) / 10000,
     } as any)
-    if (net > 0) wins++; else losses++
+    if (netCapital > 0) wins++; else losses++
   }
 
   const total = wins + losses
