@@ -454,9 +454,6 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
 function buildSignalDetails(signal_type: string, row: Candle, score: number, rr: number | null, p: BacktestParams): string {
   const parts: string[] = []
 
-  // 신호명
-  parts.push(signal_type)
-
   // MA 상태 (골든크로스/데스크로스 활성화 시만)
   if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null) {
     const maState = row.ma20 > row.ma60 ? '상승' : '하락'
@@ -482,12 +479,6 @@ function buildSignalDetails(signal_type: string, row: Candle, score: number, rr:
   if (p.scoreUseRVOL && row.vol_rvol168 != null) {
     parts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
   }
-
-  // 점수
-  const maxScore = (p.scoreUseADX ? 1 : 0) + (p.scoreUseRSI ? 1 : 0) + (p.scoreUseMACD ? 1 : 0)
-                 + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseBB ? 1 : 0) + (p.scoreUseIchi ? 1 : 0)
-                 + (p.scoreUseGoldenCross ? 1 : 0) + (p.scoreUseFedLiquidity ? 1 : 0)
-  parts.push(`점수: ${score}/${maxScore}`)
 
   // 손익비 (고정TP/SL이 아닐 때만)
   if (rr != null && (p.fixedTP === 0 && p.fixedSL === 0)) {
