@@ -538,10 +538,9 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (liqHit) {
         capital -= pos.capitalUsed
 
-        // 수수료 계산 (청산 시에도 발생)
-        const tradedQuantity = pos.quantity / p.leverage
-        const entryComm = pos.entryPrice * tradedQuantity * COMMISSION
-        const exitComm = liqPrice * tradedQuantity * COMMISSION
+        // 수수료: 실제 거래액 기준 (진입가 × 거래량 × 수수료율)
+        const entryComm = pos.entryPrice * pos.quantity * COMMISSION
+        const exitComm = liqPrice * pos.quantity * COMMISSION
         const comm = entryComm + exitComm
 
         trades.push({
