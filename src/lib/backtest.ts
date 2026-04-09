@@ -536,6 +536,13 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
 
       if (liqHit) {
         capital -= pos.capitalUsed
+
+        // 수수료 계산 (청산 시에도 발생)
+        const tradedQuantity = pos.quantity / p.leverage
+        const entryComm = pos.entryPrice * tradedQuantity * COMMISSION
+        const exitComm = liqPrice * tradedQuantity * COMMISSION
+        const comm = entryComm + exitComm
+
         trades.push({
           signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
           entry_price: pos.entryPrice, exit_price: liqPrice,
@@ -545,7 +552,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           pnl_pct: -100,
           exit_reason: 'LIQUIDATED', score: pos.score,
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
-        })
+          commission: Math.round(comm * 10000) / 10000,
+        } as any)
         losses++
         equity.push(capital)
         if (capital > peakEq) peakEq = capital
