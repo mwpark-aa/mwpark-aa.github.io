@@ -568,17 +568,26 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
 
       if (exitPrice != null) {
         const gross = short ? pos.quantity * (pos.avgEntry - exitPrice) : pos.quantity * (exitPrice - pos.avgEntry)
-        const comm = pos.quantity * exitPrice * COMMISSION * 2
-        const net = gross - comm
-        capital += gross - comm
-        const pnlPct = net / pos.capitalUsed * 100
+
+        // 수수료: 실제 거래액 기준 (레버리지 제외)
+        const tradedQuantity = pos.quantity / p.leverage
+        const entryComm = pos.entryPrice * tradedQuantity * COMMISSION
+        const exitComm = exitPrice * tradedQuantity * COMMISSION
+        const comm = entryComm + exitComm
+
+        // capital에는 수수료 차감 반영
+        const netCapital = gross - comm
+        capital += netCapital
+
+        // UI 표시: pnl은 순수 포지션 손익만, commission은 별도
+        const pnlPct = gross / pos.capitalUsed * 100
 
         trades.push({
           signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
           entry_price: pos.entryPrice, exit_price: exitPrice,
           tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
           capital_used: pos.capitalUsed,
-          net_pnl: Math.round(net * 10000) / 10000,
+          net_pnl: Math.round(gross * 10000) / 10000,
           pnl_pct: Math.round(pnlPct * 10000) / 10000,
           exit_reason: exitReason, score: pos.score,
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
@@ -658,9 +667,16 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const short = pos.direction === 'SHORT'
     const ep = last.close
     const gross = short ? pos.quantity * (pos.avgEntry - ep) : pos.quantity * (ep - pos.avgEntry)
-    const comm = pos.quantity * ep * COMMISSION * 2
-    const net = gross - comm + (pos.partialPnl || 0)
-    capital += gross - comm
+
+    // 수수료: 실제 거래액 기준 (레버리지 제외)
+    const tradedQuantity = pos.quantity / p.leverage
+    const entryComm = pos.entryPrice * tradedQuantity * COMMISSION
+    const exitComm = ep * tradedQuantity * COMMISSION
+    const comm = entryComm + exitComm
+
+    // capital에는 수수료 차감 반영
+    const netCapital = gross - comm + (pos.partialPnl || 0)
+    capital += netCapital
 
     // 진입/청산 순서 검증: entry_ts > exit_ts면 스왑 (데이터 순서 문제 대응)
     const exitTs = iso(last.timestamp)
@@ -670,13 +686,16 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       ? [exitTs, pos.entryTs]
       : [pos.entryTs, exitTs]
 
+    // UI 표시: pnl은 순수 포지션 손익만
+    const pnlPct = gross / pos.capitalUsed * 100
+
     trades.push({
       signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
       entry_price: pos.entryPrice, exit_price: ep,
       tp: pos.tp, sl: pos.sl, quantity: pos.origQuantity,
       capital_used: pos.capitalUsed,
-      net_pnl: Math.round(net * 10000) / 10000,
-      pnl_pct: Math.round(net / pos.capitalUsed * 100 * 10000) / 10000,
+      net_pnl: Math.round(gross * 10000) / 10000,
+      pnl_pct: Math.round(pnlPct * 10000) / 10000,
       exit_reason: 'DATA_END', score: pos.score,
       entry_ts: finalEntry, exit_ts: finalExit,
       commission: Math.round(comm * 10000) / 10000,
