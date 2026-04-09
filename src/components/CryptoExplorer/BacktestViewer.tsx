@@ -238,6 +238,25 @@ export default function BacktestViewer() {
     }))
   }, [])
 
+  // ── 페이퍼 트레이딩 활성화 / 비활성화 ─────────────────────
+  const activatePaperTrading = useCallback(async (run: RunHistory) => {
+    const willActivate = !run.paper_trading_enabled
+
+    // 기존 활성 설정 모두 해제
+    await supabase
+      .from('backtest_runs')
+      .update({ paper_trading_enabled: false })
+      .eq('paper_trading_enabled', true)
+
+    // 선택한 설정 토글
+    await supabase
+      .from('backtest_runs')
+      .update({ paper_trading_enabled: willActivate })
+      .eq('id', run.id)
+
+    await loadHistory()
+  }, [])
+
   const loadHistory = useCallback(async (applyBest = false) => {
     const { data } = await supabase
       .from('backtest_runs')
@@ -384,7 +403,12 @@ export default function BacktestViewer() {
 
           {/* Row 2: History */}
           {showHistory && (
-            <HistoryPanel history={history} onApply={applyHistoryParams} />
+            <HistoryPanel
+              history={history}
+              onApply={applyHistoryParams}
+              onActivatePaper={activatePaperTrading}
+              activePaperId={history.find(r => r.paper_trading_enabled)?.id ?? null}
+            />
           )}
 
           {/* Row 3: Params */}

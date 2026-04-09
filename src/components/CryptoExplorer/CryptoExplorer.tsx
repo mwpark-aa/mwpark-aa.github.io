@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import BacktestViewer from './BacktestViewer'
+import PaperDashboard from './PaperDashboard'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -1267,7 +1268,7 @@ function useBinanceKlines(tf: Timeframe, symbols: string[]): {
 // ─────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────
-type DashTab = 'live' | 'backtest'
+type DashTab = 'live' | 'paper' | 'backtest'
 
 export default function CryptoExplorer() {
   const [tab, setTab] = useState<DashTab>('live')
@@ -1597,32 +1598,44 @@ export default function CryptoExplorer() {
 
       {/* ── Tab bar ── */}
       <Box sx={{ display: 'flex', gap: 0.5, mb: 2.5 }}>
-        {(['live', 'backtest'] as DashTab[]).map((t) => (
+        {([
+          { key: 'live',      label: '실시간 대시보드' },
+          { key: 'paper',     label: '페이퍼 트레이딩' },
+          { key: 'backtest',  label: '백테스트 뷰어'   },
+        ] as { key: DashTab; label: string }[]).map(({ key, label }) => (
           <Box
-            key={t}
+            key={key}
             component="button"
-            onClick={() => setTab(t)}
+            onClick={() => setTab(key)}
             sx={{
               px: 2, py: 0.75,
               borderRadius: 2,
               border: '1px solid',
-              borderColor: tab === t ? '#3b82f6' : '#27272a',
-              background: tab === t ? '#3b82f620' : 'transparent',
-              color: tab === t ? '#3b82f6' : '#52525b',
+              borderColor: tab === key
+                ? key === 'paper' ? '#16a34a' : '#3b82f6'
+                : '#27272a',
+              background: tab === key
+                ? key === 'paper' ? '#16a34a20' : '#3b82f620'
+                : 'transparent',
+              color: tab === key
+                ? key === 'paper' ? '#4ade80' : '#3b82f6'
+                : '#52525b',
               fontSize: 12,
-              fontWeight: tab === t ? 700 : 400,
+              fontWeight: tab === key ? 700 : 400,
               cursor: 'pointer',
               transition: 'all 0.15s',
               '&:hover': { borderColor: '#3b82f666', color: '#a1a1aa' },
             }}
           >
-            {t === 'live' ? '실시간 대시보드' : '백테스트 뷰어'}
+            {label}
           </Box>
         ))}
       </Box>
 
       {tab === 'backtest' ? (
         <BacktestViewer />
+      ) : tab === 'paper' ? (
+        <PaperDashboard />
       ) : (
         <>
 
