@@ -519,11 +519,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
   const cd: Record<string, number> = {}
   let wins = 0, losses = 0, peakEq = capital, maxDD = 0
 
-  const iso = (ts: number) => {
-    const d = new Date(ts)
-    const kst = new Date(d.getTime() + 9 * 3600 * 1000)
-    return kst.toISOString()
-  }
+  const iso = (ts: number) => new Date(ts).toISOString()
 
   for (let i = 168; i < n; i++) {
     for (const k of Object.keys(cd)) cd[k] = Math.max(0, cd[k] - 1)

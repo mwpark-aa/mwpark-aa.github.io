@@ -318,6 +318,15 @@ const BacktestChart = memo(function BacktestChart({
         borderColor: '#27272a',
         timeVisible: true,
         secondsVisible: false,
+        timeFormatter: ((time: number) => {
+          const date = new Date(time * 1000)
+          return date.toLocaleString('ko-KR', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        }) as any,
       },
       handleScroll: true,
       handleScale: true,
