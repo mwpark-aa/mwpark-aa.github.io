@@ -380,17 +380,6 @@ const BacktestChart = memo(function BacktestChart({
           shape: isShort ? 'arrowDown' : 'arrowUp',
           text: e.step === 1 ? (isShort ? '숏진입' : '롱진입') : (isShort ? '숏추가' : '롱추가'),
         })
-
-        // 선택된 거래의 진입에만 별표 마커 추가
-        if (isSelected && e.step === 1) {
-          allMarkers.push({
-            time: eTime,
-            position: isShort ? 'aboveBar' : 'belowBar',
-            color: '#fbbf24',
-            shape: 'circle',
-            text: '★',
-          })
-        }
       }
 
       allMarkers.push({
@@ -400,17 +389,6 @@ const BacktestChart = memo(function BacktestChart({
         shape: isShort ? 'arrowUp' : 'arrowDown',
         text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
       })
-
-      // 선택된 거래의 청산에만 별표 마커 추가
-      if (isSelected) {
-        allMarkers.push({
-          time: exitTime,
-          position: isShort ? 'belowBar' : 'aboveBar',
-          color: '#fbbf24',
-          shape: 'circle',
-          text: '★',
-        })
-      }
     }
 
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number))
