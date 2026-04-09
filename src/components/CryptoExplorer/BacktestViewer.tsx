@@ -357,10 +357,7 @@ const BacktestChart = memo(function BacktestChart({
           position: isShort ? 'aboveBar' : 'belowBar',
           color,
           shape: isShort ? 'arrowDown' : 'arrowUp',
-          text:
-              e.step === 1
-                  ? (isShort ? '숏진입' : '롱진입')
-                  : isShort ? '숏추가' : '롱추가',
+          text: '',
         })
       }
 
@@ -369,7 +366,7 @@ const BacktestChart = memo(function BacktestChart({
         position: isShort ? 'belowBar' : 'aboveBar',
         color: win ? '#10b981' : '#ec4899',
         shape: isShort ? 'arrowUp' : 'arrowDown',
-        text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
+        text: '',
       })
     }
 
@@ -409,18 +406,17 @@ const BacktestChart = memo(function BacktestChart({
       for (const e of entries) {
         const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
         const color = isSelected ? '#fbbf24' : (isShort ? '#ef4444' : '#3b82f6')
-        const textDecoration = isSelected ? '★ ' : ''
 
         markers.push({
           time: eTime,
           position: isShort ? 'aboveBar' : 'belowBar',
           color,
           shape: isShort ? 'arrowDown' : 'arrowUp',
-          text:
-              textDecoration +
-              (e.step === 1
-                  ? (isShort ? '숏진입' : '롱진입')
-                  : isShort ? '숏추가' : '롱추가'),
+          text: isSelected
+              ? (e.step === 1
+                  ? (isShort ? '★ 숏진입' : '★ 롱진입')
+                  : isShort ? '★ 숏추가' : '★ 롱추가')
+              : '',
         })
       }
 
@@ -429,7 +425,7 @@ const BacktestChart = memo(function BacktestChart({
         position: isShort ? 'belowBar' : 'aboveBar',
         color: isSelected ? '#fbbf24' : (win ? '#10b981' : '#ec4899'),
         shape: isShort ? 'arrowUp' : 'arrowDown',
-        text: (isSelected ? '★ ' : '') + `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
+        text: isSelected ? `★ ${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}` : '',
       })
     }
 
