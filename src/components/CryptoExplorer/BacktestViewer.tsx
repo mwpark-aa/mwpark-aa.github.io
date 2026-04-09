@@ -287,7 +287,7 @@ const BacktestChart = memo(function BacktestChart({
     }
   }, [scrollToRef])
 
-  // 1차: 차트 초기화 및 기본 마커 생성 (candles/trades 변경 시만)
+  // 1차: 차트 초기화 (candles/trades 변경 시만, selectedTradeId 제외!)
   useEffect(() => {
     if (!containerRef.current || candles.length === 0) return
 
@@ -339,7 +339,27 @@ const BacktestChart = memo(function BacktestChart({
     series.setData(candles)
     chart.timeScale().fitContent()
 
-    // 마커 생성
+    // 리사이즈 옵저버
+    const ro = new ResizeObserver(() => {
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: containerRef.current.clientWidth })
+      }
+    })
+    ro.observe(containerRef.current)
+
+    return () => {
+      ro.disconnect()
+      chart.remove()
+      chartRef.current = null
+      seriesRef.current = null
+      markersRef.current = null
+    }
+  }, [candles, trades])
+
+  // 2차: 마커 업데이트 (selectedTradeId 변경 시 - 차트는 유지!)
+  useEffect(() => {
+    if (!seriesRef.current || trades.length === 0) return
+
     const allMarkers: SeriesMarker<Time>[] = []
     for (const t of trades) {
       const exitTime = Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp
@@ -373,24 +393,8 @@ const BacktestChart = memo(function BacktestChart({
     }
 
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number))
-    markersRef.current = createSeriesMarkers(series, allMarkers)
-
-    // 리사이즈 옵저버
-    const ro = new ResizeObserver(() => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth })
-      }
-    })
-    ro.observe(containerRef.current)
-
-    return () => {
-      ro.disconnect()
-      chart.remove()
-      chartRef.current = null
-      seriesRef.current = null
-      markersRef.current = null
-    }
-  }, [candles, trades, selectedTradeId])
+    markersRef.current = createSeriesMarkers(seriesRef.current, allMarkers)
+  }, [selectedTradeId, trades])
 
   return (
       <Box
