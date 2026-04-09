@@ -21,7 +21,7 @@ import {
 } from 'lightweight-charts'
 import { supabase } from '../../lib/supabase'
 import { runBacktest as execBacktest, type BacktestParams as LibBacktestParams, type BacktestTrade as LibBacktestTrade } from '../../lib/backtest'
-import { CRYPTO_SYMBOLS, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS, type CryptoSymbol } from '../../constants/crypto'
+import { CRYPTO_SYMBOLS, type CryptoSymbol } from '../../constants/crypto'
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -452,7 +452,6 @@ const TradeRow = memo(function TradeRow({
           }}
       >
         {entries.map((e, ei) => {
-          const sc = entryMarkerColor(e.step)
           const isFirst = ei === 0
           const isLast = ei === entries.length - 1
 
