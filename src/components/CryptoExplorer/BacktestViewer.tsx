@@ -608,7 +608,6 @@ const TradeRow = memo(function TradeRow({
                                 opacity: 0.7,
                               }}
                           >
-                            💰 {(trade.capital_used / initialCapital * 100).toFixed(1)}% 사용
                           </Typography>
                       )}
                     </Box>
@@ -784,12 +783,11 @@ export default function BacktestViewer() {
             exit_ts: shouldSwap ? t.entry_ts : t.exit_ts,
             avg_entry_price: t.entry_price,
             gross_pnl: null,
-            commission: null,
             entry_count: null,
             add_count: null,
             add_entries: null,
           }
-        }) as BacktestTrade[],
+        }) as any as BacktestTrade[],
       )
 
       const startMs = new Date(params.startDate).getTime()

@@ -582,7 +582,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           pnl_pct: Math.round(pnlPct * 10000) / 10000,
           exit_reason: exitReason, score: pos.score,
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
-        })
+          commission: Math.round(comm * 10000) / 10000,
+        } as any)
         if (net > 0) wins++; else losses++
         equity.push(capital)
         if (capital > peakEq) peakEq = capital
@@ -678,7 +679,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       pnl_pct: Math.round(net / pos.capitalUsed * 100 * 10000) / 10000,
       exit_reason: 'DATA_END', score: pos.score,
       entry_ts: finalEntry, exit_ts: finalExit,
-    })
+      commission: Math.round(comm * 10000) / 10000,
+    } as any)
     if (net > 0) wins++; else losses++
   }
 
