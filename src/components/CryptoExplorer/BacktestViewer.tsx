@@ -110,12 +110,10 @@ function fmtPct(v: number | undefined | null): string {
 function fmtDate(iso: string | undefined | null): string {
   if (!iso) return '-'
   try {
-    return new Date(iso).toLocaleString('ko-KR', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    // ISO 문자열에서 날짜와 시간만 추출 (예: "2024-10-11T02:30:00.000Z" -> "2024-10-11 02:30")
+    const cleaned = iso.split('.')[0]  // 밀리초 제거
+    const [date, time] = cleaned.split('T')
+    return `${date} ${time.slice(0, 5)}`  // HH:MM만 추출
   } catch {
     return '-'
   }
@@ -338,6 +336,10 @@ const BacktestChart = memo(function BacktestChart({
     seriesRef.current = series
 
     // 데이터 세팅
+    console.log('📈 Chart candles (first 3, last 3):', {
+      first: candles.slice(0, 3).map(c => ({ time: c.time, timeDate: new Date(c.time * 1000).toISOString(), close: c.close })),
+      last: candles.slice(-3).map(c => ({ time: c.time, timeDate: new Date(c.time * 1000).toISOString(), close: c.close })),
+    })
     series.setData(candles)
     chart.timeScale().fitContent()
 
@@ -349,10 +351,12 @@ const BacktestChart = memo(function BacktestChart({
       const isShort = t.direction === 'SHORT'
 
       const entries = parseAddEntries(t)
+      console.log('📊 Trade marker', { entry_ts: t.entry_ts, exit_ts: t.exit_ts, exitTime, signal: t.signal_type })
 
       for (const e of entries) {
         const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
         const color = isShort ? '#ef4444' : '#3b82f6'
+        console.log('📍 Entry marker', { ts: e.ts, eTime, eTimeDate: new Date(eTime * 1000).toISOString() })
 
         markers.push({
           time: eTime,
