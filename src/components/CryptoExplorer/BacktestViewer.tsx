@@ -337,8 +337,17 @@ const BacktestChart = memo(function BacktestChart({
 
     // 데이터 세팅
     console.log('📈 Chart candles (first 3, last 3):', {
-      first: candles.slice(0, 3).map(c => ({ time: c.time, timeDate: new Date(c.time * 1000).toISOString(), close: c.close })),
-      last: candles.slice(-3).map(c => ({ time: c.time, timeDate: new Date(c.time * 1000).toISOString(), close: c.close })),
+      totalCount: candles.length,
+      first: candles.slice(0, 3).map(c => ({
+        time: c.time,
+        timeDate: new Date(c.time * 1000).toISOString(),
+        close: c.close,
+      })),
+      last: candles.slice(-3).map(c => ({
+        time: c.time,
+        timeDate: new Date(c.time * 1000).toISOString(),
+        close: c.close,
+      })),
     })
     series.setData(candles)
     chart.timeScale().fitContent()
@@ -354,9 +363,18 @@ const BacktestChart = memo(function BacktestChart({
       console.log('📊 Trade marker', { entry_ts: t.entry_ts, exit_ts: t.exit_ts, exitTime, signal: t.signal_type })
 
       for (const e of entries) {
-        const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
+        const eTsDate = new Date(e.ts)
+        const eTsMs = eTsDate.getTime()
+        const eTime = Math.floor(eTsMs / 1000) as UTCTimestamp
         const color = isShort ? '#ef4444' : '#3b82f6'
-        console.log('📍 Entry marker', { ts: e.ts, eTime, eTimeDate: new Date(eTime * 1000).toISOString() })
+        console.log('📍 Entry marker', {
+          ts: e.ts,
+          eTsMs,
+          eTsDate: eTsDate.toISOString(),
+          eTime,
+          eTimeDate: new Date(eTime * 1000).toISOString(),
+          entryTsFromTrade: t.entry_ts,
+        })
 
         markers.push({
           time: eTime,
