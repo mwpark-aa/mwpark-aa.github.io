@@ -95,14 +95,8 @@ interface Candle {
 const COMMISSION       = 0.001
 const MAX_CAPITAL_PCT  = 0.20
 const RISK_PER_TRADE   = 0.04
-const SL_ATR_MIN       = 0.6
-const SL_ATR_MAX       = 2.6
 const SWING_LOOKBACK   = 4
 const SIGNAL_COOLDOWN  = 4
-const PARTIAL_TP_FACTOR    = 0.5
-const PARTIAL_FRACTION     = 0.65
-const TRAILING_STOP_PCT    = 0.025
-const BELOW_TP1_BUFFER     = 0.01
 const DAILY_LOSS_LIMIT_PCT = 0.06
 
 
@@ -342,50 +336,24 @@ function computeIndicators(rows: Candle[]): void {
   }
 }
 
-// ── SL/TP ──────────────────────────────────────────────────────────────────────
+// ── Fixed 모드 TP/SL 계산 ──────────────────────────────────────────────────────
 
-function longSL(close: number, swingLow: number | null, atr: number | null): number {
-  if (atr && atr > 0) {
-    const floor = close - SL_ATR_MAX * atr, ceil = close - SL_ATR_MIN * atr
-    return Math.round(Math.max(Math.min(swingLow ? swingLow * 0.998 : ceil, ceil), floor) * 1e6) / 1e6
-  }
-  return Math.round((swingLow ? swingLow * 0.998 : close * 0.98) * 1e6) / 1e6
-}
-
-function shortSL(close: number, swingHigh: number | null, atr: number | null): number {
-  if (atr && atr > 0) {
-    const ceil = close + SL_ATR_MAX * atr, floor = close + SL_ATR_MIN * atr
-    return Math.round(Math.min(Math.max(swingHigh ? swingHigh * 1.002 : floor, floor), ceil) * 1e6) / 1e6
-  }
-  return Math.round((swingHigh ? swingHigh * 1.002 : close * 1.02) * 1e6) / 1e6
-}
-
-function calcTPSL(type: string, close: number, row: Candle, p: BacktestParams) {
+function calcTPSL(type: string, close: number, p: BacktestParams) {
   const isLong = type === 'LONG'
   const isShort = type === 'SHORT'
   let tp: number | null = null, sl: number | null = null
 
-  if (isLong) {
-    if (p.tpslMode === 'fixed' && p.fixedSL > 0 && p.fixedTP > 0) {
-      // 고정 TP/SL 모드
+  // Fixed 모드: 고정 TP/SL (%)
+  if (p.fixedTP > 0 && p.fixedSL > 0) {
+    if (isLong) {
       sl = Math.round(close * (1 - p.fixedSL / 100) * 1e6) / 1e6
       tp = Math.round(close * (1 + p.fixedTP / 100) * 1e6) / 1e6
-    } else {
-      // 자동 TP/SL 모드 (minRR 기반)
-      sl = longSL(close, row.swing_low ?? null, row.atr14 ?? null)
-      tp = Math.round((close + (close - sl) * p.minRR) * 1e6) / 1e6
-    }
-  } else if (isShort) {
-    if (p.tpslMode === 'fixed' && p.fixedSL > 0 && p.fixedTP > 0) {
-      // 고정 TP/SL 모드
+    } else if (isShort) {
       sl = Math.round(close * (1 + p.fixedSL / 100) * 1e6) / 1e6
       tp = Math.round(close * (1 - p.fixedTP / 100) * 1e6) / 1e6
-    } else {
-      // 자동 TP/SL 모드 (minRR 기반)
-      sl = shortSL(close, row.swing_high ?? null, row.atr14 ?? null)
-      tp = Math.round((close - (sl - close) * p.minRR) * 1e6) / 1e6
     }
   }
+
   const rr = tp != null && sl != null && sl !== close
     ? Math.round(Math.abs(tp - close) / Math.abs(close - sl) * 100) / 100 : null
   return { tp, sl, rr }
@@ -461,21 +429,21 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
   const isDowntrend = !checkMA || (curr.ma20! < curr.ma60! && close < curr.ma60!)
 
   const fired: any[] = []
-  const add = (type: string, row: Candle, score: number) => {
-    const { tp, sl, rr } = calcTPSL(type, close, row, p)
+  const add = (type: string, score: number) => {
+    const { tp, sl, rr } = calcTPSL(type, close, p)
     fired.push({ signal_type: type, tp, sl, rr, score })
   }
 
   // LONG: 상승추세 + 점수 확인
   if (isUptrend && ready('LONG')) {
     const score = scoreLong(rL, p)
-    if (score > 0) add('LONG', rL, score)
+    if (score > 0) add('LONG', score)
   }
 
   // SHORT: 하락추세 + 점수 확인
   if (isDowntrend && ready('SHORT')) {
     const score = scoreShort(rS, p)
-    if (score > 0) add('SHORT', rS, score)
+    if (score > 0) add('SHORT', score)
   }
 
   return fired
@@ -582,36 +550,9 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         continue
       }
 
-      // Partial exit
-      if (!pos.partialDone) {
-        const tp1 = short
-          ? pos.avgEntry - (pos.avgEntry - pos.tp) * PARTIAL_TP_FACTOR
-          : pos.avgEntry + (pos.tp - pos.avgEntry) * PARTIAL_TP_FACTOR
-        const tp1Hit = short ? row.low <= tp1 : row.high >= tp1
-        if (tp1Hit) {
-          const pQty = pos.quantity * PARTIAL_FRACTION
-          const gross = short ? pQty * (pos.avgEntry - tp1) : pQty * (tp1 - pos.avgEntry)
-          const comm = pQty * tp1 * COMMISSION * 2
-          capital += gross - comm
-          pos.partialPnl = (pos.partialPnl || 0) + gross - comm
-          pos.quantity -= pQty
-          pos.partialDone = true
-          equity.push(capital)
-        }
-      }
-
-      // Full exit
+      // Exit conditions
       const slHit  = short ? row.high >= pos.sl : row.low  <= pos.sl
       const tpHit  = short ? row.low  <= pos.tp : row.high >= pos.tp
-      const trailHit = pos.partialDone && (short
-        ? row.high >= pos.peakPrice * (1 + TRAILING_STOP_PCT)
-        : row.low  <= pos.peakPrice * (1 - TRAILING_STOP_PCT))
-      const tp1Val = short
-        ? pos.avgEntry - (pos.avgEntry - pos.tp) * PARTIAL_TP_FACTOR
-        : pos.avgEntry + (pos.tp - pos.avgEntry) * PARTIAL_TP_FACTOR
-      const belowTp1 = pos.partialDone && (short
-        ? row.high >= tp1Val * (1 + BELOW_TP1_BUFFER)
-        : row.low  <= tp1Val * (1 - BELOW_TP1_BUFFER))
       // 점수 기반 청산
       const currentScore = short ? scoreShort(row, p) : scoreLong(row, p)
       const scoreExit = p.scoreExitThreshold > 0 && currentScore <= p.scoreExitThreshold
@@ -620,13 +561,11 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if      (slHit)    { exitPrice = pos.sl; exitReason = 'SL' }
       else if (scoreExit) { exitPrice = row.close; exitReason = 'SCORE_EXIT' }
       else if (tpHit)    { exitPrice = pos.tp; exitReason = 'TP' }
-      else if (trailHit) { exitPrice = short ? pos.peakPrice * (1 + TRAILING_STOP_PCT) : pos.peakPrice * (1 - TRAILING_STOP_PCT); exitReason = 'TRAIL' }
-      else if (belowTp1) { exitPrice = tp1Val; exitReason = 'BELOW_TP1' }
 
       if (exitPrice != null) {
         const gross = short ? pos.quantity * (pos.avgEntry - exitPrice) : pos.quantity * (exitPrice - pos.avgEntry)
         const comm = pos.quantity * exitPrice * COMMISSION * 2
-        const net = gross - comm + (pos.partialPnl || 0)
+        const net = gross - comm
         capital += gross - comm
         const pnlPct = net / pos.capitalUsed * 100
 
@@ -655,12 +594,17 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const dailyPnl = trades.filter(t => new Date(t.exit_ts).toDateString() === today).reduce((s, t) => s + t.net_pnl, 0)
     if (dailyPnl < -p.initialCapital * DAILY_LOSS_LIMIT_PCT) continue
 
-    const signals = detectSignals(rows, i, cd, p)
+    // ── 신호 감지: 이전 캔들 (rows[i-1]) 기반 ── (실시간 매매와 동기화)
+    // 진입은 현재 캔들 (rows[i]).open에서 발생
+    if (i < 1) continue  // 이전 캔들 필요
+
+    const signals = detectSignals(rows, i - 1, cd, p)
     for (const sig of signals) {
       const { signal_type, score } = sig
       if (score < p.minScore) continue
       const short = signal_type === 'SHORT'
 
+      // ── 추세 필터 (현재 캔들 기준) ──
       // 인터벌 MA120 추세 필터 (단일 타임프레임)
       if (row.ma120 != null) {
         if (short && row.close > row.ma120) continue
@@ -675,35 +619,30 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         }
       }
 
-      // 다음 캔들에서 진입 (현실적인 시뮬레이션)
-      const nextRow = rows[i + 1]
-      if (!nextRow) continue
+      // ── 현재 캔들 시가에서 진입 (실시간과 동기화) ──
+      const entryPrice = row.open
 
-      const entryPrice = nextRow.open
-
-      // SL/TP를 진입가(next open) 기준으로 재계산
-      const { tp: newTp, sl: newSl, rr: newRr } = calcTPSL(signal_type, entryPrice, row, p)
+      // SL/TP를 진입가 기준으로 계산 (Fixed 모드)
+      const { tp: newTp, sl: newSl, rr: newRr } = calcTPSL(signal_type, entryPrice, p)
       if (newTp == null || newSl == null) continue
       if (short ? newSl <= entryPrice : newSl >= entryPrice) continue
 
-      // auto 모드: rr = minRR 고정이므로 minRRRatio 필터는 minRR 이하일 때만 의미있음
-      if (p.tpslMode === 'auto' && newRr != null && newRr < p.minRR) continue
-      // fixed 모드: 계산된 RR이 minRRRatio 미만이면 스킵
-      if (p.tpslMode === 'fixed' && newRr != null && newRr < p.minRRRatio) continue
+      // Fixed 모드: 계산된 RR이 minRRRatio 미만이면 스킵
+      if (newRr != null && newRr < p.minRRRatio) continue
 
       // 모든 필터 통과 후 쿨다운 소모
       cd[signal_type] = SIGNAL_COOLDOWN
       const { quantity, capitalUsed } = positionSize(capital, entryPrice, newSl, p.leverage)
       if (quantity <= 0) continue
 
-      const signalDetails = buildSignalDetails(signal_type, row, score, newRr, p)
+      const signalDetails = buildSignalDetails(signal_type, rows[i - 1], score, newRr, p)
       pos = {
         signal_type, signal_details: signalDetails,
         direction: short ? 'SHORT' : 'LONG',
         entryPrice, avgEntry: entryPrice,
         tp: newTp, sl: newSl, quantity, origQuantity: quantity,
         capitalUsed, peakPrice: entryPrice,
-        score, entryTs: iso(nextRow.timestamp),
+        score, entryTs: iso(row.timestamp),
         partialDone: false, partialPnl: 0,
       }
       break
@@ -719,6 +658,15 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     const comm = pos.quantity * ep * COMMISSION * 2
     const net = gross - comm + (pos.partialPnl || 0)
     capital += gross - comm
+
+    // 진입/청산 순서 검증: entry_ts > exit_ts면 스왑 (데이터 순서 문제 대응)
+    const exitTs = iso(last.timestamp)
+    const entryTime = new Date(pos.entryTs).getTime()
+    const exitTime = new Date(exitTs).getTime()
+    const [finalEntry, finalExit] = entryTime > exitTime
+      ? [exitTs, pos.entryTs]
+      : [pos.entryTs, exitTs]
+
     trades.push({
       signal_type: pos.signal_type, signal_details: pos.signal_details, direction: pos.direction,
       entry_price: pos.entryPrice, exit_price: ep,
@@ -726,8 +674,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       capital_used: pos.capitalUsed,
       net_pnl: Math.round(net * 10000) / 10000,
       pnl_pct: Math.round(net / pos.capitalUsed * 100 * 10000) / 10000,
-      exit_reason: 'TIMEOUT', score: pos.score,
-      entry_ts: pos.entryTs, exit_ts: iso(last.timestamp),
+      exit_reason: 'DATA_END', score: pos.score,
+      entry_ts: finalEntry, exit_ts: finalExit,
     })
     if (net > 0) wins++; else losses++
   }

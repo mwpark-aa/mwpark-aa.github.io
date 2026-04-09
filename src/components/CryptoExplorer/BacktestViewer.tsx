@@ -534,6 +534,7 @@ const TradeRow = memo(function TradeRow({
 
                 {/* 진입 */}
                 <Box>
+                  <Typography sx={{ fontSize: 8, color: '#64748b', mb: 0.25 }}>진입</Typography>
                   <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>
                     {fmtDate(e.ts)}
                   </Typography>
@@ -551,6 +552,7 @@ const TradeRow = memo(function TradeRow({
                 {/* 청산 — 마지막 행만 */}
                 {isLast ? (
                     <Box>
+                      <Typography sx={{ fontSize: 8, color: '#64748b', mb: 0.25 }}>청산</Typography>
                       <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>
                         {fmtDate(trade.exit_ts)}
                       </Typography>
@@ -744,7 +746,6 @@ interface RunHistory {
   end_date: string
   leverage: number
   min_rr: number
-  min_rr_ratio: number
   rsi_oversold: number
   rsi_overbought: number
   min_score: number
@@ -782,7 +783,6 @@ export default function BacktestViewer() {
     interval: '1h',
     leverage: 5,
     minRR: 1.5,
-    minRRRatio: 1.8,
     minScore: 4,
     initialCapital: 10000,
     rsiOversold: 35,
@@ -799,21 +799,21 @@ export default function BacktestViewer() {
     scoreUseGoldenCross: true,
     scoreUseFedLiquidity: false,
     fedLiquidityMAPeriod: 13,
-    fixedTP: 0,
-    fixedSL: 0,
-    tpslMode: 'auto' as const,
+    fixedTP: 2,
+    fixedSL: 1,
+    tpslMode: 'fixed' as const,
     useDailyTrend: false,
     scoreExitThreshold: 0,
   })
 
   // 인풋 표시용 문자열 상태 — 편집 중 빈 값/소수점 등을 자유롭게 허용
   const [draft, setDraft] = useState<Record<string, string>>({
-    leverage: '5', minRR: '1.5', minRRRatio: '1.8',
+    leverage: '5', minRR: '1.5',
     minScore: '4', initialCapital: '10000',
     rsiOversold: '35', rsiOverbought: '65',
     adxThreshold: '20',
     rvolThreshold: '1.5', rvolSkip: '0.4',
-    fixedTP: '0', fixedSL: '0',
+    fixedTP: '2', fixedSL: '1',
     scoreExitThreshold: '0',
   })
 
@@ -826,7 +826,6 @@ export default function BacktestViewer() {
     const committed = {
       leverage:       parseFloat(draft.leverage)       || params.leverage,
       minRR:          parseFloat(draft.minRR)          || params.minRR,
-      minRRRatio:     parseFloat(draft.minRRRatio)     || params.minRRRatio,
       rsiOversold:    parseFloat(draft.rsiOversold)    || params.rsiOversold,
       rsiOverbought:  parseFloat(draft.rsiOverbought)  || params.rsiOverbought,
       minScore:       isNaN(parseFloat(draft.minScore)) ? params.minScore : parseFloat(draft.minScore),
@@ -854,16 +853,25 @@ export default function BacktestViewer() {
 
       setResult(data)
       setTrades(
-        data.trade_log.map((t: LibBacktestTrade, i: number) => ({
-          ...t,
-          id: String(i),
-          avg_entry_price: t.entry_price,
-          gross_pnl: null,
-          commission: null,
-          entry_count: null,
-          add_count: null,
-          add_entries: null,
-        })) as BacktestTrade[],
+        data.trade_log.map((t: LibBacktestTrade, i: number) => {
+          // 진입/청산 순서 검증: entry_ts > exit_ts면 스왑 (데이터 버그 방지)
+          const entryTs = new Date(t.entry_ts).getTime()
+          const exitTs = new Date(t.exit_ts).getTime()
+          const shouldSwap = entryTs > exitTs
+
+          return {
+            ...t,
+            id: String(i),
+            entry_ts: shouldSwap ? t.exit_ts : t.entry_ts,
+            exit_ts: shouldSwap ? t.entry_ts : t.exit_ts,
+            avg_entry_price: t.entry_price,
+            gross_pnl: null,
+            commission: null,
+            entry_count: null,
+            add_count: null,
+            add_entries: null,
+          }
+        }) as BacktestTrade[],
       )
 
       const startMs = new Date(params.startDate).getTime()
@@ -881,7 +889,6 @@ export default function BacktestViewer() {
           end_date: params.endDate,
           leverage: committed.leverage,
           min_rr: committed.minRR,
-          min_rr_ratio: committed.minRRRatio,
           rsi_oversold: committed.rsiOversold,
           rsi_overbought: committed.rsiOverbought,
           min_score: committed.minScore,
@@ -950,7 +957,6 @@ export default function BacktestViewer() {
       interval: best.interval,
       leverage: best.leverage,
       minRR: best.min_rr,
-      minRRRatio: best.min_rr_ratio ?? p.minRRRatio,
       rsiOversold: best.rsi_oversold ?? 35,
       rsiOverbought: best.rsi_overbought ?? 65,
       minScore: best.min_score,
@@ -977,7 +983,6 @@ export default function BacktestViewer() {
       ...d,
       leverage: String(best.leverage),
       minRR: String(best.min_rr),
-      minRRRatio: String(best.min_rr_ratio ?? 1.8),
       rsiOversold: String(best.rsi_oversold ?? 35),
       rsiOverbought: String(best.rsi_overbought ?? 65),
       minScore: String(best.min_score),
@@ -1015,7 +1020,6 @@ export default function BacktestViewer() {
       interval: run.interval,
       leverage: run.leverage,
       minRR: run.min_rr,
-      minRRRatio: run.min_rr_ratio ?? p.minRRRatio,
       rsiOversold: run.rsi_oversold ?? 35,
       rsiOverbought: run.rsi_overbought ?? 65,
       minScore: run.min_score,
@@ -1040,7 +1044,6 @@ export default function BacktestViewer() {
     setDraft({
       leverage: String(run.leverage),
       minRR: String(run.min_rr),
-      minRRRatio: String(run.min_rr_ratio ?? 1.8),
       rsiOversold: String(run.rsi_oversold ?? 35),
       rsiOverbought: String(run.rsi_overbought ?? 65),
       minScore: String(run.min_score),
@@ -1252,7 +1255,7 @@ export default function BacktestViewer() {
                       <LabelRow label="캔들 단위" hintId="interval" hint={'1h = 1시간봉, 4h = 4시간봉, 1d = 일봉.\n짧을수록 거래 횟수 많고 노이즈 많음.'} />
                       <select value={params.interval} style={{ ...inputStyle, cursor: 'pointer' }}
                           onChange={e => setParams(p => ({ ...p, interval: e.target.value }))}>
-                        {['1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
+                        {['15m', '30m', '1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </Box>
                   </Box>
@@ -1303,7 +1306,7 @@ export default function BacktestViewer() {
                       ))}
                     </Box>
 
-                    {params.tpslMode === 'auto' ? (
+                    {false ? (
                       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
                         <Box>
                           <LabelRow label="목표 수익 배율 (TP)" hintId="minRR" hint={'"손실 대비 몇 배를 목표로 잡냐"\n2.0이면 -$100 리스크 → +$200 목표.\n높을수록 익절 자리가 멀어짐.'} />

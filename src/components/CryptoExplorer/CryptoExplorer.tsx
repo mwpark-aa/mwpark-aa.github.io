@@ -12,7 +12,7 @@ import Divider from '@mui/material/Divider'
 import { createChart, ColorType, CrosshairMode, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp, type IPriceLine } from 'lightweight-charts'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
-import { CRYPTO_SYMBOLS, SIGNAL_LABELS, type CryptoSymbol } from '../../constants/crypto'
+import { ALL_CRYPTO_SYMBOLS, BOT_INTERVALS, SIGNAL_LABELS, type CryptoSymbol } from '../../constants/crypto'
 
 // ─────────────────────────────────────────────────────────────
 // Paper Position types
@@ -272,6 +272,7 @@ interface SignalDetails {
 interface Signal {
   id: string
   symbol: string
+  interval?: string | null
   signal_type: string
   signal_time: string
   price: number
@@ -281,27 +282,57 @@ interface Signal {
   details?: SignalDetails
 }
 
-type Symbol = CryptoSymbol
+type Symbol = string
 
-// Map our symbol names to Binance stream names
-const SYMBOL_TO_STREAM: Partial<Record<Symbol, string>> = {
+// 전체 지원 코인 → Binance 스트림명 매핑
+const SYMBOL_TO_STREAM: Record<string, string> = {
+  BTC:  'btcusdt',
   ETH:  'ethusdt',
-  SOL:  'solusdt',
+  BNB:  'bnbusdt',
   XRP:  'xrpusdt',
+  SOL:  'solusdt',
+  DOGE: 'dogeusdt',
+  ADA:  'adausdt',
+  TRX:  'trxusdt',
+  AVAX: 'avaxusdt',
+  LINK: 'linkusdt',
 }
-const STREAM_TO_SYMBOL: Record<string, Symbol> = Object.fromEntries(
-  Object.entries(SYMBOL_TO_STREAM).map(([sym, stream]) => [stream, sym as Symbol])
-) as Record<string, Symbol>
+const STREAM_TO_SYMBOL: Record<string, string> = Object.fromEntries(
+  Object.entries(SYMBOL_TO_STREAM).map(([sym, stream]) => [stream, sym])
+)
 
-type Timeframe = '1m' | '5m'
+type Timeframe = '15m' | '30m' | '1h' | '4h' | '1d'
 
-const buildWsUrl = (tf: Timeframe) =>
+const buildWsUrl = (tf: Timeframe, symbols: string[]) =>
   'wss://stream.binance.com:9443/stream?streams=' +
-  Object.values(SYMBOL_TO_STREAM).map((s) => `${s}@kline_${tf}`).join('/')
+  symbols.map((s) => `${SYMBOL_TO_STREAM[s] ?? s.toLowerCase() + 'usdt'}@kline_${tf}`).join('/')
 
-const MAX_CANDLES = 240  // 1m: 4시간 / 5m: 20시간
+const MAX_CANDLES_BY_INTERVAL: Record<Timeframe, number> = {
+  '15m': 96,   // 1일
+  '30m': 96,   // 2일
+  '1h': 240,   // 10일
+  '4h': 240,   // 40일
+  '1d': 365,   // 1년
+}
+const getMaxCandles = (tf: Timeframe) => MAX_CANDLES_BY_INTERVAL[tf] || 240
 
-type CandleMap = Record<Symbol, MarketCandle[]>
+type CandleMap = Record<string, MarketCandle[]>
+
+// ─────────────────────────────────────────────────────────────
+// localStorage 설정 키
+// ─────────────────────────────────────────────────────────────
+const LS_SYMBOLS   = 'botDash_activeSymbols'
+const LS_INTERVALS = 'botDash_activeIntervals'
+
+function loadLS<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key)
+    return v ? (JSON.parse(v) as T) : fallback
+  } catch { return fallback }
+}
+function saveLS(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ }
+}
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -1074,14 +1105,15 @@ function StatsBar({ signals }: { signals: Signal[] }) {
 // ─────────────────────────────────────────────────────────────
 type WsStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
 
-async function fetchInitialCandles(tf: Timeframe): Promise<CandleMap> {
-  const result: CandleMap = { ETH: [], SOL: [], XRP: [] }
+async function fetchInitialCandles(tf: Timeframe, symbols: string[]): Promise<CandleMap> {
+  const result: CandleMap = Object.fromEntries(symbols.map((s) => [s, []]))
+  const maxCandles = getMaxCandles(tf)
   await Promise.all(
-    CRYPTO_SYMBOLS.map(async (sym) => {
+    symbols.map(async (sym) => {
       try {
         const pair = (SYMBOL_TO_STREAM[sym] ?? sym.toLowerCase() + 'usdt').toUpperCase()
         const res = await fetch(
-          `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${tf}&limit=${MAX_CANDLES}`
+          `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${tf}&limit=${maxCandles}`
         )
         const data: number[][] = await res.json()
         result[sym] = data.map((k) => ({
@@ -1101,40 +1133,41 @@ async function fetchInitialCandles(tf: Timeframe): Promise<CandleMap> {
   return result
 }
 
-function useBinanceKlines(tf: Timeframe): {
+function useBinanceKlines(tf: Timeframe, symbols: string[]): {
   candleMap: CandleMap
   wsStatus: WsStatus
 } {
-  const emptyMap = (): CandleMap => ({
-    ETH: [], SOL: [], XRP: [],
-  })
+  const emptyMap = (): CandleMap => Object.fromEntries(symbols.map((s) => [s, []]))
 
   const [candleMap, setCandleMap] = useState<CandleMap>(emptyMap)
   const [wsStatus, setWsStatus] = useState<WsStatus>('connecting')
 
-  const bufferRef = useRef<CandleMap>(emptyMap())
-  const wsRef     = useRef<WebSocket | null>(null)
-  const retryRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const unmounted = useRef(false)
-  const retryDelay = useRef(2000)
+  const bufferRef   = useRef<CandleMap>(emptyMap())
+  const wsRef       = useRef<WebSocket | null>(null)
+  const retryRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unmounted   = useRef(false)
+  const retryDelay  = useRef(2000)
+  const symbolsRef  = useRef(symbols)
+  symbolsRef.current = symbols
 
-  // 타임프레임 변경 or 마운트 시 REST로 초기 240개 캔들 로드
+  // 타임프레임 or 코인 변경 시 REST로 초기 캔들 로드
   useEffect(() => {
-    bufferRef.current = emptyMap()
-    setCandleMap(emptyMap())
-    fetchInitialCandles(tf).then((initial) => {
+    const next = Object.fromEntries(symbols.map((s) => [s, []]))
+    bufferRef.current = next
+    setCandleMap({ ...next })
+    fetchInitialCandles(tf, symbols).then((initial) => {
       if (unmounted.current) return
       bufferRef.current = initial
       setCandleMap({ ...initial })
     })
-  }, [tf])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tf, symbols.join(',')])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const connect = useCallback((currentTf: Timeframe) => {
     if (unmounted.current) return
 
     setWsStatus((prev) => (prev === 'connected' ? 'reconnecting' : 'connecting'))
 
-    const ws = new WebSocket(buildWsUrl(currentTf))
+    const ws = new WebSocket(buildWsUrl(currentTf, symbolsRef.current))
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -1180,11 +1213,12 @@ function useBinanceKlines(tf: Timeframe): {
         let next: MarketCandle[]
 
         // Replace the last candle if it has the same open time (live update),
-        // otherwise append and keep rolling MAX_CANDLES window.
+        // otherwise append and keep rolling window.
+        const maxCandles = getMaxCandles(tf)
         if (prev.length > 0 && prev[prev.length - 1].timestamp === candle.timestamp) {
           next = [...prev.slice(0, -1), candle]
         } else {
-          next = [...prev, candle].slice(-MAX_CANDLES)
+          next = [...prev, candle].slice(-maxCandles)
         }
 
         bufferRef.current = { ...bufferRef.current, [symbol]: next }
@@ -1241,11 +1275,49 @@ export default function CryptoExplorer() {
   const [loadingSignals, setLoadingSignals] = useState(true)
   const [lastUpdated, setLastUpdated]       = useState<Date | null>(null)
   const [realtimeConnected, setRealtimeConnected] = useState(false)
-  const [timeframe, setTimeframe] = useState<Timeframe>('1m')
+  const [timeframe, setTimeframe] = useState<Timeframe>('1h')
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const signalsRef = useRef<Signal[]>([])
 
+  // ── 봇 모니터링 설정 (localStorage 영속) ──
+  const [activeSymbols, setActiveSymbols] = useState<string[]>(() =>
+    loadLS<string[]>(LS_SYMBOLS, [...ALL_CRYPTO_SYMBOLS])
+  )
+  const [activeIntervals, setActiveIntervals] = useState<string[]>(() =>
+    loadLS<string[]>(LS_INTERVALS, [...BOT_INTERVALS])
+  )
+
+  const toggleSymbol = (sym: string) => {
+    setActiveSymbols((prev) => {
+      const next = prev.includes(sym)
+        ? prev.filter((s) => s !== sym)
+        : [...prev, sym]
+      const safe = next.length === 0 ? [sym] : next  // 최소 1개 유지
+      saveLS(LS_SYMBOLS, safe)
+      return safe
+    })
+  }
+  const toggleInterval = (iv: string) => {
+    setActiveIntervals((prev) => {
+      const next = prev.includes(iv)
+        ? prev.filter((i) => i !== iv)
+        : [...prev, iv]
+      const safe = next.length === 0 ? [iv] : next  // 최소 1개 유지
+      saveLS(LS_INTERVALS, safe)
+      return safe
+    })
+  }
+
+  // 선택된 인터벌에서 현재 타임프레임이 사라지면 자동 변경
+  useEffect(() => {
+    const validTfs = activeIntervals.filter((iv) => ['15m', '30m', '1h', '4h', '1d'].includes(iv)) as Timeframe[]
+    if (!validTfs.includes(timeframe) && validTfs.length > 0) {
+      setTimeframe(validTfs[0])
+    }
+  }, [activeIntervals, timeframe])
+
   // ── Binance WebSocket ──
-  const { candleMap, wsStatus } = useBinanceKlines(timeframe)
+  const { candleMap, wsStatus } = useBinanceKlines(timeframe, activeSymbols)
   const wsConnected    = wsStatus === 'connected'
   const wsReconnecting = wsStatus === 'reconnecting'
 
@@ -1254,10 +1326,10 @@ export default function CryptoExplorer() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('signals')
-      .select('id, symbol, signal_type, signal_time, price, rsi, ma20, ma60, details')
+      .select('id, symbol, interval, signal_type, signal_time, price, rsi, ma20, ma60, details')
       .gte('signal_time', since)
       .order('signal_time', { ascending: false })
-      .limit(100)
+      .limit(200)
 
     if (data) {
       signalsRef.current = data as Signal[]
@@ -1342,7 +1414,7 @@ export default function CryptoExplorer() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-end',
-          mb: 3,
+          mb: settingsOpen ? 1.5 : 3,
           flexWrap: 'wrap',
           gap: 1.5,
         }}
@@ -1360,11 +1432,16 @@ export default function CryptoExplorer() {
               크립토 봇 대시보드
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-            <Typography sx={{ fontSize: 12, color: '#52525b' }}>
-              ETH · SOL · XRP
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 11, color: '#52525b' }}>
+              {activeSymbols.join(' · ')}
             </Typography>
-            {(['1m', '5m'] as Timeframe[]).map((tf) => (
+            <Typography sx={{ fontSize: 11, color: '#3f3f46' }}>|</Typography>
+            <Typography sx={{ fontSize: 11, color: '#52525b' }}>
+              {activeIntervals.join(' · ')}
+            </Typography>
+            {/* 선택된 인터벌만 차트 타임프레임으로 표시 */}
+            {(activeIntervals.filter((iv) => ['15m', '30m', '1h', '4h', '1d'].includes(iv)) as Timeframe[]).map((tf) => (
               <Box
                 key={tf}
                 component="button"
@@ -1386,34 +1463,137 @@ export default function CryptoExplorer() {
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-          {/* WebSocket status (price feed) */}
-          <LiveDot active={wsConnected} reconnecting={wsReconnecting} />
-          {/* Supabase Realtime status (signals) */}
-          {realtimeConnected && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Box
-                sx={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  background: '#a855f7',
-                  opacity: 0.8,
-                }}
-              />
-              <Typography sx={{ fontSize: 9, color: '#a855f766', fontWeight: 600, letterSpacing: '0.08em' }}>
-                SIGNALS
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* 설정 버튼 */}
+          <Box
+            component="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 0.5,
+              px: 1.25, py: 0.5,
+              borderRadius: 1.5,
+              border: `1px solid ${settingsOpen ? '#3b82f6' : '#27272a'}`,
+              background: settingsOpen ? '#3b82f618' : 'transparent',
+              color: settingsOpen ? '#3b82f6' : '#71717a',
+              fontSize: 11, fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              '&:hover': { borderColor: '#3b82f666', color: '#a1a1aa' },
+            }}
+          >
+            <span style={{ fontSize: 13 }}>⚙</span>
+            설정
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+            <LiveDot active={wsConnected} reconnecting={wsReconnecting} />
+            {realtimeConnected && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: '#a855f7', opacity: 0.8 }} />
+                <Typography sx={{ fontSize: 9, color: '#a855f766', fontWeight: 600, letterSpacing: '0.08em' }}>
+                  SIGNALS
+                </Typography>
+              </Box>
+            )}
+            {loadingSignals && <CircularProgress size={13} sx={{ color: '#3b82f6' }} />}
+            {lastUpdated && (
+              <Typography sx={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace' }}>
+                {lastUpdated.toLocaleTimeString('ko-KR')}
               </Typography>
-            </Box>
-          )}
-          {loadingSignals && <CircularProgress size={13} sx={{ color: '#3b82f6' }} />}
-          {lastUpdated && (
-            <Typography sx={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace' }}>
-              {lastUpdated.toLocaleTimeString('ko-KR')}
-            </Typography>
-          )}
+            )}
+          </Box>
         </Box>
       </Box>
+
+      {/* ── 설정 패널 ── */}
+      <AnimatePresence>
+        {settingsOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <Box
+              sx={{
+                mb: 2.5,
+                p: 2,
+                borderRadius: 2,
+                background: '#111113',
+                border: '1px solid #27272a',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              {/* 코인 선택 */}
+              <Box>
+                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#71717a', letterSpacing: '0.06em', textTransform: 'uppercase', mb: 1 }}>
+                  모니터링 코인
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {[...ALL_CRYPTO_SYMBOLS].map((sym) => {
+                    const on = activeSymbols.includes(sym)
+                    return (
+                      <Box
+                        key={sym}
+                        component="button"
+                        onClick={() => toggleSymbol(sym)}
+                        sx={{
+                          px: 1.5, py: 0.4,
+                          borderRadius: 1,
+                          border: `1px solid ${on ? '#3b82f6' : '#3f3f46'}`,
+                          background: on ? '#3b82f618' : 'transparent',
+                          color: on ? '#60a5fa' : '#52525b',
+                          fontSize: 12, fontWeight: on ? 700 : 400,
+                          cursor: 'pointer',
+                          transition: 'all 0.12s',
+                          '&:hover': { borderColor: '#3b82f666', color: '#93c5fd' },
+                        }}
+                      >
+                        {sym}
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </Box>
+
+              {/* 인터벌 선택 */}
+              <Box>
+                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#71717a', letterSpacing: '0.06em', textTransform: 'uppercase', mb: 1 }}>
+                  봇 신호 인터벌
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {([...BOT_INTERVALS] as string[]).map((iv) => {
+                    const on = activeIntervals.includes(iv)
+                    return (
+                      <Box
+                        key={iv}
+                        component="button"
+                        onClick={() => toggleInterval(iv)}
+                        sx={{
+                          px: 1.5, py: 0.4,
+                          borderRadius: 1,
+                          border: `1px solid ${on ? '#10b981' : '#3f3f46'}`,
+                          background: on ? '#10b98118' : 'transparent',
+                          color: on ? '#34d399' : '#52525b',
+                          fontSize: 12, fontWeight: on ? 700 : 400,
+                          cursor: 'pointer',
+                          transition: 'all 0.12s',
+                          '&:hover': { borderColor: '#10b98166', color: '#6ee7b7' },
+                        }}
+                      >
+                        {iv}
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </Box>
+            </Box>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Tab bar ── */}
       <Box sx={{ display: 'flex', gap: 0.5, mb: 2.5 }}>
@@ -1446,21 +1626,24 @@ export default function CryptoExplorer() {
       ) : (
         <>
 
-      {/* ── Stats bar ── */}
-      <StatsBar signals={signals} />
+      {/* ── Stats bar (인터벌 필터 적용) ── */}
+      <StatsBar signals={signals.filter((s) =>
+        activeSymbols.includes(s.symbol) &&
+        (!s.interval || activeIntervals.includes(s.interval))
+      )} />
 
-      {/* ── Open positions (진입/추가매수 구분) ── */}
+      {/* ── Open positions ── */}
       <PositionsPanel
         currentPrices={
           Object.fromEntries(
-            CRYPTO_SYMBOLS.map(s => [s, candleMap[s]?.slice(-1)[0]?.close])
+            activeSymbols.map(s => [s, candleMap[s]?.slice(-1)[0]?.close])
           ) as Partial<Record<CryptoSymbol, number>>
         }
       />
 
-      {/* ── Main grid: coin cards + signal feed ── */}
+      {/* ── Main grid: 선택된 코인 카드 + 신호 피드 ── */}
       <Grid container spacing={2}>
-        {CRYPTO_SYMBOLS.map((sym, i) => (
+        {activeSymbols.map((sym, i) => (
           <Grid key={sym} item xs={12} sm={6} lg={4}>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -1469,8 +1652,10 @@ export default function CryptoExplorer() {
             >
               <CoinCard
                 symbol={sym}
-                candles={candleMap[sym]}
-                allSignals={signals}
+                candles={candleMap[sym] ?? []}
+                allSignals={signals.filter((s) =>
+                  !s.interval || activeIntervals.includes(s.interval)
+                )}
               />
             </motion.div>
           </Grid>
@@ -1480,9 +1665,12 @@ export default function CryptoExplorer() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: CRYPTO_SYMBOLS.length * 0.06 }}
+            transition={{ duration: 0.3, delay: activeSymbols.length * 0.06 }}
           >
-            <SignalFeed signals={signals} />
+            <SignalFeed signals={signals.filter((s) =>
+              activeSymbols.includes(s.symbol) &&
+              (!s.interval || activeIntervals.includes(s.interval))
+            )} />
           </motion.div>
         </Grid>
       </Grid>

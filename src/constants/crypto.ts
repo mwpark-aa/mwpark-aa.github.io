@@ -1,5 +1,14 @@
-export const CRYPTO_SYMBOLS = ['ETH', 'SOL', 'XRP'] as const
-export type CryptoSymbol = (typeof CRYPTO_SYMBOLS)[number]
+export const ALL_CRYPTO_SYMBOLS = [
+  'BTC', 'ETH', 'BNB', 'XRP', 'SOL',
+  'DOGE', 'ADA', 'TRX', 'AVAX', 'LINK',
+] as const
+export type CryptoSymbol = (typeof ALL_CRYPTO_SYMBOLS)[number]
+
+// 하위 호환 (기존 코드에서 CRYPTO_SYMBOLS 참조하는 곳)
+export const CRYPTO_SYMBOLS = ALL_CRYPTO_SYMBOLS
+
+export const BOT_INTERVALS = ['15m', '30m', '1h', '4h', '1d'] as const
+export type BotInterval = (typeof BOT_INTERVALS)[number]
 
 export const SIGNAL_LABELS: Record<string, string> = {
   SCORE_LONG:  '롱 진입',
