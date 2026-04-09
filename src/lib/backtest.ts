@@ -456,25 +456,30 @@ function buildSignalDetails(signal_type: string, row: Candle, score: number, rr:
   // 신호명
   parts.push(signal_type)
 
-  // MA 상태
-  if (row.ma20 != null && row.ma60 != null) {
+  // MA 상태 (골든크로스/데스크로스 활성화 시만)
+  if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null) {
     const maState = row.ma20 > row.ma60 ? '상승' : '하락'
     parts.push(`MA: ${maState}`)
   }
 
-  // RSI
-  if (row.rsi14 != null) {
+  // RSI (활성화 시만)
+  if (p.scoreUseRSI && row.rsi14 != null) {
     parts.push(`RSI: ${Math.round(row.rsi14)}`)
   }
 
-  // ADX
-  if (row.adx14 != null) {
+  // ADX (활성화 시만)
+  if (p.scoreUseADX && row.adx14 != null) {
     parts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
   }
 
-  // MACD
-  if (row.macd_hist != null) {
+  // MACD (활성화 시만)
+  if (p.scoreUseMACD && row.macd_hist != null) {
     parts.push(`MACD: ${row.macd_hist > 0 ? '+' : ''}${Math.round(row.macd_hist * 1000) / 1000}`)
+  }
+
+  // RVOL (활성화 시만)
+  if (p.scoreUseRVOL && row.vol_rvol168 != null) {
+    parts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
   }
 
   // 점수
