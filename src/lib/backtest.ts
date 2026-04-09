@@ -50,8 +50,6 @@ export interface BacktestTrade {
   score: number
   entry_ts: string
   exit_ts: string
-  signal_candle_ts?: string  // 신호 감지된 캔들 시간 (DEBUG)
-  entry_candle_ts?: string   // 실제 진입 캔들 시간 (DEBUG)
 }
 
 export interface BacktestResult {
@@ -556,8 +554,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           exit_reason: 'LIQUIDATED', score: pos.score,
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
           commission: Math.round(comm * 10000) / 10000,
-          signal_candle_ts: iso(pos.entryRow.timestamp),
-          entry_candle_ts: pos.entryTs,
         } as any)
         losses++
         equity.push(capital)
@@ -665,8 +661,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           exit_reason: exitReason, score: pos.score,
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
           commission: Math.round(comm * 10000) / 10000,
-          signal_candle_ts: iso(pos.entryRow.timestamp),
-          entry_candle_ts: pos.entryTs,
         } as any)
         if (netCapital > 0) wins++; else losses++
         equity.push(capital)
@@ -726,22 +720,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       // 진입 시간: 실제 진입하는 캔들 (rows[i]) - 진입가와 동기화
       // 신호는 rows[i-1]에서 감지하지만, 표시는 rows[i]에서 진입하는 시간으로
       const entryTs = iso(row.timestamp)
-
-      // DEBUG: Log entry details
-      console.log('📈 ENTRY', {
-        signal: signal_type,
-        candleIndex: i,
-        entryTime: entryTs,
-        entryPrice: entryPrice,
-        rowTimestamp: row.timestamp,
-        rowOpen: row.open,
-        rowHigh: row.high,
-        rowLow: row.low,
-        rowClose: row.close,
-        prevRowTimestamp: rows[i-1].timestamp,
-        prevRowOpen: rows[i-1].open,
-      })
-
       pos = {
         signal_type, signal_details: signalDetails,
         direction: short ? 'SHORT' : 'LONG',

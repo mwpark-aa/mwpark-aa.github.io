@@ -80,8 +80,6 @@ interface BacktestTrade {
   add_entries: any
   score?: number
   capital_used: number
-  signal_candle_ts?: string
-  entry_candle_ts?: string
 }
 
 interface OHLCVCandle {
@@ -336,19 +334,6 @@ const BacktestChart = memo(function BacktestChart({
     seriesRef.current = series
 
     // 데이터 세팅
-    console.log('📈 Chart candles (first 3, last 3):', {
-      totalCount: candles.length,
-      first: candles.slice(0, 3).map(c => ({
-        time: c.time,
-        timeDate: new Date(c.time * 1000).toISOString(),
-        close: c.close,
-      })),
-      last: candles.slice(-3).map(c => ({
-        time: c.time,
-        timeDate: new Date(c.time * 1000).toISOString(),
-        close: c.close,
-      })),
-    })
     series.setData(candles)
     chart.timeScale().fitContent()
 
@@ -360,21 +345,10 @@ const BacktestChart = memo(function BacktestChart({
       const isShort = t.direction === 'SHORT'
 
       const entries = parseAddEntries(t)
-      console.log('📊 Trade marker', { entry_ts: t.entry_ts, exit_ts: t.exit_ts, exitTime, signal: t.signal_type })
 
       for (const e of entries) {
-        const eTsDate = new Date(e.ts)
-        const eTsMs = eTsDate.getTime()
-        const eTime = Math.floor(eTsMs / 1000) as UTCTimestamp
+        const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
         const color = isShort ? '#ef4444' : '#3b82f6'
-        console.log('📍 Entry marker', {
-          ts: e.ts,
-          eTsMs,
-          eTsDate: eTsDate.toISOString(),
-          eTime,
-          eTimeDate: new Date(eTime * 1000).toISOString(),
-          entryTsFromTrade: t.entry_ts,
-        })
 
         markers.push({
           time: eTime,
@@ -571,13 +545,6 @@ const TradeRow = memo(function TradeRow({
                       {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details && (
                         <Typography sx={{ fontSize: 8, color: '#ec4899', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
                           {trade.exit_details}
-                        </Typography>
-                      )}
-
-                      {/* DEBUG: 캔들 타이밍 정보 */}
-                      {trade.signal_candle_ts && trade.entry_candle_ts && trade.signal_candle_ts !== trade.entry_candle_ts && (
-                        <Typography sx={{ fontSize: 7, color: '#6b7280', fontFamily: 'monospace', lineHeight: 1.2 }}>
-                          신호캔들: {fmtDate(trade.signal_candle_ts)} / 진입캔들: {fmtDate(trade.entry_candle_ts)}
                         </Typography>
                       )}
                     </Box>
