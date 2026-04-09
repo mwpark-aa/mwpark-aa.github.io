@@ -10,7 +10,6 @@ export interface BacktestParams {
   interval: string
   leverage: number
   minRR: number
-  minRRRatio: number
   rsiOversold: number
   rsiOverbought: number
   minScore: number
@@ -627,8 +626,6 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (newTp == null || newSl == null) continue
       if (short ? newSl <= entryPrice : newSl >= entryPrice) continue
 
-      // Fixed 모드: 계산된 RR이 minRRRatio 미만이면 스킵
-      if (newRr != null && newRr < p.minRRRatio) continue
 
       // 모든 필터 통과 후 쿨다운 소모
       cd[signal_type] = SIGNAL_COOLDOWN

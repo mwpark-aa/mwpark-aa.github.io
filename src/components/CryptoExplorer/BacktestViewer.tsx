@@ -470,7 +470,7 @@ const TradeRow = memo(function TradeRow({
                   key={`${index}-${e.step}-${ei}`}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '36px 100px 100px 100px 1.5fr 100px',
+                    gridTemplateColumns: '36px 100px 100px 100px 1.5fr 80px 80px',
                     gap: 0.75,
                     px: 1.5,
                     py: 0.55,
@@ -599,17 +599,6 @@ const TradeRow = memo(function TradeRow({
                       >
                         {win ? '+' : ''}${trade.net_pnl.toFixed(2)}
                       </Typography>
-                      {trade.commission != null && trade.commission > 0 && (
-                          <Typography
-                              sx={{
-                                fontSize: 8,
-                                color: '#52525b',
-                                fontFamily: 'monospace',
-                              }}
-                          >
-                            fee ${trade.commission.toFixed(2)}
-                          </Typography>
-                      )}
                       {trade.capital_used > 0 && initialCapital > 0 && (
                           <Typography
                               sx={{
@@ -621,6 +610,28 @@ const TradeRow = memo(function TradeRow({
                           >
                             💰 {(trade.capital_used / initialCapital * 100).toFixed(1)}% 사용
                           </Typography>
+                      )}
+                    </Box>
+                ) : (
+                    <Box />
+                )}
+
+                {/* 수수료 — 첫 행만 */}
+                {isFirst ? (
+                    <Box sx={{ textAlign: 'right' }}>
+                      {trade.commission != null && trade.commission > 0 ? (
+                          <Typography
+                              sx={{
+                                fontSize: 9,
+                                color: '#dc2626',
+                                fontFamily: 'monospace',
+                                fontWeight: 600,
+                              }}
+                          >
+                            -${trade.commission.toFixed(2)}
+                          </Typography>
+                      ) : (
+                          <Typography sx={{ fontSize: 9, color: '#52525b' }}>-</Typography>
                       )}
                     </Box>
                 ) : (
@@ -1963,12 +1974,12 @@ export default function BacktestViewer() {
                   <Box
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '36px 100px 100px 100px 1.5fr 100px',
+                        gridTemplateColumns: '36px 100px 100px 100px 1.5fr 80px 80px',
                         gap: 1,
                         px: 1.5,
                         py: 0.75,
                         mb: 0.5,
-                        minWidth: 460,
+                        minWidth: 540,
                         borderBottom: '1px solid #27272a',
                       }}
                   >
@@ -1978,7 +1989,8 @@ export default function BacktestViewer() {
                       '목표/손절',
                       '청산',
                       '시그널/청산',
-                      '손익(수수료)',
+                      '손익',
+                      '수수료',
                     ].map((h) => (
                         <Typography
                             key={h}
