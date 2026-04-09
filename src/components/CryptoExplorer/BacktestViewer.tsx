@@ -531,20 +531,32 @@ const TradeRow = memo(function TradeRow({
                 {/* 시그널 — 첫 행만 */}
                 {isFirst ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+                      {/* 진입 이유 */}
                       {trade.signal_details && (
                         <Typography sx={{ fontSize: 8, color: '#f59e0b', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
                           진입: {trade.signal_details}
                         </Typography>
                       )}
-                      <Typography sx={{ fontSize: 9, lineHeight: 1.3 }}>
-                        {exitReasonMap[trade.exit_reason]}
+
+                      {/* 매도 이유 (새로운 행) */}
+                      <Typography sx={{ fontSize: 9, color: win ? '#10b981' : '#ec4899', lineHeight: 1.3 }}>
+                        매도: {exitReasonMap[trade.exit_reason]}
+                        {trade.exit_reason === 'TP' && ` : $${trade.tp?.toFixed(2)}`}
+                        {trade.exit_reason === 'SL' && ` : $${trade.sl?.toFixed(2)}`}
                         {trade.exit_reason === 'TRAIL' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'BELOW_TP1' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'DATA_END' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'TIMEOUT' && ` : $${trade.exit_price?.toFixed(2)}`}
                         {trade.exit_reason === 'LIQUIDATED' && ` : $${trade.entry_price?.toFixed(2)}, 청산가: $${trade.exit_price?.toFixed(2)}`}
-                        {trade.exit_reason === 'SCORE_EXIT' && ` ${trade.exit_details}`}
+                        {!['TP', 'SL', 'TRAIL', 'BELOW_TP1', 'DATA_END', 'TIMEOUT', 'LIQUIDATED'].includes(trade.exit_reason) && ` ${trade.exit_reason} : $${trade.exit_price?.toFixed(2)}`}
                       </Typography>
+
+                      {/* SCORE_EXIT 상세 정보 (세 번째 행) */}
+                      {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details && (
+                        <Typography sx={{ fontSize: 8, color: '#ec4899', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
+                          {trade.exit_details}
+                        </Typography>
+                      )}
                     </Box>
                 ) : (
                     <Box />
