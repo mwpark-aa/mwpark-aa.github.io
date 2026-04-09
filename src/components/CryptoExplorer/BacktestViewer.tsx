@@ -824,7 +824,7 @@ export default function BacktestViewer() {
 
     try {
       const insertPayload = {
-        name: testName,
+        name: testName.trim(),
         symbol: selectedSymbol,
         interval: params.interval,
         start_date: params.startDate,
