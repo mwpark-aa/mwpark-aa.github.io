@@ -80,6 +80,8 @@ interface BacktestTrade {
   add_entries: any
   score?: number
   capital_used: number
+  signal_candle_ts?: string
+  entry_candle_ts?: string
 }
 
 interface OHLCVCandle {
@@ -547,6 +549,13 @@ const TradeRow = memo(function TradeRow({
                       {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details && (
                         <Typography sx={{ fontSize: 8, color: '#ec4899', fontFamily: 'monospace', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal' }}>
                           {trade.exit_details}
+                        </Typography>
+                      )}
+
+                      {/* DEBUG: 캔들 타이밍 정보 */}
+                      {trade.signal_candle_ts && trade.entry_candle_ts && trade.signal_candle_ts !== trade.entry_candle_ts && (
+                        <Typography sx={{ fontSize: 7, color: '#6b7280', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                          신호캔들: {fmtDate(trade.signal_candle_ts)} / 진입캔들: {fmtDate(trade.entry_candle_ts)}
                         </Typography>
                       )}
                     </Box>
