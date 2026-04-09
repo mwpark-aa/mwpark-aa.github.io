@@ -6,6 +6,12 @@ import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
 import Chip from '@mui/material/Chip'
 import MuiTooltip from '@mui/material/Tooltip'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
 import {
   createChart,
   createSeriesMarkers,
@@ -696,6 +702,9 @@ export default function BacktestViewer() {
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<RunHistory[]>([])
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [testName, setTestName] = useState('')
+  const [lastCommittedParams, setLastCommittedParams] = useState<any>(null)
 
   const scrollToRef = useRef<((ts: string) => void) | null>(null)
 
@@ -800,72 +809,65 @@ export default function BacktestViewer() {
       const candleData = await fetchOHLCV(selectedSymbol, params.interval, startMs, endMs)
       setCandles(candleData)
 
-      // DB 저장은 백테스트 결과와 독립적으로 처리 (실패해도 결과는 표시)
-      try {
-        // match용 핵심 파라미터 (중복 감지)
-        const matchFilter = {
-          symbol: selectedSymbol,
-          interval: params.interval,
-          start_date: params.startDate,
-          end_date: params.endDate,
-          leverage: committed.leverage,
-          min_rr: committed.minRR,
-          rsi_oversold: committed.rsiOversold,
-          rsi_overbought: committed.rsiOverbought,
-          min_score: committed.minScore,
-          initial_capital: committed.initialCapital,
-          score_use_adx: params.scoreUseADX,
-          score_use_rsi: params.scoreUseRSI,
-          score_use_macd: params.scoreUseMACD,
-          score_use_rvol: params.scoreUseRVOL,
-          adx_threshold: committed.adxThreshold,
-          rvol_threshold: committed.rvolThreshold,
-          rvol_skip: committed.rvolSkip,
-        }
-        // insert용 전체 파라미터 (신규 컬럼 포함)
-        const insertPayload = {
-          ...matchFilter,
-          score_use_bb: params.scoreUseBB,
-          score_use_ichi: params.scoreUseIchi,
-          score_use_golden_cross: params.scoreUseGoldenCross,
-          score_use_fed_liquidity: params.scoreUseFedLiquidity,
-          fed_liquidity_ma_period: params.fedLiquidityMAPeriod,
-          fixed_tp: committed.fixedTP,
-          fixed_sl: committed.fixedSL,
-          score_exit_threshold: committed.scoreExitThreshold,
-          use_daily_trend: params.useDailyTrend,
-        }
-        const resultPayload = {
-          total_return_pct: data.total_return_pct,
-          win_rate: data.win_rate,
-          max_drawdown_pct: data.max_drawdown_pct,
-          sharpe_ratio: data.sharpe_ratio,
-          profit_factor: data.profit_factor,
-          total_trades: data.total_trades,
-        }
-        const { data: existing } = await supabase
-          .from('backtest_runs')
-          .select('id')
-          .match(matchFilter)
-          .limit(1)
-
-        if (existing && existing.length > 0) {
-          await supabase.from('backtest_runs')
-            .update({ ...insertPayload, ...resultPayload, created_at: new Date().toISOString() })
-            .eq('id', existing[0].id)
-        } else {
-          await supabase.from('backtest_runs').insert({ ...insertPayload, ...resultPayload })
-        }
-        loadHistory()
-      } catch (dbErr) {
-        console.warn('[backtest] DB 저장 실패 (백테스트 결과에는 영향 없음):', dbErr)
-      }
+      // 커밋된 파라미터 저장 (나중에 저장할 때 사용)
+      setLastCommittedParams(committed)
+      setTestName('')
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     } finally {
       setLoading(false)
     }
   }, [selectedSymbol, params, draft])
+
+  const saveBacktest = useCallback(async () => {
+    if (!result || !lastCommittedParams || !testName.trim()) return
+
+    try {
+      const insertPayload = {
+        name: testName,
+        symbol: selectedSymbol,
+        interval: params.interval,
+        start_date: params.startDate,
+        end_date: params.endDate,
+        leverage: lastCommittedParams.leverage,
+        min_rr: lastCommittedParams.minRR,
+        rsi_oversold: lastCommittedParams.rsiOversold,
+        rsi_overbought: lastCommittedParams.rsiOverbought,
+        min_score: lastCommittedParams.minScore,
+        initial_capital: lastCommittedParams.initialCapital,
+        score_use_adx: params.scoreUseADX,
+        score_use_rsi: params.scoreUseRSI,
+        score_use_macd: params.scoreUseMACD,
+        score_use_rvol: params.scoreUseRVOL,
+        adx_threshold: lastCommittedParams.adxThreshold,
+        rvol_threshold: lastCommittedParams.rvolThreshold,
+        rvol_skip: lastCommittedParams.rvolSkip,
+        score_use_bb: params.scoreUseBB,
+        score_use_ichi: params.scoreUseIchi,
+        score_use_golden_cross: params.scoreUseGoldenCross,
+        score_use_fed_liquidity: params.scoreUseFedLiquidity,
+        fed_liquidity_ma_period: params.fedLiquidityMAPeriod,
+        fixed_tp: lastCommittedParams.fixedTP,
+        fixed_sl: lastCommittedParams.fixedSL,
+        score_exit_threshold: lastCommittedParams.scoreExitThreshold,
+        use_daily_trend: params.useDailyTrend,
+        total_return_pct: result.total_return_pct,
+        win_rate: result.win_rate,
+        max_drawdown_pct: result.max_drawdown_pct,
+        sharpe_ratio: result.sharpe_ratio,
+        profit_factor: result.profit_factor,
+        total_trades: result.total_trades,
+      }
+
+      await supabase.from('backtest_runs').insert(insertPayload)
+      setShowSaveDialog(false)
+      setTestName('')
+      await loadHistory()
+    } catch (err) {
+      console.error('저장 실패:', err)
+      alert('저장에 실패했습니다')
+    }
+  }, [result, lastCommittedParams, testName, selectedSymbol, params])
 
   const applyBestParams = useCallback((runs: RunHistory[]) => {
     if (runs.length === 0) return
@@ -1103,6 +1105,27 @@ export default function BacktestViewer() {
                   {loading && <CircularProgress size={10} sx={{color: '#3b82f6'}}/>}
                   {loading ? '실행 중...' : '백테스트 실행'}
                 </Box>
+
+                {/* 저장 버튼 */}
+                {result && !loading && (
+                  <Box
+                    component="button"
+                    onClick={() => setShowSaveDialog(true)}
+                    sx={{
+                      px: 2, py: 0.75, borderRadius: 2,
+                      border: '1px solid #10b98144',
+                      background: '#10b98120',
+                      color: '#10b981',
+                      fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 0.75,
+                      transition: 'all 0.15s',
+                      '&:hover': {background: '#10b98130', borderColor: '#10b981'},
+                    }}
+                  >
+                    💾 결과 저장
+                  </Box>
+                )}
               </Box>
             </Box>
 
@@ -2072,6 +2095,68 @@ export default function BacktestViewer() {
               </Typography>
             </Box>
         )}
+
+        {/* 저장 다이얼로그 */}
+        <Dialog
+          open={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: '#1a1a1f',
+              color: '#fafafa',
+              border: '1px solid #27272a',
+            }
+          }}
+        >
+          <DialogTitle sx={{ fontSize: 14, fontWeight: 700, color: '#fafafa' }}>
+            백테스트 결과 저장
+          </DialogTitle>
+          <DialogContent sx={{ pt: 2 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              label="테스트 이름"
+              placeholder="예: BTC 1h 고점수 전략"
+              value={testName}
+              onChange={(e) => setTestName(e.target.value)}
+              variant="outlined"
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fafafa',
+                  '& fieldset': { borderColor: '#27272a' },
+                  '&:hover fieldset': { borderColor: '#3b82f6' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputBase-input::placeholder': { color: '#52525b', opacity: 0.7 },
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ gap: 1, pt: 2 }}>
+            <Button
+              onClick={() => setShowSaveDialog(false)}
+              sx={{ color: '#52525b', textTransform: 'none' }}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={saveBacktest}
+              disabled={!testName.trim()}
+              variant="contained"
+              sx={{
+                background: '#10b981',
+                color: '#000',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:disabled': { background: '#3f3f46', color: '#71717a' }
+              }}
+            >
+              저장
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
   );
 }
