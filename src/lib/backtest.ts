@@ -451,7 +451,7 @@ function detectSignals(rows: Candle[], i: number, cd: Record<string, number>, p:
 
 // ── Signal Details Builder ────────────────────────────────────────────────────────
 
-function buildSignalDetails(signal_type: string, row: Candle, score: number, rr: number | null, p: BacktestParams): string {
+function buildSignalDetails(_signal_type: string, row: Candle, _score: number, rr: number | null, p: BacktestParams): string {
   const parts: string[] = []
 
   // MA 상태 (골든크로스/데스크로스 활성화 시만)
@@ -509,6 +509,9 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
   let pos: any = null
   const cd: Record<string, number> = {}
   let wins = 0, losses = 0, peakEq = capital, maxDD = 0
+
+  // 사용자 지정 시작 시간 (warmup 데이터는 제외)
+  const startMs = new Date(p.startDate).getTime()
 
   const iso = (ts: number) => new Date(ts).toISOString()
 
@@ -670,6 +673,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
     // ── 신호 감지: 이전 캔들 (rows[i-1]) 기반 ── (실시간 매매와 동기화)
     // 진입은 현재 캔들 (rows[i]).open에서 발생
     if (i < 1) continue  // 이전 캔들 필요
+    if (row.timestamp < startMs) continue  // 사용자 지정 시작 시간 이전 데이터 스킵
 
     const signals = detectSignals(rows, i - 1, cd, p)
     for (const sig of signals) {
