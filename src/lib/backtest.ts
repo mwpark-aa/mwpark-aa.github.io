@@ -591,36 +591,63 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         // UI 표시: pnl은 순수 포지션 손익만, commission은 별도
         const pnlPct = gross / pos.capitalUsed * 100
 
-        // SCORE_EXIT 시 exit_details 생성
+        // SCORE_EXIT 시 exit_details 생성: 점수가 감소한 지표들만 표시
         let exitDetails: string | undefined
-        if (scoreExit) {
+        if (scoreExit && pos.entryRow) {
           const exitDetailsParts: string[] = []
+          const entryRow = pos.entryRow
+          const short = pos.direction === 'SHORT'
 
-          // 현재 지표 값 표시
-          if (p.scoreUseRSI && row.rsi14 != null) {
-            exitDetailsParts.push(`RSI: ${Math.round(row.rsi14)}`)
-          }
-          if (p.scoreUseADX && row.adx14 != null) {
-            exitDetailsParts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
-          }
-          if (p.scoreUseMACD && row.macd_hist != null) {
-            exitDetailsParts.push(`MACD: ${row.macd_hist > 0 ? '+' : ''}${Math.round(row.macd_hist * 1000) / 1000}`)
-          }
-          if (p.scoreUseRVOL && row.vol_rvol168 != null) {
-            exitDetailsParts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
-          }
-          if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null) {
-            const maState = row.ma20 > row.ma60 ? '상승' : '하락'
-            exitDetailsParts.push(`MA: ${maState}`)
+          // RSI 점수 변화 확인
+          if (p.scoreUseRSI && row.rsi14 != null && entryRow.rsi14 != null) {
+            const entryRSIScore = short ? (entryRow.rsi14 > p.rsiOverbought ? 1 : 0) : (entryRow.rsi14 < p.rsiOversold ? 1 : 0)
+            const currentRSIScore = short ? (row.rsi14 > p.rsiOverbought ? 1 : 0) : (row.rsi14 < p.rsiOversold ? 1 : 0)
+            if (currentRSIScore < entryRSIScore) {
+              exitDetailsParts.push(`RSI: ${Math.round(entryRow.rsi14)} → ${Math.round(row.rsi14)} (-1)`)
+            }
           }
 
-          // 현재 점수
-          const maxScore = (p.scoreUseADX ? 1 : 0) + (p.scoreUseRSI ? 1 : 0) + (p.scoreUseMACD ? 1 : 0)
-                         + (p.scoreUseRVOL ? 1 : 0) + (p.scoreUseBB ? 1 : 0) + (p.scoreUseIchi ? 1 : 0)
-                         + (p.scoreUseGoldenCross ? 1 : 0) + (p.scoreUseFedLiquidity ? 1 : 0)
-          exitDetailsParts.push(`점수: ${currentScore}/${maxScore}`)
+          // ADX 점수 변화 확인
+          if (p.scoreUseADX && row.adx14 != null && entryRow.adx14 != null) {
+            const entryADXScore = entryRow.adx14 >= p.adxThreshold ? 1 : 0
+            const currentADXScore = row.adx14 >= p.adxThreshold ? 1 : 0
+            if (currentADXScore < entryADXScore) {
+              exitDetailsParts.push(`ADX: ${Math.round(entryRow.adx14 * 10) / 10} → ${Math.round(row.adx14 * 10) / 10} (-1)`)
+            }
+          }
 
-          exitDetails = exitDetailsParts.join(' | ')
+          // MACD 점수 변화 확인
+          if (p.scoreUseMACD && row.macd_hist != null && entryRow.macd_hist != null) {
+            const entryMACDScore = short ? (entryRow.macd_hist < 0 ? 1 : 0) : (entryRow.macd_hist > 0 ? 1 : 0)
+            const currentMACDScore = short ? (row.macd_hist < 0 ? 1 : 0) : (row.macd_hist > 0 ? 1 : 0)
+            if (currentMACDScore < entryMACDScore) {
+              const entryMACD = Math.round(entryRow.macd_hist * 1000) / 1000
+              const currentMACD = Math.round(row.macd_hist * 1000) / 1000
+              exitDetailsParts.push(`MACD: ${entryMACD > 0 ? '+' : ''}${entryMACD} → ${currentMACD > 0 ? '+' : ''}${currentMACD} (-1)`)
+            }
+          }
+
+          // RVOL 점수 변화 확인
+          if (p.scoreUseRVOL && row.vol_rvol168 != null && entryRow.vol_rvol168 != null) {
+            const entryRVOLScore = entryRow.vol_rvol168 >= p.rvolThreshold ? 1 : 0
+            const currentRVOLScore = row.vol_rvol168 >= p.rvolThreshold ? 1 : 0
+            if (currentRVOLScore < entryRVOLScore) {
+              exitDetailsParts.push(`RVOL: ${Math.round(entryRow.vol_rvol168 * 10) / 10}x → ${Math.round(row.vol_rvol168 * 10) / 10}x (-1)`)
+            }
+          }
+
+          // Golden Cross 점수 변화 확인
+          if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null && entryRow.ma20 != null && entryRow.ma60 != null) {
+            const entryMA = entryRow.ma20 > entryRow.ma60 ? '상승' : '하락'
+            const currentMA = row.ma20 > row.ma60 ? '상승' : '하락'
+            const entryMAScore = short ? (entryMA === '하락' ? 1 : 0) : (entryMA === '상승' ? 1 : 0)
+            const currentMAScore = short ? (currentMA === '하락' ? 1 : 0) : (currentMA === '상승' ? 1 : 0)
+            if (currentMAScore < entryMAScore) {
+              exitDetailsParts.push(`MA: ${entryMA} → ${currentMA} (-1)`)
+            }
+          }
+
+          exitDetails = exitDetailsParts.length > 0 ? exitDetailsParts.join(' | ') : undefined
         }
 
         trades.push({
@@ -697,6 +724,8 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
         tp: newTp, sl: newSl, quantity, origQuantity: quantity,
         capitalUsed, peakPrice: entryPrice,
         score, entryTs: iso(row.timestamp),
+        entryRow: rows[i - 1],  // 진입 시 캔들 저장 (SCORE_EXIT 비교용)
+        entryScore: score,
         partialDone: false, partialPnl: 0,
       }
       break
