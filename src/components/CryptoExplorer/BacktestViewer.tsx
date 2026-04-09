@@ -428,14 +428,7 @@ const TradeRow = memo(function TradeRow({
   const bg = index % 2 === 0 ? '#111113' : '#18181b'
 
   const entries = useMemo(() => parseAddEntries(trade), [trade])
-
-  const entryMarkerColor = (step: number) => {
-    if (isShort) {
-      return step === 1 ? '#ef4444' : step === 2 ? '#ec4899' : '#f59e0b'
-    }
-    return step === 1 ? '#3b82f6' : step === 2 ? '#a855f7' : '#06b6d4'
-  }
-
+  
   const exitMarkerColor = win ? '#10b981' : isSL ? '#ec4899' : '#ef4444'
   const hasMultiple = entries.length > 1
 
