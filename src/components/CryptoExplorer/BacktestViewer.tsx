@@ -262,10 +262,12 @@ const BacktestChart = memo(function BacktestChart({
                                                     candles,
                                                     trades,
                                                     scrollToRef,
+                                                    selectedTradeId,
                                                   }: {
   candles: OHLCVCandle[]
   trades: BacktestTrade[]
   scrollToRef: React.MutableRefObject<((ts: string) => void) | null>
+  selectedTradeId: string | null
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -343,12 +345,14 @@ const BacktestChart = memo(function BacktestChart({
       const exitTime = Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp
       const win = t.net_pnl > 0
       const isShort = t.direction === 'SHORT'
+      const isSelected = t.id === selectedTradeId
 
       const entries = parseAddEntries(t)
 
       for (const e of entries) {
         const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
-        const color = isShort ? '#ef4444' : '#3b82f6'
+        const color = isSelected ? '#fbbf24' : (isShort ? '#ef4444' : '#3b82f6')
+        const textDecoration = isSelected ? '★ ' : ''
 
         markers.push({
           time: eTime,
@@ -356,18 +360,19 @@ const BacktestChart = memo(function BacktestChart({
           color,
           shape: isShort ? 'arrowDown' : 'arrowUp',
           text:
-              e.step === 1
+              textDecoration +
+              (e.step === 1
                   ? (isShort ? '숏진입' : '롱진입')
-                  : isShort ? '숏추가' : '롱추가',
+                  : isShort ? '숏추가' : '롱추가'),
         })
       }
 
       markers.push({
         time: exitTime,
         position: isShort ? 'belowBar' : 'aboveBar',
-        color: win ? '#10b981' : '#ec4899',
+        color: isSelected ? '#fbbf24' : (win ? '#10b981' : '#ec4899'),
         shape: isShort ? 'arrowUp' : 'arrowDown',
-        text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
+        text: (isSelected ? '★ ' : '') + `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
       })
     }
 
@@ -389,7 +394,7 @@ const BacktestChart = memo(function BacktestChart({
       seriesRef.current = null
       markersRef.current = null
     }
-  }, [candles, trades])
+  }, [candles, trades, selectedTradeId])
 
   return (
       <Box
@@ -407,11 +412,15 @@ const TradeRow = memo(function TradeRow({
                                           index,
                                           onScrollTo,
                                           initialCapital,
+                                          onSelectTrade,
+                                          isSelected,
                                         }: {
   trade: BacktestTrade
   index: number
   onScrollTo: (ts: string) => void
   initialCapital: number
+  onSelectTrade: (id: string) => void
+  isSelected: boolean
 }) {
   if (!trade) return null
 
@@ -432,14 +441,18 @@ const TradeRow = memo(function TradeRow({
 
   return (
       <Box
-          onClick={() => trade.entry_ts && onScrollTo(trade.entry_ts)}
+          onClick={() => {
+            onSelectTrade(trade.id)
+            trade.entry_ts && onScrollTo(trade.entry_ts)
+          }}
           sx={{
             borderRadius: 1.5,
             // overflow: 'hidden',
-            borderLeft: `3px solid ${dirColor}66`,
+            borderLeft: `3px solid ${dirColor}${isSelected ? 'ff' : '66'}`,
             cursor: 'pointer',
+            background: isSelected ? `${dirColor}0f` : 'transparent',
             '&:hover > *': { background: `${dirColor}0a !important` },
-            transition: 'opacity 0.15s',
+            transition: 'all 0.15s',
           }}
       >
         {entries.map((e, ei) => {
@@ -683,6 +696,7 @@ export default function BacktestViewer() {
   const [showParams, setShowParams] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<RunHistory[]>([])
+  const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null)
 
   const scrollToRef = useRef<((ts: string) => void) | null>(null)
 
@@ -1921,6 +1935,7 @@ export default function BacktestViewer() {
                     candles={candles}
                     trades={trades}
                     scrollToRef={scrollToRef}
+                    selectedTradeId={selectedTradeId}
                 />
               </CardContent>
             </Card>
@@ -2024,6 +2039,8 @@ export default function BacktestViewer() {
                                 index={i}
                                 onScrollTo={handleScrollTo}
                                 initialCapital={result?.initial_capital ?? params.initialCapital}
+                                onSelectTrade={setSelectedTradeId}
+                                isSelected={t.id === selectedTradeId}
                             />
                         ))
                     ) : (
