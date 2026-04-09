@@ -717,8 +717,9 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (quantity <= 0) continue
 
       const signalDetails = buildSignalDetails(signal_type, rows[i - 1], score, newRr, p)
-      // 진입 시간: 신호를 감지한 캔들 기준 (rows[i-1]) - 차트 마커와 동기화
-      const entryTs = iso(rows[i - 1].timestamp)
+      // 진입 시간: 실제 진입하는 캔들 (rows[i]) - 진입가와 동기화
+      // 신호는 rows[i-1]에서 감지하지만, 표시는 rows[i]에서 진입하는 시간으로
+      const entryTs = iso(row.timestamp)
       pos = {
         signal_type, signal_details: signalDetails,
         direction: short ? 'SHORT' : 'LONG',
