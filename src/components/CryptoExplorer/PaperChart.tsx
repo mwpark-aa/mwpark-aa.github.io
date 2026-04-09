@@ -244,9 +244,9 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
         priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
       }, nextPane)
       // Oversold / Overbought 기준선
-      rsiSeries.createPriceLine({ price: chartConfig.rsiOverbought, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' })
+      rsiSeries.createPriceLine({ price: chartConfig.rsiOverbought, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `OB ${chartConfig.rsiOverbought}` })
       rsiSeries.createPriceLine({ price: 50,                        color: '#3f3f46', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '' })
-      rsiSeries.createPriceLine({ price: chartConfig.rsiOversold,   color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' })
+      rsiSeries.createPriceLine({ price: chartConfig.rsiOversold,   color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `OS ${chartConfig.rsiOversold}` })
       rsiSeriesRef.current = rsiSeries
       chart.panes()[nextPane]?.setHeight(80)
       nextPane++
@@ -268,7 +268,7 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
         color: '#f59e0b', lineWidth: 1,
         priceLineVisible: false, lastValueVisible: true,
       }, nextPane)
-      adxSeries.createPriceLine({ price: chartConfig.adxThreshold, color: '#f59e0b66', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' })
+      adxSeries.createPriceLine({ price: chartConfig.adxThreshold, color: '#f59e0b99', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `>${chartConfig.adxThreshold}` })
       adxSeriesRef.current = adxSeries
       chart.panes()[nextPane]?.setHeight(80)
     }
@@ -430,9 +430,9 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
           position: 'absolute', bottom: 8, left: 10,
           display: 'flex', gap: 1, pointerEvents: 'none',
         }}>
-          {chartConfig.showRSI  && <Typography sx={{ fontSize: 8, color: '#e2e8f066', fontWeight: 600 }}>RSI</Typography>}
+          {chartConfig.showRSI  && <Typography sx={{ fontSize: 8, color: '#e2e8f066', fontWeight: 600 }}>RSI <Box component="span" sx={{ color: '#10b98155' }}>{chartConfig.rsiOversold}</Box>/<Box component="span" sx={{ color: '#ef444455' }}>{chartConfig.rsiOverbought}</Box></Typography>}
           {chartConfig.showMACD && <Typography sx={{ fontSize: 8, color: '#a1a1aa66', fontWeight: 600 }}>MACD</Typography>}
-          {chartConfig.showADX  && <Typography sx={{ fontSize: 8, color: '#f59e0b66', fontWeight: 600 }}>ADX</Typography>}
+          {chartConfig.showADX  && <Typography sx={{ fontSize: 8, color: '#f59e0b66', fontWeight: 600 }}>ADX <Box component="span" sx={{ color: '#f59e0b44' }}>&gt;{chartConfig.adxThreshold}</Box></Typography>}
         </Box>
       )}
     </Box>

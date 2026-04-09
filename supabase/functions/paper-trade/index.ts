@@ -341,13 +341,14 @@ function scoreShort(row: Candle, c: PaperConfig): number {
 
 // ── TP/SL 계산 ───────────────────────────────────────────────
 
+// lib/backtest/scoring.ts의 calcTPSL과 동일하게 유지
 function calcTPSL(direction: string, price: number, c: PaperConfig) {
   const isLong  = direction === 'LONG'
   const isShort = direction === 'SHORT'
+  const round = (v: number) => Math.round(v * 1e6) / 1e6
   let tp: number | null = null, sl: number | null = null
 
   if (c.fixed_tp > 0 && c.fixed_sl > 0) {
-    const round = (v: number) => Math.round(v * 1e6) / 1e6
     if (isLong) {
       sl = round(price * (1 - c.fixed_sl / 100))
       tp = round(price * (1 + c.fixed_tp / 100))
@@ -372,7 +373,14 @@ function calcPositionSize(capital: number, entry: number, sl: number, leverage: 
 
 // ── 신호 감지 ────────────────────────────────────────────────
 
-function detectSignal(rows: Candle[], i: number, c: PaperConfig): { type: string; score: number } | null {
+interface SignalResult {
+  type: string
+  score: number
+  swingLow: number
+  swingHigh: number
+}
+
+function detectSignal(rows: Candle[], i: number, c: PaperConfig): SignalResult | null {
   if (i < 1) return null
   const curr = rows[i]!
   const rvol = curr.vol_rvol168 ?? 1.0
@@ -396,11 +404,11 @@ function detectSignal(rows: Candle[], i: number, c: PaperConfig): { type: string
 
   if (isUptrend) {
     const score = scoreLong(rowL, c)
-    if (score >= c.min_score) return { type: 'LONG', score }
+    if (score >= c.min_score) return { type: 'LONG', score, swingLow, swingHigh }
   }
   if (isDowntrend) {
     const score = scoreShort(rowS, c)
-    if (score >= c.min_score) return { type: 'SHORT', score }
+    if (score >= c.min_score) return { type: 'SHORT', score, swingLow, swingHigh }
   }
   return null
 }
@@ -553,7 +561,7 @@ Deno.serve(async (req) => {
             exit_price:  Math.round(exitPrice * 1e6) / 1e6,
             exit_time:   iso(latestRow.timestamp),
             exit_reason: exitReason,
-            pnl:         Math.round(grossPnl  * 10000) / 10000,
+            net_pnl:     Math.round(grossPnl  * 10000) / 10000,
             pnl_pct:     Math.round(pnlPct    * 10000) / 10000,
           })
           .eq('id', pos.id)
@@ -566,27 +574,62 @@ Deno.serve(async (req) => {
     const stillOpen = positions.filter(p => !closedThisCycle.includes(p.id))
 
     let newPosition: Record<string, unknown> | null = null
+    const debugInfo: Record<string, unknown> = {
+      candle_count: n,
+      open_before:  positions.length,
+      closed_this_cycle: closedThisCycle.length,
+      still_open:   stillOpen.length,
+    }
 
     if (stillOpen.length === 0) {
       // ── 8. 신호 감지 ──────────────────────────────────────
       const signalIdx = n - 1   // 방금 마감한 캔들 인덱스 (백테스트의 i-1)
       const signal    = detectSignal(rows, signalIdx, c)
 
+      debugInfo.signal = signal
+        ? { type: signal.type, score: signal.score }
+        : null
+      debugInfo.latest_indicators = {
+        close: latestRow.close,
+        rsi:   latestRow.rsi14,
+        adx:   latestRow.adx14,
+        macd:  latestRow.macd_hist,
+        rvol:  latestRow.vol_rvol168,
+        ma20:  latestRow.ma20,
+        ma60:  latestRow.ma60,
+        ma120: latestRow.ma120,
+        atr:   latestRow.atr14,
+      }
+
       if (signal) {
-        const { type: signalType, score } = signal
+        const { type: signalType, score, swingLow, swingHigh } = signal
         const isShort    = signalType === 'SHORT'
         const entryPrice = latestRow.close  // 다음 봉 시가 근사값
 
-        // MA120 추세 필터
+        // MA120 추세 필터 (lib/backtest simulate.ts와 동일)
         const ma120Blocked =
           latestRow.ma120 != null && (
             ( isShort && latestRow.close > latestRow.ma120) ||
             (!isShort && latestRow.close < latestRow.ma120)
           )
 
-        const { tp, sl } = ma120Blocked ? { tp: null, sl: null } : calcTPSL(signalType, entryPrice, c)
+        debugInfo.ma120_blocked = ma120Blocked
+
+        const { tp, sl } = ma120Blocked
+          ? { tp: null, sl: null }
+          : calcTPSL(signalType, entryPrice, c)
+
+        debugInfo.tp         = tp
+        debugInfo.sl         = sl
+        debugInfo.swing_low  = swingLow
+        debugInfo.swing_high = swingHigh
+        debugInfo.fixed_tp   = c.fixed_tp
+        debugInfo.fixed_sl   = c.fixed_sl
+
         if (tp != null && sl != null) {
           const { quantity, capitalUsed } = calcPositionSize(capital, entryPrice, sl, c.leverage)
+          debugInfo.quantity = quantity
+          debugInfo.capital_used = capitalUsed
 
           if (quantity > 0) {
             const signalDetails = buildSignalDetails(signalRow, c)
@@ -610,21 +653,25 @@ Deno.serve(async (req) => {
               peak_price:      Math.round(entryPrice * 1e6) / 1e6,
               last_candle_ts:  iso(latestRow.timestamp),
             }
-            await supabase.from('paper_positions').insert(newPosition)
+            const { error: insertErr } = await supabase.from('paper_positions').insert(newPosition)
+            if (insertErr) {
+              debugInfo.insert_error = insertErr.message
+              newPosition = null  // insert 실패 시 opened=0 반환
+            }
           }
         }
       }
     }
 
-    // ── 9. 자본 및 처리 시각 업데이트 ────────────────────────
+    // ── 9. 자본 및 처리 시각 업데이트 (row 없으면 생성) ─────────
     await supabase
       .from('paper_account')
-      .update({
+      .upsert({
+        id:                1,
         capital:           Math.round(capital * 100) / 100,
         updated_at:        iso(latestRow.timestamp),
         last_processed_ts: iso(lastCandleEnd - intervalMs),  // 방금 처리한 마감 캔들 시각
-      })
-      .eq('id', 1)
+      }, { onConflict: 'id' })
 
     return new Response(JSON.stringify({
       ok:           true,
@@ -632,6 +679,7 @@ Deno.serve(async (req) => {
       closed:       closedThisCycle.length,
       opened:       newPosition ? 1 : 0,
       capital:      Math.round(capital * 100) / 100,
+      debug:        debugInfo,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

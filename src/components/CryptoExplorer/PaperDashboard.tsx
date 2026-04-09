@@ -23,6 +23,12 @@ interface ActiveConfig {
   fixed_sl: number
   initial_capital: number
   score_exit_threshold: number
+  adx_threshold: number
+  score_use_adx: boolean
+  score_use_rsi: boolean
+  score_use_macd: boolean
+  score_use_bb: boolean
+  score_use_golden_cross: boolean
 }
 
 interface PaperAccount {
@@ -271,7 +277,7 @@ export default function PaperDashboard() {
   const loadConfig = useCallback(async () => {
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold')
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross')
       .eq('paper_trading_enabled', true)
       .maybeSingle()
     setConfig(data as ActiveConfig | null)
@@ -387,7 +393,7 @@ export default function PaperDashboard() {
     loadClosedTrades(config?.id)
   }, [config?.id, loadOpenPos, loadClosedTrades])
 
-  // 현재가 폴링 (config 심볼 기준, 10초 간격)
+// 현재가 폴링 (config 심볼 기준, 10초 간격)
   useEffect(() => {
     if (priceTimer.current) clearInterval(priceTimer.current)
     if (!config?.symbol) { setCurrentPrice(null); return }
@@ -467,6 +473,20 @@ export default function PaperDashboard() {
             마지막 실행 {fmtTime(account.last_processed_ts)}
           </Typography>
         )}
+      </Box>
+
+      {/* ── 페이퍼 트레이딩 제한 안내 ──────────────────────────── */}
+      <Box sx={{
+        px: 2, py: 1, borderRadius: 1.5,
+        background: '#0d0d0f', border: '1px solid #1f1f23',
+        display: 'flex', alignItems: 'flex-start', gap: 1,
+      }}>
+        <Typography sx={{ fontSize: 10, color: '#3f3f46', mt: '1px', flexShrink: 0 }}>ℹ</Typography>
+        <Typography sx={{ fontSize: 10, color: '#FFF', lineHeight: 1.6 }}>
+          실제 거래소는 TP/SL 지정가 주문이 미리 걸려 있어 가격 도달 즉시 체결됩니다.
+          페이퍼 트레이딩은 <Box component="span" sx={{ color: '#52525b', fontFamily: 'monospace' }}>{config.interval}</Box> 크론 기준으로 캔들 종료 후 고가/저가로 TP·SL 터치 여부를 확인하므로,
+          실제 체결 시점과 최대 <Box component="span" sx={{ color: '#52525b', fontFamily: 'monospace' }}>1캔들</Box>의 차이가 발생할 수 있습니다.
+        </Typography>
       </Box>
 
       {/* ── 이력 목록 ───────────────────────────────────────── */}
@@ -597,14 +617,14 @@ export default function PaperDashboard() {
         symbol={config.symbol}
         interval={config.interval}
         chartConfig={{
-          showMA: true,
-          showBB: true,
-          showRSI: true,
-          showMACD: true,
-          showADX: false,
-          rsiOversold: config.rsi_oversold,
+          showMA:   config.score_use_golden_cross ?? true,
+          showBB:   config.score_use_bb           ?? false,
+          showRSI:  config.score_use_rsi          ?? true,
+          showMACD: config.score_use_macd         ?? true,
+          showADX:  config.score_use_adx          ?? false,
+          rsiOversold:  config.rsi_oversold,
           rsiOverbought: config.rsi_overbought,
-          adxThreshold: 25,
+          adxThreshold:  config.adx_threshold ?? 20,
         }}
         position={openPos.length > 0 ? {
           entry_price:  openPos[0].entry_price,
