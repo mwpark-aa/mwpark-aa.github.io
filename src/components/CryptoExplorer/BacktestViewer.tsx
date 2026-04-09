@@ -434,9 +434,14 @@ const BacktestChart = memo(function BacktestChart({
     }
 
     markers.sort((a, b) => (a.time as number) - (b.time as number))
+
+    // 이전 마커 제거 후 새로 생성
     if (markersRef.current) {
-      markersRef.current = createSeriesMarkers(seriesRef.current, markers)
+      try {
+        markersRef.current = null
+      } catch {}
     }
+    markersRef.current = createSeriesMarkers(seriesRef.current, markers)
   }, [selectedTradeId, trades])
 
   return (
