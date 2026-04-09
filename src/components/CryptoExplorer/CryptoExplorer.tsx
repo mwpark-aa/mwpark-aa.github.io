@@ -1268,10 +1268,10 @@ function useBinanceKlines(tf: Timeframe, symbols: string[]): {
 // ─────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────
-type DashTab = 'live' | 'paper' | 'backtest'
+type DashTab = 'paper' | 'backtest'
 
 export default function CryptoExplorer() {
-  const [tab, setTab] = useState<DashTab>('live')
+  const [tab, setTab] = useState<DashTab>('paper')
   const [signals, setSignals]               = useState<Signal[]>([])
   const [loadingSignals, setLoadingSignals] = useState(true)
   const [lastUpdated, setLastUpdated]       = useState<Date | null>(null)
@@ -1599,7 +1599,6 @@ export default function CryptoExplorer() {
       {/* ── Tab bar ── */}
       <Box sx={{ display: 'flex', gap: 0.5, mb: 2.5 }}>
         {([
-          { key: 'live',      label: '실시간 대시보드' },
           { key: 'paper',     label: '페이퍼 트레이딩' },
           { key: 'backtest',  label: '백테스트 뷰어'   },
         ] as { key: DashTab; label: string }[]).map(({ key, label }) => (
@@ -1634,60 +1633,8 @@ export default function CryptoExplorer() {
 
       {tab === 'backtest' ? (
         <BacktestViewer />
-      ) : tab === 'paper' ? (
-        <PaperDashboard />
       ) : (
-        <>
-
-      {/* ── Stats bar (인터벌 필터 적용) ── */}
-      <StatsBar signals={signals.filter((s) =>
-        activeSymbols.includes(s.symbol) &&
-        (!s.interval || activeIntervals.includes(s.interval))
-      )} />
-
-      {/* ── Open positions ── */}
-      <PositionsPanel
-        currentPrices={
-          Object.fromEntries(
-            activeSymbols.map(s => [s, candleMap[s]?.slice(-1)[0]?.close])
-          ) as Partial<Record<CryptoSymbol, number>>
-        }
-      />
-
-      {/* ── Main grid: 선택된 코인 카드 + 신호 피드 ── */}
-      <Grid container spacing={2}>
-        {activeSymbols.map((sym, i) => (
-          <Grid key={sym} item xs={12} sm={6} lg={4}>
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.06 }}
-            >
-              <CoinCard
-                symbol={sym}
-                candles={candleMap[sym] ?? []}
-                allSignals={signals.filter((s) =>
-                  !s.interval || activeIntervals.includes(s.interval)
-                )}
-              />
-            </motion.div>
-          </Grid>
-        ))}
-
-        <Grid item xs={12} sm={6} lg={4}>
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: activeSymbols.length * 0.06 }}
-          >
-            <SignalFeed signals={signals.filter((s) =>
-              activeSymbols.includes(s.symbol) &&
-              (!s.interval || activeIntervals.includes(s.interval))
-            )} />
-          </motion.div>
-        </Grid>
-      </Grid>
-        </>
+        <PaperDashboard />
       )}
     </Box>
   )
