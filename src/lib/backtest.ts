@@ -603,7 +603,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
             const entryRSIScore = short ? (entryRow.rsi14 > p.rsiOverbought ? 1 : 0) : (entryRow.rsi14 < p.rsiOversold ? 1 : 0)
             const currentRSIScore = short ? (row.rsi14 > p.rsiOverbought ? 1 : 0) : (row.rsi14 < p.rsiOversold ? 1 : 0)
             if (currentRSIScore < entryRSIScore) {
-              exitDetailsParts.push(`RSI: ${Math.round(entryRow.rsi14)} → ${Math.round(row.rsi14)} (-1)`)
+              exitDetailsParts.push(`RSI: ${Math.round(entryRow.rsi14)} → ${Math.round(row.rsi14)}`)
             }
           }
 
@@ -612,7 +612,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
             const entryADXScore = entryRow.adx14 >= p.adxThreshold ? 1 : 0
             const currentADXScore = row.adx14 >= p.adxThreshold ? 1 : 0
             if (currentADXScore < entryADXScore) {
-              exitDetailsParts.push(`ADX: ${Math.round(entryRow.adx14 * 10) / 10} → ${Math.round(row.adx14 * 10) / 10} (-1)`)
+              exitDetailsParts.push(`ADX: ${Math.round(entryRow.adx14 * 10) / 10} → ${Math.round(row.adx14 * 10) / 10}`)
             }
           }
 
@@ -623,7 +623,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
             if (currentMACDScore < entryMACDScore) {
               const entryMACD = Math.round(entryRow.macd_hist * 1000) / 1000
               const currentMACD = Math.round(row.macd_hist * 1000) / 1000
-              exitDetailsParts.push(`MACD: ${entryMACD > 0 ? '+' : ''}${entryMACD} → ${currentMACD > 0 ? '+' : ''}${currentMACD} (-1)`)
+              exitDetailsParts.push(`MACD: ${entryMACD > 0 ? '+' : ''}${entryMACD} → ${currentMACD > 0 ? '+' : ''}${currentMACD}`)
             }
           }
 
@@ -632,7 +632,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
             const entryRVOLScore = entryRow.vol_rvol168 >= p.rvolThreshold ? 1 : 0
             const currentRVOLScore = row.vol_rvol168 >= p.rvolThreshold ? 1 : 0
             if (currentRVOLScore < entryRVOLScore) {
-              exitDetailsParts.push(`RVOL: ${Math.round(entryRow.vol_rvol168 * 10) / 10}x → ${Math.round(row.vol_rvol168 * 10) / 10}x (-1)`)
+              exitDetailsParts.push(`RVOL: ${Math.round(entryRow.vol_rvol168 * 10) / 10}x → ${Math.round(row.vol_rvol168 * 10) / 10}`)
             }
           }
 
@@ -643,7 +643,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
             const entryMAScore = short ? (entryMA === '하락' ? 1 : 0) : (entryMA === '상승' ? 1 : 0)
             const currentMAScore = short ? (currentMA === '하락' ? 1 : 0) : (currentMA === '상승' ? 1 : 0)
             if (currentMAScore < entryMAScore) {
-              exitDetailsParts.push(`MA: ${entryMA} → ${currentMA} (-1)`)
+              exitDetailsParts.push(`MA: ${entryMA} → ${currentMA}`)
             }
           }
 
