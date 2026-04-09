@@ -287,7 +287,7 @@ const BacktestChart = memo(function BacktestChart({
     }
   }, [scrollToRef])
 
-  // 차트 생성 + 데이터 세팅을 하나로 통합
+  // 1차: 차트 초기화 및 기본 마커 생성 (candles/trades 변경 시만)
   useEffect(() => {
     if (!containerRef.current || candles.length === 0) return
 
@@ -339,7 +339,64 @@ const BacktestChart = memo(function BacktestChart({
     series.setData(candles)
     chart.timeScale().fitContent()
 
-    // 마커 생성
+    // 초기 마커 생성
+    const initialMarkers: SeriesMarker<Time>[] = []
+    for (const t of trades) {
+      const exitTime = Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp
+      const win = t.net_pnl > 0
+      const isShort = t.direction === 'SHORT'
+
+      const entries = parseAddEntries(t)
+
+      for (const e of entries) {
+        const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
+        const color = isShort ? '#ef4444' : '#3b82f6'
+
+        initialMarkers.push({
+          time: eTime,
+          position: isShort ? 'aboveBar' : 'belowBar',
+          color,
+          shape: isShort ? 'arrowDown' : 'arrowUp',
+          text:
+              e.step === 1
+                  ? (isShort ? '숏진입' : '롱진입')
+                  : isShort ? '숏추가' : '롱추가',
+        })
+      }
+
+      initialMarkers.push({
+        time: exitTime,
+        position: isShort ? 'belowBar' : 'aboveBar',
+        color: win ? '#10b981' : '#ec4899',
+        shape: isShort ? 'arrowUp' : 'arrowDown',
+        text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
+      })
+    }
+
+    initialMarkers.sort((a, b) => (a.time as number) - (b.time as number))
+    markersRef.current = createSeriesMarkers(series, initialMarkers)
+
+    // 리사이즈 옵저버
+    const ro = new ResizeObserver(() => {
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: containerRef.current.clientWidth })
+      }
+    })
+    ro.observe(containerRef.current)
+
+    return () => {
+      ro.disconnect()
+      chart.remove()
+      chartRef.current = null
+      seriesRef.current = null
+      markersRef.current = null
+    }
+  }, [candles, trades])
+
+  // 2차: 마커만 빠르게 업데이트 (selectedTradeId 변경 시)
+  useEffect(() => {
+    if (!seriesRef.current || trades.length === 0) return
+
     const markers: SeriesMarker<Time>[] = []
     for (const t of trades) {
       const exitTime = Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp
@@ -377,24 +434,10 @@ const BacktestChart = memo(function BacktestChart({
     }
 
     markers.sort((a, b) => (a.time as number) - (b.time as number))
-    markersRef.current = createSeriesMarkers(series, markers)
-
-    // 리사이즈 옵저버
-    const ro = new ResizeObserver(() => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth })
-      }
-    })
-    ro.observe(containerRef.current)
-
-    return () => {
-      ro.disconnect()
-      chart.remove()
-      chartRef.current = null
-      seriesRef.current = null
-      markersRef.current = null
+    if (markersRef.current) {
+      markersRef.current = createSeriesMarkers(seriesRef.current, markers)
     }
-  }, [candles, trades, selectedTradeId])
+  }, [selectedTradeId, trades])
 
   return (
       <Box
