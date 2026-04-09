@@ -717,13 +717,15 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
       if (quantity <= 0) continue
 
       const signalDetails = buildSignalDetails(signal_type, rows[i - 1], score, newRr, p)
+      // 진입 시간: 신호를 감지한 캔들 기준 (rows[i-1]) - 차트 마커와 동기화
+      const entryTs = iso(rows[i - 1].timestamp)
       pos = {
         signal_type, signal_details: signalDetails,
         direction: short ? 'SHORT' : 'LONG',
         entryPrice, avgEntry: entryPrice,
         tp: newTp, sl: newSl, quantity, origQuantity: quantity,
         capitalUsed, peakPrice: entryPrice,
-        score, entryTs: iso(row.timestamp),
+        score, entryTs,
         entryRow: rows[i - 1],  // 진입 시 캔들 저장 (SCORE_EXIT 비교용)
         entryScore: score,
         partialDone: false, partialPnl: 0,
