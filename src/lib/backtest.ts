@@ -601,7 +601,7 @@ function simulate(rows: Candle[], p: BacktestParams, dailyMap: Map<number, Daily
           entry_ts: pos.entryTs, exit_ts: iso(row.timestamp),
           commission: Math.round(comm * 10000) / 10000,
         } as any)
-        if (net > 0) wins++; else losses++
+        if (netCapital > 0) wins++; else losses++
         equity.push(capital)
         if (capital > peakEq) peakEq = capital
         else { const dd = (peakEq - capital) / peakEq * 100; if (dd > maxDD) maxDD = dd }
