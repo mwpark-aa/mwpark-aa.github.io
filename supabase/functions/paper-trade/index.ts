@@ -693,7 +693,7 @@ Deno.serve(async (req) => {
         id:                1,
         capital:           Math.round(capital * 100) / 100,
         updated_at:        iso(latestRow.timestamp),
-        last_processed_ts: iso(lastCandleEnd - intervalMs),  // 방금 처리한 마감 캔들 시각
+        last_processed_ts: iso(lastCandleEnd),  // 방금 처리한 캔들의 종료 시각
       }, { onConflict: 'id' })
 
     return new Response(JSON.stringify({

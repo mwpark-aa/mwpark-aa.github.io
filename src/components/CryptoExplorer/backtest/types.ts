@@ -83,9 +83,16 @@ export interface RunHistory {
   score_use_rsi: boolean
   score_use_macd: boolean
   score_use_rvol: boolean
+  score_use_bb?: boolean
+  score_use_golden_cross?: boolean
+  score_use_ichi?: boolean
+  score_use_fed_liquidity?: boolean
   adx_threshold: number
   rvol_threshold: number
   rvol_skip: number
+  fixed_tp?: number
+  fixed_sl?: number
+  score_exit_threshold?: number
   total_return_pct: number
   win_rate: number
   max_drawdown_pct: number

@@ -29,6 +29,7 @@ bot/
 # Backtest Edge Function — deploy to Supabase directly, never commit
 supabase/functions/backtest/
 supabase/functions/stock-analyze/prompts.ts
+supabase/
 
 # Backtest browser lib — stub is committed, real algo stays local via skip-worktree
 # After cloning: git update-index --skip-worktree src/lib/backtest.ts
