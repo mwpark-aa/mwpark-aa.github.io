@@ -415,29 +415,40 @@ function detectSignal(rows: Candle[], i: number, c: PaperConfig): SignalResult |
 
 // ── 지표 값 문자열 요약 ───────────────────────────────────────
 
-function buildSignalDetails(row: Candle, c: PaperConfig): string {
+function buildSignalDetails(row: Candle, c: PaperConfig, direction: string): string {
+  const isLong = direction === 'LONG'
+  const s = (label: string, scored: boolean) => scored ? `${label}✓` : label
   const parts: string[] = []
-  if (c.score_use_golden_cross && row.ma20 != null && row.ma60 != null)
-    parts.push(`MA: ${row.ma20 > row.ma60 ? '상승' : '하락'}`)
-  if (c.score_use_rsi  && row.rsi14    != null) parts.push(`RSI: ${Math.round(row.rsi14)}`)
-  if (c.score_use_adx  && row.adx14    != null) parts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
+
+  if (c.score_use_golden_cross && row.ma20 != null && row.ma60 != null) {
+    const maUp = row.ma20 > row.ma60
+    parts.push(s(`MA: ${maUp ? '상승' : '하락'}`, isLong ? maUp : !maUp))
+  }
+  if (c.score_use_rsi && row.rsi14 != null) {
+    const scored = isLong ? row.rsi14 < c.rsi_oversold : row.rsi14 > c.rsi_overbought
+    parts.push(s(`RSI: ${Math.round(row.rsi14)}`, scored))
+  }
+  if (c.score_use_adx && row.adx14 != null)
+    parts.push(s(`ADX: ${Math.round(row.adx14 * 10) / 10}`, row.adx14 > c.adx_threshold))
   if (c.score_use_macd && row.macd_hist != null) {
     const v = Math.round(row.macd_hist * 1000) / 1000
-    parts.push(`MACD: ${v > 0 ? '+' : ''}${v}`)
+    parts.push(s(`MACD: ${v > 0 ? '+' : ''}${v}`, isLong ? row.macd_hist > 0 : row.macd_hist < 0))
   }
   if (c.score_use_rvol && row.vol_rvol168 != null)
-    parts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
+    parts.push(s(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`, row.vol_rvol168 >= c.rvol_threshold))
   if (c.score_use_bb && row.bb_upper != null && row.bb_lower != null) {
     const bbPct = ((row.close - row.bb_lower) / (row.bb_upper - row.bb_lower) * 100).toFixed(0)
-    parts.push(`BB: ${bbPct}%`)
+    const scored = isLong ? row.close <= row.bb_lower : row.close >= row.bb_upper
+    parts.push(s(`BB: ${bbPct}%`, scored))
   }
   if (c.score_use_ichi && row.ichimoku_a != null && row.ichimoku_b != null) {
     const above = row.close > row.ichimoku_a && row.close > row.ichimoku_b
-    parts.push(`일목: 구름${above ? '위' : '아래'}`)
+    const below = row.close < row.ichimoku_a && row.close < row.ichimoku_b
+    parts.push(s(`일목: 구름${above ? '위' : '아래'}`, isLong ? above : below))
   }
   if (c.score_use_fed_liquidity && row.fed_state != null) {
     const label = row.fed_state === 1 ? '확장' : row.fed_state === -1 ? '수축' : '혼재'
-    parts.push(`연준: ${label}`)
+    parts.push(s(`연준: ${label}`, isLong ? row.fed_state === 1 : row.fed_state === -1))
   }
   return parts.join(' | ')
 }
@@ -644,7 +655,7 @@ Deno.serve(async (req) => {
           debugInfo.capital_used = capitalUsed
 
           if (quantity > 0) {
-            const signalDetails = buildSignalDetails(signalRow, c)
+            const signalDetails = buildSignalDetails(signalRow, c, signalType)
             newPosition = {
               backtest_run_id: c.id,
               symbol:          c.symbol,

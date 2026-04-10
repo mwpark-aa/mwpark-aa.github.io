@@ -108,9 +108,21 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
 
         {/* 행 3: 매수 이유 */}
         {trade.signal_details && (
-          <Typography sx={{ fontSize: 9, color: '#a1a1aa', fontFamily: 'monospace', lineHeight: 1.4, mb: 0.4 }}>
-            {trade.signal_details}
-          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.4, mb: 0.4 }}>
+            {trade.signal_details.split(' | ').map((part, i) => {
+              const scored = part.endsWith('✓')
+              const label  = scored ? part.slice(0, -1) : part
+              return (
+                <Typography key={i} sx={{
+                  fontSize: 9, fontFamily: 'monospace', lineHeight: 1.4,
+                  color: scored ? (isShort ? '#f97316' : '#10b981') : '#52525b',
+                  fontWeight: scored ? 700 : 400,
+                }}>
+                  {label}{i < trade.signal_details!.split(' | ').length - 1 ? ' |' : ''}
+                </Typography>
+              )
+            })}
+          </Box>
         )}
 
         {/* 행 4: 매도 이유 + 수수료 */}
@@ -192,9 +204,21 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
             {isFirst ? (
               <Box>
                 {trade.signal_details && (
-                  <Typography sx={{ fontSize: 9, color: '#FFF', fontFamily: 'monospace', lineHeight: 1.3, whiteSpace: 'normal' }}>
-                    {trade.signal_details}
-                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                    {trade.signal_details.split(' | ').map((part, i) => {
+                      const scored = part.endsWith('✓')
+                      const label  = scored ? part.slice(0, -1) : part
+                      return (
+                        <Typography key={i} sx={{
+                          fontSize: 9, fontFamily: 'monospace', lineHeight: 1.4,
+                          color: scored ? (isShort ? '#f97316' : '#10b981') : '#52525b',
+                          fontWeight: scored ? 700 : 400,
+                        }}>
+                          {label}{i < trade.signal_details!.split(' | ').length - 1 ? ' |' : ''}
+                        </Typography>
+                      )
+                    })}
+                  </Box>
                 )}
               </Box>
             ) : <Box />}

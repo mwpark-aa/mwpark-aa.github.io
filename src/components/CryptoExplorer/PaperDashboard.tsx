@@ -155,7 +155,21 @@ function OpenPositionRow({ pos, currentPrice }: { pos: PaperPos; currentPrice?: 
           ${fmtPrice(pos.entry_price)}
         </Typography>
         {pos.signal_details && (
-          <Typography sx={{ fontSize: 9, color: '#3f3f46', mt: 0.25 }}>{pos.signal_details}</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 0.25 }}>
+            {pos.signal_details.split(' | ').map((part, i, arr) => {
+              const scored = part.endsWith('✓')
+              const label  = scored ? part.slice(0, -1) : part
+              return (
+                <Typography key={i} sx={{
+                  fontSize: 9, fontFamily: 'monospace',
+                  color: scored ? (isShort ? '#f97316' : '#10b981') : '#3f3f46',
+                  fontWeight: scored ? 700 : 400,
+                }}>
+                  {label}{i < arr.length - 1 ? ' |' : ''}
+                </Typography>
+              )
+            })}
+          </Box>
         )}
       </Box>
 

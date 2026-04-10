@@ -159,41 +159,52 @@ export function detectSignals(
 
 /** 거래 내역에 표시할 진입 시점 지표 값 요약 */
 export function buildSignalDetails(
-  _direction: string,
+  direction: string,
   row: Candle,
   _score: number,
   rr: number | null,
   p: BacktestParams,
 ): string {
+  const isLong = direction === 'LONG'
+  // 점수 기여 시 '✓' 접미사 → UI에서 색상 구분용
+  const s = (label: string, scored: boolean) => scored ? `${label}✓` : label
+
   const parts: string[] = []
 
   if (p.scoreUseGoldenCross && row.ma20 != null && row.ma60 != null) {
-    parts.push(`MA: ${row.ma20 > row.ma60 ? '상승' : '하락'}`)
+    const maUp = row.ma20 > row.ma60
+    parts.push(s(`MA: ${maUp ? '상승' : '하락'}`, isLong ? maUp : !maUp))
   }
   if (p.scoreUseRSI && row.rsi14 != null) {
-    parts.push(`RSI: ${Math.round(row.rsi14)}`)
+    const scored = isLong ? row.rsi14 < p.rsiOversold : row.rsi14 > p.rsiOverbought
+    parts.push(s(`RSI: ${Math.round(row.rsi14)}`, scored))
   }
   if (p.scoreUseADX && row.adx14 != null) {
-    parts.push(`ADX: ${Math.round(row.adx14 * 10) / 10}`)
+    parts.push(s(`ADX: ${Math.round(row.adx14 * 10) / 10}`, row.adx14 > p.adxThreshold))
   }
   if (p.scoreUseMACD && row.macd_hist != null) {
     const v = Math.round(row.macd_hist * 1000) / 1000
-    parts.push(`MACD: ${v > 0 ? '+' : ''}${v}`)
+    const scored = isLong ? row.macd_hist > 0 : row.macd_hist < 0
+    parts.push(s(`MACD: ${v > 0 ? '+' : ''}${v}`, scored))
   }
   if (p.scoreUseRVOL && row.vol_rvol168 != null) {
-    parts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
+    parts.push(s(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`, row.vol_rvol168 >= p.rvolThreshold))
   }
   if (p.scoreUseBB && row.bb_upper != null && row.bb_lower != null) {
     const bbPct = ((row.close - row.bb_lower) / (row.bb_upper - row.bb_lower) * 100).toFixed(0)
-    parts.push(`BB: ${bbPct}%`)
+    const scored = isLong ? row.close <= row.bb_lower : row.close >= row.bb_upper
+    parts.push(s(`BB: ${bbPct}%`, scored))
   }
   if (p.scoreUseIchi && row.ichimoku_a != null && row.ichimoku_b != null) {
     const above = row.close > row.ichimoku_a && row.close > row.ichimoku_b
-    parts.push(`일목: 구름${above ? '위' : '아래'}`)
+    const below = row.close < row.ichimoku_a && row.close < row.ichimoku_b
+    const scored = isLong ? above : below
+    parts.push(s(`일목: 구름${above ? '위' : '아래'}`, scored))
   }
   if (p.scoreUseFedLiquidity && row.fed_state != null) {
     const label = row.fed_state === 1 ? '확장' : row.fed_state === -1 ? '수축' : '혼재'
-    parts.push(`연준: ${label}`)
+    const scored = isLong ? row.fed_state === 1 : row.fed_state === -1
+    parts.push(s(`연준: ${label}`, scored))
   }
   if (rr != null && p.fixedTP === 0 && p.fixedSL === 0) {
     parts.push(`RR: ${rr.toFixed(2)}`)
