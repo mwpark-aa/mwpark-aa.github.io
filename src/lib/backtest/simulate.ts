@@ -99,6 +99,45 @@ function buildExitDetails(
     }
   }
 
+  // BB 점수 변화
+  if (p.scoreUseBB && entryRow.bb_lower != null && entryRow.bb_upper != null
+    && exitRow.bb_lower != null && exitRow.bb_upper != null) {
+    const entryScore   = isShort
+      ? (entryRow.close >= entryRow.bb_upper ? 1 : 0)
+      : (entryRow.close <= entryRow.bb_lower ? 1 : 0)
+    const currentScore = isShort
+      ? (exitRow.close  >= exitRow.bb_upper  ? 1 : 0)
+      : (exitRow.close  <= exitRow.bb_lower  ? 1 : 0)
+    if (currentScore < entryScore) {
+      const fmt = (r: Candle) => `${((r.close - r.bb_lower!) / (r.bb_upper! - r.bb_lower!) * 100).toFixed(0)}%`
+      parts.push(`BB: ${fmt(entryRow)} → ${fmt(exitRow)}`)
+    }
+  }
+
+  // 일목 점수 변화
+  if (p.scoreUseIchi
+    && entryRow.ichimoku_a != null && entryRow.ichimoku_b != null
+    && exitRow.ichimoku_a  != null && exitRow.ichimoku_b  != null) {
+    const aboveCloud = (r: Candle) => r.close > r.ichimoku_a! && r.close > r.ichimoku_b!
+    const belowCloud = (r: Candle) => r.close < r.ichimoku_a! && r.close < r.ichimoku_b!
+    const entryScore   = isShort ? (belowCloud(entryRow) ? 1 : 0) : (aboveCloud(entryRow) ? 1 : 0)
+    const currentScore = isShort ? (belowCloud(exitRow)  ? 1 : 0) : (aboveCloud(exitRow)  ? 1 : 0)
+    if (currentScore < entryScore) {
+      const label = (r: Candle) => aboveCloud(r) ? '구름위' : belowCloud(r) ? '구름아래' : '구름안'
+      parts.push(`일목: ${label(entryRow)} → ${label(exitRow)}`)
+    }
+  }
+
+  // 연준 유동성 점수 변화
+  if (p.scoreUseFedLiquidity && entryRow.fed_state != null && exitRow.fed_state != null) {
+    const entryScore   = isShort ? (entryRow.fed_state === -1 ? 1 : 0) : (entryRow.fed_state === 1 ? 1 : 0)
+    const currentScore = isShort ? (exitRow.fed_state  === -1 ? 1 : 0) : (exitRow.fed_state  === 1 ? 1 : 0)
+    if (currentScore < entryScore) {
+      const label = (s: number) => s === 1 ? '확장' : s === -1 ? '수축' : '혼재'
+      parts.push(`연준: ${label(entryRow.fed_state)} → ${label(exitRow.fed_state)}`)
+    }
+  }
+
   return parts.length > 0 ? parts.join(' | ') : undefined
 }
 
