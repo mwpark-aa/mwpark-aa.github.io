@@ -19,7 +19,8 @@ function MetricBox({ label, value, color = '#fafafa', sub }: {
 
 interface Props {
   account: PaperAccount | null
-  config: ActiveConfig
+  configs: ActiveConfig[]
+  prices: Record<string, number>
   effectiveCapital: number | null
   unrealizedPnl: number
   totalReturn: number | null
@@ -27,13 +28,15 @@ interface Props {
   winCount: number
   loseCount: number
   closedCount: number
-  currentPrice: number | null
 }
 
 export default function AccountSummary({
-  account, config, effectiveCapital, unrealizedPnl,
-  totalReturn, winRate, winCount, loseCount, closedCount, currentPrice,
+  account, configs, prices, effectiveCapital, unrealizedPnl,
+  totalReturn, winRate, winCount, loseCount, closedCount,
 }: Props) {
+  const symbols = [...new Set(configs.map(c => c.symbol))]
+  const singleSymbol = symbols.length === 1 ? symbols[0] : null
+
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 1 }}>
       <MetricBox
@@ -55,10 +58,10 @@ export default function AccountSummary({
         color={winRate != null && winRate >= 50 ? '#10b981' : '#71717a'}
         sub={`${winCount}승 ${loseCount}패 (${closedCount}건)`}
       />
-      {currentPrice != null && (
+      {singleSymbol != null && prices[singleSymbol] != null && (
         <MetricBox
-          label={`${config.symbol} 현재가`}
-          value={`$${fmtPrice(currentPrice)}`}
+          label={`${singleSymbol} 현재가`}
+          value={`$${fmtPrice(prices[singleSymbol]!)}`}
           color="#fafafa"
         />
       )}

@@ -30,6 +30,7 @@ export interface PaperAccount {
 
 export interface PaperPos {
   id: string
+  backtest_run_id: string
   symbol: string
   direction: 'LONG' | 'SHORT'
   entry_price: number
@@ -45,6 +46,7 @@ export interface PaperPos {
 
 export interface ClosedTrade {
   id: string
+  backtest_run_id: string
   symbol: string
   direction: 'LONG' | 'SHORT'
   entry_price: number

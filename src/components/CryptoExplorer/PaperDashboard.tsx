@@ -13,12 +13,12 @@ import ClosedTradeList from './paper/ClosedTradeList'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
 
 export default function PaperDashboard() {
-  const [config,       setConfig]       = useState<ActiveConfig | null>(null)
+  const [configs,      setConfigs]      = useState<ActiveConfig[]>([])
   const [history,      setHistory]      = useState<RunHistory[]>([])
   const [account,      setAccount]      = useState<PaperAccount | null>(null)
   const [openPos,      setOpenPos]      = useState<PaperPos[]>([])
   const [closedTrades, setClosedTrades] = useState<ClosedTrade[]>([])
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
+  const [prices,       setPrices]       = useState<Record<string, number>>({})
   const [loading,      setLoading]      = useState(true)
   const [activating,   setActivating]   = useState<string | null>(null)
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -30,8 +30,7 @@ export default function PaperDashboard() {
       .from('backtest_runs')
       .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross')
       .eq('paper_trading_enabled', true)
-      .maybeSingle()
-    setConfig(data as ActiveConfig | null)
+    setConfigs((data ?? []) as ActiveConfig[])
   }, [])
 
   const loadHistory = useCallback(async () => {
@@ -52,26 +51,22 @@ export default function PaperDashboard() {
     if (data) setAccount(data as PaperAccount)
   }, [])
 
-  const loadOpenPos = useCallback(async (configId?: string) => {
-    const query = supabase
+  const loadOpenPos = useCallback(async () => {
+    const { data } = await supabase
       .from('paper_positions')
-      .select('id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status')
+      .select('id, backtest_run_id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status')
       .eq('status', 'OPEN')
       .order('entry_time', { ascending: false })
-    if (configId) query.eq('backtest_run_id', configId)
-    const { data } = await query
     if (data) setOpenPos(data as PaperPos[])
   }, [])
 
-  const loadClosedTrades = useCallback(async (configId?: string) => {
-    const query = supabase
+  const loadClosedTrades = useCallback(async () => {
+    const { data } = await supabase
       .from('paper_positions')
-      .select('id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score')
+      .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score')
       .eq('status', 'CLOSED')
       .order('exit_time', { ascending: false })
-      .limit(30)
-    if (configId) query.eq('backtest_run_id', configId)
-    const { data } = await query
+      .limit(100)
     if (data) setClosedTrades(data as ClosedTrade[])
   }, [])
 
@@ -82,18 +77,28 @@ export default function PaperDashboard() {
     const willActivate = !run.paper_trading_enabled
 
     if (willActivate) {
-      const initialCapital = run.initial_capital ?? 10000
-      await supabase.from('paper_account').upsert({
-        id: 1,
-        capital: initialCapital,
-        initial_capital: initialCapital,
-        updated_at: new Date().toISOString(),
-        last_processed_ts: null,
-      }, { onConflict: 'id' })
+      // 현재 활성 설정이 없을 때만 자본 초기화
+      const { count } = await supabase
+        .from('backtest_runs')
+        .select('id', { count: 'exact', head: true })
+        .eq('paper_trading_enabled', true)
+
+      if ((count ?? 0) === 0) {
+        const initialCapital = run.initial_capital ?? 10000
+        await supabase.from('paper_account').upsert({
+          id: 1,
+          capital: initialCapital,
+          initial_capital: initialCapital,
+          updated_at: new Date().toISOString(),
+          last_processed_ts: null,
+        }, { onConflict: 'id' })
+      }
     }
 
-    await supabase.from('backtest_runs').update({ paper_trading_enabled: false }).eq('paper_trading_enabled', true)
-    await supabase.from('backtest_runs').update({ paper_trading_enabled: willActivate }).eq('id', run.id)
+    await supabase.from('backtest_runs')
+      .update({ paper_trading_enabled: willActivate })
+      .eq('id', run.id)
+
     await Promise.all([loadConfig(), loadAccount(), loadHistory()])
     setActivating(null)
   }, [loadConfig, loadAccount, loadHistory])
@@ -110,7 +115,7 @@ export default function PaperDashboard() {
       const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`)
       if (!resp.ok) return
       const { price } = await resp.json() as { price: string }
-      setCurrentPrice(parseFloat(price))
+      setPrices(prev => ({ ...prev, [symbol]: parseFloat(price) }))
     } catch { /* 무시 */ }
   }, [])
 
@@ -143,22 +148,25 @@ export default function PaperDashboard() {
   }, [loadConfig, loadAccount, loadOpenPos, loadClosedTrades, loadHistory])
 
   useEffect(() => {
-    loadOpenPos(config?.id)
-    loadClosedTrades(config?.id)
-  }, [config?.id, loadOpenPos, loadClosedTrades])
+    loadOpenPos()
+    loadClosedTrades()
+  }, [configs.map(c => c.id).join(','), loadOpenPos, loadClosedTrades])
 
+  // 활성 심볼들의 현재가 폴링
+  const symbolsKey = configs.map(c => c.symbol).join(',')
   useEffect(() => {
     if (priceTimer.current) clearInterval(priceTimer.current)
-    if (!config?.symbol) { setCurrentPrice(null); return }
-    fetchPrice(config.symbol)
-    priceTimer.current = setInterval(() => fetchPrice(config.symbol), 10_000)
+    const symbols = [...new Set(configs.map(c => c.symbol))]
+    if (symbols.length === 0) { setPrices({}); return }
+    symbols.forEach(sym => fetchPrice(sym))
+    priceTimer.current = setInterval(() => symbols.forEach(sym => fetchPrice(sym)), 10_000)
     return () => { if (priceTimer.current) clearInterval(priceTimer.current) }
-  }, [config?.symbol, fetchPrice])
+  }, [symbolsKey, fetchPrice])
 
   // ── 계산 ─────────────────────────────────────────────────────
 
   const unrealizedPnl = openPos.reduce((sum, pos) => {
-    const price = currentPrice ?? pos.entry_price
+    const price = prices[pos.symbol] ?? pos.entry_price
     const isShort = pos.direction === 'SHORT'
     return sum + (isShort ? pos.entry_price - price : price - pos.entry_price) * pos.quantity
   }, 0)
@@ -171,6 +179,9 @@ export default function PaperDashboard() {
   const loseCount = closedTrades.filter(t => t.net_pnl <= 0).length
   const winRate   = closedTrades.length > 0 ? winCount / closedTrades.length * 100 : null
 
+  // 차트는 첫 번째 활성 설정 기준
+  const primaryConfig = configs[0] ?? null
+
   // ── 렌더 ─────────────────────────────────────────────────────
 
   if (loading) {
@@ -181,7 +192,7 @@ export default function PaperDashboard() {
     )
   }
 
-  if (!config) {
+  if (configs.length === 0) {
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
         <Typography sx={{ fontSize: 13, color: '#52525b', mb: 1 }}>
@@ -204,7 +215,7 @@ export default function PaperDashboard() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <ConfigBanner config={config} account={account} />
+      <ConfigBanner configs={configs} account={account} />
       <HistoryList
         history={history}
         activating={activating}
@@ -213,7 +224,6 @@ export default function PaperDashboard() {
       />
       <AccountSummary
         account={account}
-        config={config}
         effectiveCapital={effectiveCapital}
         unrealizedPnl={unrealizedPnl}
         totalReturn={totalReturn}
@@ -221,30 +231,34 @@ export default function PaperDashboard() {
         winCount={winCount}
         loseCount={loseCount}
         closedCount={closedTrades.length}
-        currentPrice={currentPrice}
+        configs={configs}
+        prices={prices}
       />
-      <PaperChart
-        symbol={config.symbol}
-        interval={config.interval}
-        chartConfig={{
-          showMA:        config.score_use_golden_cross ?? true,
-          showBB:        config.score_use_bb           ?? false,
-          showRSI:       config.score_use_rsi          ?? true,
-          showMACD:      config.score_use_macd         ?? true,
-          showADX:       config.score_use_adx          ?? false,
-          rsiOversold:   config.rsi_oversold,
-          rsiOverbought: config.rsi_overbought,
-          adxThreshold:  config.adx_threshold ?? 20,
-        }}
-        position={openPos.length > 0 ? {
-          entry_price:  openPos[0].entry_price,
-          target_price: openPos[0].target_price,
-          stop_loss:    openPos[0].stop_loss,
-          direction:    openPos[0].direction,
-        } : null}
-      />
-      <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} />
-      <ClosedTradeList trades={closedTrades} />
+      {primaryConfig && (
+        <PaperChart
+          symbol={primaryConfig.symbol}
+          interval={primaryConfig.interval}
+          chartConfig={{
+            showMA:        primaryConfig.score_use_golden_cross ?? true,
+            showBB:        primaryConfig.score_use_bb           ?? false,
+            showRSI:       primaryConfig.score_use_rsi          ?? true,
+            showMACD:      primaryConfig.score_use_macd         ?? true,
+            showADX:       primaryConfig.score_use_adx          ?? false,
+            rsiOversold:   primaryConfig.rsi_oversold,
+            rsiOverbought: primaryConfig.rsi_overbought,
+            adxThreshold:  primaryConfig.adx_threshold ?? 20,
+          }}
+          position={openPos.find(p => p.symbol === primaryConfig.symbol)
+            ? (() => {
+                const p = openPos.find(pos => pos.symbol === primaryConfig.symbol)!
+                return { entry_price: p.entry_price, target_price: p.target_price, stop_loss: p.stop_loss, direction: p.direction }
+              })()
+            : null
+          }
+        />
+      )}
+      <OpenPositions openPos={openPos} prices={prices} configs={configs} />
+      <ClosedTradeList trades={closedTrades} configs={configs} />
     </Box>
   )
 }
