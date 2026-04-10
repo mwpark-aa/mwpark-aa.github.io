@@ -55,6 +55,7 @@ export interface BacktestTrade {
   sl: number
   quantity: number
   capital_used: number
+  capital_before?: number
   net_pnl: number
   pnl_pct: number
   exit_reason: string

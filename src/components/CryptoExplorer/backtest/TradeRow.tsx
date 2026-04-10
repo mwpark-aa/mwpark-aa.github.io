@@ -88,22 +88,15 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
           </Box>
         </Box>
 
-        {/* 행 2: 진입가 → 청산가, 목표/손절 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-          <Box>
-            <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>진입 → 청산</Typography>
-            <Typography sx={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
-              {fmtPrice(trade.entry_price)} → <span style={{ color: exitMarkerColor }}>{fmtPrice(trade.exit_price)}</span>
-            </Typography>
-            {hasMultiple && trade.avg_entry_price && (
-              <Typography sx={{ fontSize: 8, color: '#71717a' }}>avg {fmtPrice(trade.avg_entry_price)}</Typography>
-            )}
-          </Box>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>목표 / 손절</Typography>
-            <Typography sx={{ fontSize: 10, color: '#10b981', fontFamily: 'monospace' }}>{fmtPrice(trade.tp)}</Typography>
-            <Typography sx={{ fontSize: 10, color: '#ec4899', fontFamily: 'monospace' }}>{fmtPrice(trade.sl)}</Typography>
-          </Box>
+        {/* 행 2: 진입가 → 청산가 */}
+        <Box sx={{ mb: 0.5 }}>
+          <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>진입 → 청산</Typography>
+          <Typography sx={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
+            {fmtPrice(trade.entry_price)} → <span style={{ color: exitMarkerColor }}>{fmtPrice(trade.exit_price)}</span>
+          </Typography>
+          {hasMultiple && trade.avg_entry_price && (
+            <Typography sx={{ fontSize: 8, color: '#71717a' }}>avg {fmtPrice(trade.avg_entry_price)}</Typography>
+          )}
         </Box>
 
         {/* 행 3: 매수 이유 */}
@@ -125,17 +118,22 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
           </Box>
         )}
 
-        {/* 행 4: 매도 이유 + 수수료 */}
+        {/* 행 4: 매도 이유 + 자본 정보 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography sx={{ fontSize: 9, color: '#71717a' }}>
             {EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason}
             {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details ? ` : ${trade.exit_details}` : ''}
           </Typography>
-          {trade.commission != null && trade.commission > 0 && (
-            <Typography sx={{ fontSize: 9, color: '#dc2626', fontFamily: 'monospace', fontWeight: 600 }}>
-              수수료 -${trade.commission.toFixed(2)}
+          <Box sx={{ textAlign: 'right' }}>
+            {trade.capital_before != null && (
+              <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+                보유 ${trade.capital_before.toFixed(0)}
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
+              투입 ${trade.capital_used.toFixed(0)}
             </Typography>
-          )}
+          </Box>
         </Box>
       </Box>
     )
@@ -163,7 +161,7 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
             key={`${index}-${e.step}-${ei}`}
             sx={{
               display: 'grid',
-              gridTemplateColumns: '36px 100px 100px 1.5fr 1.0fr 100px 80px 80px',
+              gridTemplateColumns: '36px 100px 1.5fr 1.0fr 100px 80px 90px 80px',
               gap: 0.75,
               px: 1.5,
               py: 0.55,
@@ -191,14 +189,6 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
               <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>{fmtDate(e.ts)}</Typography>
               <Typography sx={{ fontSize: 10, color: '#ffffff', fontFamily: 'monospace' }}>{fmtPrice(e.price)}</Typography>
             </Box>
-
-            {/* 목표/손절 */}
-            {isFirst ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                <Typography sx={{ fontSize: 10, color: '#ffffff' }}>목표: {fmtPrice(trade.tp)}</Typography>
-                <Typography sx={{ fontSize: 10, color: '#ffffff' }}>손절: {fmtPrice(trade.sl)}</Typography>
-              </Box>
-            ) : <Box />}
 
             {/* 매수 이유 */}
             {isFirst ? (
@@ -253,6 +243,20 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
                 </Typography>
                 <Typography sx={{ fontSize: 9, color: pnlColor, fontFamily: 'monospace', opacity: 0.75 }}>
                   {win ? '+' : ''}${trade.net_pnl.toFixed(2)}
+                </Typography>
+              </Box>
+            ) : <Box />}
+
+            {/* 진입금액 / 잔여금액 */}
+            {isFirst ? (
+              <Box sx={{ textAlign: 'right' }}>
+                {trade.capital_before != null && (
+                  <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+                    보유 ${trade.capital_before.toFixed(0)}
+                  </Typography>
+                )}
+                <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
+                  투입 ${trade.capital_used.toFixed(0)}
                 </Typography>
               </Box>
             ) : <Box />}

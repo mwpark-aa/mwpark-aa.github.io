@@ -54,6 +54,7 @@ export interface BacktestTrade {
   add_entries: any
   score?: number
   capital_used: number
+  capital_before?: number  // 진입 전 보유 자본
 }
 
 export interface OHLCVCandle {

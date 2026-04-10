@@ -35,13 +35,13 @@ export default function TradeList({ trades, loading, result, params, selectedTra
           {/* 헤더 — 데스크탑만 표시 */}
           <Box sx={{
             display: { xs: 'none', sm: 'grid' },
-            gridTemplateColumns: '36px 100px 100px 1.5fr 1.0fr 100px 80px 80px',
+            gridTemplateColumns: '36px 100px 1.5fr 1.0fr 100px 80px 80px 80px',
             gap: 1,
             px: 1.5, py: 0.75, mb: 0.5,
             minWidth: 540,
             borderBottom: '1px solid #27272a',
           }}>
-            {['방향', '진입', '목표/손절', '매수 이유', '매도 이유', '청산', '손익', '수수료'].map((h) => (
+            {['방향', '진입', '매수 이유', '매도 이유', '청산', '손익', '', '수수료'].map((h) => (
               <Typography
                 key={h}
                 sx={{ fontSize: 9, color: '#52525b', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}

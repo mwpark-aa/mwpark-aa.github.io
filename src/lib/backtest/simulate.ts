@@ -29,6 +29,7 @@ interface Position {
   quantity:       number
   origQuantity:   number
   capitalUsed:    number
+  capitalBefore:  number   // 진입 직전 보유 자본
   peakPrice:      number
   score:          number
   entryTs:        string
@@ -231,6 +232,7 @@ export function simulate(
           sl:             pos.sl,
           quantity:       pos.origQuantity,
           capital_used:   pos.capitalUsed,
+          capital_before: Math.round(pos.capitalBefore * 100) / 100,
           net_pnl:        Math.round(-pos.capitalUsed * 10000) / 10000,
           pnl_pct:        -100,
           exit_reason:    'LIQUIDATED',
@@ -295,6 +297,7 @@ export function simulate(
           sl:             pos.sl,
           quantity:       pos.origQuantity,
           capital_used:   pos.capitalUsed,
+          capital_before: Math.round(pos.capitalBefore * 100) / 100,
           net_pnl:        Math.round(grossPnl * 10000) / 10000,
           pnl_pct:        Math.round(pnlPct   * 10000) / 10000,
           exit_reason:    exitReason,
@@ -383,6 +386,7 @@ export function simulate(
         quantity,
         origQuantity:   quantity,
         capitalUsed,
+        capitalBefore:  capital,
         peakPrice:      entryPrice,
         score,
         entryTs:        iso(row.timestamp),
@@ -430,6 +434,7 @@ export function simulate(
       sl:             pos.sl,
       quantity:       pos.origQuantity,
       capital_used:   pos.capitalUsed,
+      capital_before: Math.round(pos.capitalBefore * 100) / 100,
       net_pnl:        Math.round(grossPnl * 10000) / 10000,
       pnl_pct:        Math.round(pnlPct   * 10000) / 10000,
       exit_reason:    'DATA_END',
