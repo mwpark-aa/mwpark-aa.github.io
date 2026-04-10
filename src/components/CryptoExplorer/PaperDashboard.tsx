@@ -315,6 +315,11 @@ export default function PaperDashboard() {
     setActivating(null)
   }, [loadConfig, loadHistory])
 
+  const deleteHistory = useCallback(async (id: string) => {
+    await supabase.from('backtest_runs').delete().eq('id', id)
+    await Promise.all([loadConfig(), loadHistory()])
+  }, [loadConfig, loadHistory])
+
   const loadAccount = useCallback(async () => {
     const { data } = await supabase
       .from('paper_account')
@@ -540,7 +545,7 @@ export default function PaperDashboard() {
             return (
               <Box
                 key={run.id}
-                sx={{ display: 'grid', gridTemplateColumns: '20px 1fr', gap: 1, alignItems: 'flex-start' }}
+                sx={{ display: 'grid', gridTemplateColumns: '20px 1fr 20px', gap: 1, alignItems: 'flex-start' }}
               >
                 {/* 활성화 토글 버튼 */}
                 <Tooltip title={isActive ? '비활성화' : '이 설정으로 페이퍼 트레이딩 시작'} placement="right">
@@ -639,6 +644,24 @@ export default function PaperDashboard() {
                     </Typography>
                   </Box>
                 </Box>
+
+                {/* 삭제 버튼 */}
+                <Tooltip title="이력 삭제" placement="right">
+                  <Box
+                    onClick={() => !isLoading && deleteHistory(run.id)}
+                    sx={{
+                      width: 20, height: 20, mt: '10px', borderRadius: 1, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#3f3f46', cursor: isLoading ? 'wait' : 'pointer',
+                      '&:hover': { color: '#ef4444', background: '#ef444415' },
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </Box>
+                </Tooltip>
               </Box>
             )
           })}
