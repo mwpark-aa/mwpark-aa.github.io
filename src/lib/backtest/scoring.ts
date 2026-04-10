@@ -237,26 +237,20 @@ export function buildSignalDetails(
 
 // ── 포지션 크기 계산 ─────────────────────────────────────────────
 
-import { RISK_PER_TRADE, MAX_CAPITAL_PCT } from './types'
+import { CAPITAL_PER_TRADE } from './types'
 
 /**
- * 리스크 기반 포지션 크기 계산.
- * - 기본: 자본의 RISK_PER_TRADE % 손실을 SL 거리로 나눈 수량
- * - 최대: 자본의 MAX_CAPITAL_PCT × 레버리지 이내로 제한
+ * 단순 비율 기반 포지션 크기 계산.
+ * 자본의 CAPITAL_PER_TRADE(10%)를 마진으로 사용.
+ * quantity = capitalUsed × leverage / entry
  */
-export function calcPositionSize(capital: number, entry: number, sl: number, leverage: number) {
-  const slDistance = Math.abs(entry - sl)
-  if (slDistance <= 0 || entry <= 0 || capital <= 0) {
+export function calcPositionSize(capital: number, entry: number, _sl: number, leverage: number) {
+  if (entry <= 0 || capital <= 0 || leverage <= 0) {
     return { quantity: 0, capitalUsed: 0 }
   }
 
-  let quantity = (capital * RISK_PER_TRADE) / slDistance
-  const maxQuantity = (capital * MAX_CAPITAL_PCT * leverage) / entry
+  const capitalUsed = capital * CAPITAL_PER_TRADE
+  const quantity    = (capitalUsed * leverage) / entry
 
-  if (quantity > maxQuantity) quantity = maxQuantity
-
-  return {
-    quantity,
-    capitalUsed: (quantity * entry) / leverage,
-  }
+  return { quantity, capitalUsed }
 }

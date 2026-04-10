@@ -306,20 +306,6 @@ export default function PaperDashboard() {
     if (data) setHistory(data as RunHistory[])
   }, [])
 
-  const activatePaper = useCallback(async (run: RunHistory) => {
-    setActivating(run.id)
-    const willActivate = !run.paper_trading_enabled
-    await supabase.from('backtest_runs').update({ paper_trading_enabled: false }).eq('paper_trading_enabled', true)
-    await supabase.from('backtest_runs').update({ paper_trading_enabled: willActivate }).eq('id', run.id)
-    await Promise.all([loadConfig(), loadHistory()])
-    setActivating(null)
-  }, [loadConfig, loadHistory])
-
-  const deleteHistory = useCallback(async (id: string) => {
-    await supabase.from('backtest_runs').delete().eq('id', id)
-    await Promise.all([loadConfig(), loadHistory()])
-  }, [loadConfig, loadHistory])
-
   const loadAccount = useCallback(async () => {
     const { data } = await supabase
       .from('paper_account')
@@ -328,6 +314,33 @@ export default function PaperDashboard() {
       .single()
     if (data) setAccount(data as PaperAccount)
   }, [])
+
+  const activatePaper = useCallback(async (run: RunHistory) => {
+    setActivating(run.id)
+    const willActivate = !run.paper_trading_enabled
+
+    // 다른 설정으로 전환 시 자본 초기화
+    if (willActivate) {
+      const initialCapital = run.initial_capital ?? 10000
+      await supabase.from('paper_account').upsert({
+        id: 1,
+        capital: initialCapital,
+        initial_capital: initialCapital,
+        updated_at: new Date().toISOString(),
+        last_processed_ts: null,
+      }, { onConflict: 'id' })
+    }
+
+    await supabase.from('backtest_runs').update({ paper_trading_enabled: false }).eq('paper_trading_enabled', true)
+    await supabase.from('backtest_runs').update({ paper_trading_enabled: willActivate }).eq('id', run.id)
+    await Promise.all([loadConfig(), loadAccount(), loadHistory()])
+    setActivating(null)
+  }, [loadConfig, loadAccount, loadHistory])
+
+  const deleteHistory = useCallback(async (id: string) => {
+    await supabase.from('backtest_runs').delete().eq('id', id)
+    await Promise.all([loadConfig(), loadHistory()])
+  }, [loadConfig, loadHistory])
 
   const loadOpenPos = useCallback(async (configId?: string) => {
     const query = supabase
@@ -424,8 +437,18 @@ export default function PaperDashboard() {
 
   // ── 계산 ───────────────────────────────────────────────────
 
+  // 미실현 손익: 오픈 포지션의 현재가 기준 손익 합산
+  const unrealizedPnl = openPos.reduce((sum, pos) => {
+    const price = currentPrice ?? pos.entry_price
+    const isShort = pos.direction === 'SHORT'
+    const priceDiff = isShort ? pos.entry_price - price : price - pos.entry_price
+    return sum + priceDiff * pos.quantity
+  }, 0)
+
+  const effectiveCapital = account ? account.capital + unrealizedPnl : null
+
   const totalReturn = account
-    ? (account.capital - account.initial_capital) / account.initial_capital * 100
+    ? (effectiveCapital! - account.initial_capital) / account.initial_capital * 100
     : null
 
   const winCount  = closedTrades.filter(t => t.net_pnl > 0).length
@@ -672,9 +695,11 @@ export default function PaperDashboard() {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 1 }}>
         <MetricBox
           label="현재 자본"
-          value={`$${account ? account.capital.toLocaleString('en', { maximumFractionDigits: 2 }) : '—'}`}
+          value={`$${effectiveCapital != null ? effectiveCapital.toLocaleString('en', { maximumFractionDigits: 2 }) : '—'}`}
           color="#fafafa"
-          sub={`초기 $${account?.initial_capital.toLocaleString('en', { maximumFractionDigits: 0 }) ?? '—'}`}
+          sub={unrealizedPnl !== 0 && account
+            ? `미실현 ${unrealizedPnl >= 0 ? '+' : ''}$${unrealizedPnl.toFixed(2)} 포함`
+            : `초기 $${account?.initial_capital.toLocaleString('en', { maximumFractionDigits: 0 }) ?? '—'}`}
         />
         <MetricBox
           label="총 수익률"

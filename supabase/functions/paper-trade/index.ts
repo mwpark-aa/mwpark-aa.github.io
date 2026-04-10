@@ -11,12 +11,9 @@ const corsHeaders = {
 
 // ── 상수 ─────────────────────────────────────────────────────
 
-const COMMISSION        = 0.001
-const MAX_CAPITAL_PCT   = 0.20
-const RISK_PER_TRADE    = 0.04
+const COMMISSION         = 0.001
+const CAPITAL_PER_TRADE  = 0.20   // 포지션 1개당 사용 자본 비율 (마진 기준 20%)
 const SWING_LOOKBACK    = 4
-const SIGNAL_COOLDOWN   = 4
-const DAILY_LOSS_LIMIT  = 0.06
 const WARMUP_CANDLES    = 200   // 지표 계산용 워밍업 (168봉 이상)
 
 // ── 타입 ─────────────────────────────────────────────────────
@@ -404,13 +401,11 @@ function calcTPSL(direction: string, price: number, c: PaperConfig) {
 
 // ── 포지션 크기 계산 ─────────────────────────────────────────
 
-function calcPositionSize(capital: number, entry: number, sl: number, leverage: number) {
-  const risk = Math.abs(entry - sl)
-  if (risk <= 0 || entry <= 0 || capital <= 0) return { quantity: 0, capitalUsed: 0 }
-  let qty = (capital * RISK_PER_TRADE) / risk
-  const maxQty = (capital * MAX_CAPITAL_PCT * leverage) / entry
-  if (qty > maxQty) qty = maxQty
-  return { quantity: qty, capitalUsed: (qty * entry) / leverage }
+function calcPositionSize(capital: number, entry: number, _sl: number, leverage: number) {
+  if (entry <= 0 || capital <= 0 || leverage <= 0) return { quantity: 0, capitalUsed: 0 }
+  const capitalUsed = capital * CAPITAL_PER_TRADE
+  const quantity    = (capitalUsed * leverage) / entry
+  return { quantity, capitalUsed }
 }
 
 // ── 신호 감지 ────────────────────────────────────────────────
@@ -549,7 +544,7 @@ Deno.serve(async (req) => {
 
     if (account?.last_processed_ts) {
       const lastProcessed = new Date(account.last_processed_ts).getTime()
-      if (lastProcessed >= lastCandleEnd - intervalMs) {
+      if (lastProcessed >= lastCandleEnd) {
         return new Response(JSON.stringify({
           message: '이미 처리됨',
           last_processed: account.last_processed_ts,
