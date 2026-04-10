@@ -21,12 +21,16 @@ export interface BacktestParams {
   scoreUseIchi: boolean
   scoreUseGoldenCross: boolean
   scoreUseFedLiquidity: boolean
+  scoreUseCCI: boolean
+  scoreUseVWMA: boolean
 
   // 지표 파라미터
   adxThreshold: number
   rvolThreshold: number
   rvolSkip: number
   fedLiquidityMAPeriod: number   // MA 기간 (주 단위, 기본 13 ≈ 3개월)
+  cciOversold: number            // CCI 과매도 기준 (기본 -100)
+  cciOverbought: number          // CCI 과매수 기준 (기본 +100)
 
   // TP/SL
   fixedTP: number                // 고정 익절 % (현물 기준, 0 = ATR 자동)
@@ -114,6 +118,10 @@ export interface Candle {
   // 일목균형표
   ichimoku_a?: number | null
   ichimoku_b?: number | null
+
+  // CCI / VWMA
+  cci20?: number | null
+  vwma20?: number | null
 
   // 스윙 고저
   swing_low?: number

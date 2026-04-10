@@ -30,6 +30,7 @@ interface Candle {
   mfi14?: number | null; macd_hist?: number | null
   vol_ma20?: number | null; vol_rvol168?: number
   ichimoku_a?: number | null; ichimoku_b?: number | null
+  cci20?: number | null; vwma20?: number | null
   swing_low?: number; swing_high?: number
   fed_state?: number | null
 }
@@ -52,7 +53,11 @@ interface PaperConfig {
   score_use_ichi: boolean
   score_use_golden_cross: boolean
   score_use_fed_liquidity: boolean
+  score_use_cci: boolean
+  score_use_vwma: boolean
   fed_liquidity_ma_period: number
+  cci_oversold: number
+  cci_overbought: number
   adx_threshold: number
   rvol_threshold: number
   rvol_skip: number
@@ -261,6 +266,37 @@ function calcMACDHist(closes: number[]): (number | null)[] {
   return result
 }
 
+function calcCCI20(rows: Candle[]): (number | null)[] {
+  const n = rows.length
+  const result: (number | null)[] = Array(n).fill(null)
+  const period = 20
+  for (let i = period - 1; i < n; i++) {
+    const window = rows.slice(i - period + 1, i + 1)
+    const tps = window.map(r => (r.high + r.low + r.close) / 3)
+    const tpMean = tps.reduce((a, b) => a + b, 0) / period
+    const meanDev = tps.reduce((a, b) => a + Math.abs(b - tpMean), 0) / period
+    if (meanDev === 0) continue
+    const currTP = (rows[i]!.high + rows[i]!.low + rows[i]!.close) / 3
+    result[i] = (currTP - tpMean) / (0.015 * meanDev)
+  }
+  return result
+}
+
+function calcVWMA20(rows: Candle[]): (number | null)[] {
+  const n = rows.length
+  const result: (number | null)[] = Array(n).fill(null)
+  const period = 20
+  for (let i = period - 1; i < n; i++) {
+    let sumPV = 0, sumV = 0
+    for (let j = i - period + 1; j <= i; j++) {
+      sumPV += rows[j]!.close * rows[j]!.volume
+      sumV  += rows[j]!.volume
+    }
+    if (sumV > 0) result[i] = sumPV / sumV
+  }
+  return result
+}
+
 function computeIndicators(rows: Candle[]): void {
   const closes  = rows.map(r => r.close)
   const volumes = rows.map(r => r.volume)
@@ -274,6 +310,8 @@ function computeIndicators(rows: Candle[]): void {
   const atr   = calcATR14(rows)
   const adx   = calcADX14(rows)
   const macd  = calcMACDHist(closes)
+  const cci   = calcCCI20(rows)
+  const vwma  = calcVWMA20(rows)
   const volMA20  = sma(volumes, 20)
   const volMA168 = sma(volumes, 168)
 
@@ -291,7 +329,7 @@ function computeIndicators(rows: Candle[]): void {
     row.bb_upper = bbMid[i] != null && bbStd[i] != null ? bbMid[i]! + 2 * bbStd[i]! : null
     row.bb_lower = bbMid[i] != null && bbStd[i] != null ? bbMid[i]! - 2 * bbStd[i]! : null
     row.rsi14    = rsi[i]; row.atr14 = atr[i]; row.adx14 = adx[i]
-    row.macd_hist = macd[i]
+    row.macd_hist = macd[i]; row.cci20 = cci[i]; row.vwma20 = vwma[i]
     row.vol_ma20    = volMA20[i]
     row.vol_rvol168 = vol168 ? Math.round(volumes[i]! / vol168 * 1000) / 1000 : 1.0
 
@@ -320,6 +358,8 @@ function scoreLong(row: Candle, c: PaperConfig): number {
     && row.close > row.ichimoku_a && row.close > row.ichimoku_b)              score++
   if (c.score_use_golden_cross && row.ma20 != null && row.ma60 != null && row.ma20 > row.ma60) score++
   if (c.score_use_fed_liquidity && row.fed_state === 1)                        score++
+  if (c.score_use_cci  && row.cci20  != null && row.cci20 < (c.cci_oversold  ?? -100)) score++
+  if (c.score_use_vwma && row.vwma20 != null && row.close > row.vwma20)        score++
   return score
 }
 
@@ -336,6 +376,8 @@ function scoreShort(row: Candle, c: PaperConfig): number {
     && row.close < row.ichimoku_a && row.close < row.ichimoku_b)               score++
   if (c.score_use_golden_cross && row.ma20 != null && row.ma60 != null && row.ma20 < row.ma60) score++
   if (c.score_use_fed_liquidity && row.fed_state === -1)                        score++
+  if (c.score_use_cci  && row.cci20  != null && row.cci20 > (c.cci_overbought ?? 100)) score++
+  if (c.score_use_vwma && row.vwma20 != null && row.close < row.vwma20)        score++
   return score
 }
 
@@ -449,6 +491,15 @@ function buildSignalDetails(row: Candle, c: PaperConfig, direction: string): str
   if (c.score_use_fed_liquidity && row.fed_state != null) {
     const label = row.fed_state === 1 ? '확장' : row.fed_state === -1 ? '수축' : '혼재'
     parts.push(s(`연준: ${label}`, isLong ? row.fed_state === 1 : row.fed_state === -1))
+  }
+  if (c.score_use_cci && row.cci20 != null) {
+    const v = Math.round(row.cci20)
+    const scored = isLong ? row.cci20 < (c.cci_oversold ?? -100) : row.cci20 > (c.cci_overbought ?? 100)
+    parts.push(s(`CCI: ${v > 0 ? '+' : ''}${v}`, scored))
+  }
+  if (c.score_use_vwma && row.vwma20 != null) {
+    const above = row.close > row.vwma20
+    parts.push(s(`VWMA: ${above ? '위' : '아래'}`, isLong ? above : !above))
   }
   return parts.join(' | ')
 }

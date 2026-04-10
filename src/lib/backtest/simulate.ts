@@ -138,6 +138,27 @@ function buildExitDetails(
     }
   }
 
+  // CCI 점수 변화
+  if (p.scoreUseCCI && entryRow.cci20 != null && exitRow.cci20 != null) {
+    const entryScore   = isShort ? (entryRow.cci20 > p.cciOverbought ? 1 : 0) : (entryRow.cci20 < p.cciOversold ? 1 : 0)
+    const currentScore = isShort ? (exitRow.cci20  > p.cciOverbought ? 1 : 0) : (exitRow.cci20  < p.cciOversold ? 1 : 0)
+    if (currentScore < entryScore) {
+      const fmt = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v)}`
+      parts.push(`CCI: ${fmt(entryRow.cci20)} → ${fmt(exitRow.cci20)}`)
+    }
+  }
+
+  // VWMA 점수 변화
+  if (p.scoreUseVWMA && entryRow.vwma20 != null && exitRow.vwma20 != null) {
+    const entryAbove   = entryRow.close > entryRow.vwma20
+    const exitAbove    = exitRow.close  > exitRow.vwma20
+    const entryScore   = isShort ? (!entryAbove ? 1 : 0) : (entryAbove ? 1 : 0)
+    const currentScore = isShort ? (!exitAbove  ? 1 : 0) : (exitAbove  ? 1 : 0)
+    if (currentScore < entryScore) {
+      parts.push(`VWMA: ${entryAbove ? '위' : '아래'} → ${exitAbove ? '위' : '아래'}`)
+    }
+  }
+
   return parts.length > 0 ? parts.join(' | ') : undefined
 }
 

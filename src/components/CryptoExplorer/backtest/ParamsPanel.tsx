@@ -125,16 +125,17 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
         const obY = 4 + (1 - ob / 100) * 34
         return (
           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-            <rect x="4" y="4" width="64" height={osY - 4} fill="#10b98118" rx="1" />
-            <rect x="4" y={osY} width="64" height={obY - osY} fill="#52525b18" rx="1" />
-            <rect x="4" y={obY} width="64" height={38 - obY} fill="#ef444418" rx="1" />
-            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2" />
-            <text x="56" y={osY - 1.5} fill="#10b981" fontSize="3.5">{os}</text>
+            {/* obY < osY: 화면 위=高RSI, 아래=低RSI */}
+            <rect x="4" y="4"    width="64" height={obY - 4}    fill="#ef444418" rx="1" />
+            <rect x="4" y={obY}  width="64" height={osY - obY}  fill="#52525b18" rx="1" />
+            <rect x="4" y={osY}  width="64" height={38 - osY}   fill="#10b98118" rx="1" />
             <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2" />
-            <text x="56" y={obY + 4} fill="#ef4444" fontSize="3.5">{ob}</text>
-            <text x="8" y="8" fill="#10b981" fontSize="3" opacity="0.8">롱 +1 (반등)</text>
-            <text x="8" y={(osY + obY) / 2} fill="#52525b" fontSize="3" opacity="0.6">점수 없음</text>
-            <text x="8" y="37" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1 (하락)</text>
+            <text x="56" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
+            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2" />
+            <text x="56" y={osY + 4} fill="#10b981" fontSize="3.5">{os}</text>
+            <text x="8" y="8"  fill="#ef4444" fontSize="3" opacity="0.8">숏 +1 (과매수)</text>
+            <text x="8" y={(obY + osY) / 2} fill="#52525b" fontSize="3" opacity="0.6">점수 없음</text>
+            <text x="8" y="38" fill="#10b981" fontSize="3" opacity="0.8">롱 +1 (과매도)</text>
             <path d="M4,10 C12,12 18,15 26,18 C34,20 42,20 50,15 C58,10 64,8 68,6" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
             <circle cx="26" cy="18" r="2.5" fill="#10b981" opacity="0.9" />
             <circle cx="50" cy="15" r="2.5" fill="#ef4444" opacity="0.9" />
@@ -298,6 +299,66 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
         )
       })(),
       svg: null,
+    },
+    {
+      key: 'scoreUseCCI', label: 'CCI', sub: '상품채널지수 과열/침체',
+      hint: '"가격이 통계적 평균에서 얼마나 벗어났나?"\nCCI = (TP - SMA(TP)) / (0.015 × 평균편차), 기간 20봉.\n\n✅ CCI < 하한(기본 -100) → 롱 +1 (극도 과매도, 반등 신호)\n✅ CCI > 상한(기본 +100) → 숏 +1 (극도 과매수, 하락 신호)\n\n💡 ±100은 일반적 신호 구간, ±200은 극단적 신호 구간\n💡 RSI와 함께 사용 시 이중 확인 효과',
+      desc: '가격이 통계적 평균에서 극단적으로 벗어날 때 신호. 과매도(-100↓)에서 롱, 과매수(+100↑)에서 숏.',
+      settings: (
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+          <Box>
+            <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>하한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매도)</Typography></Typography>
+            <input type="number" min={-300} max={-50}
+              value={draft.cciOversold ?? String(params.cciOversold)} style={smInput}
+              onChange={e => setDraft(d => ({ ...d, cciOversold: e.target.value }))} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>상한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매수)</Typography></Typography>
+            <input type="number" min={50} max={300}
+              value={draft.cciOverbought ?? String(params.cciOverbought)} style={smInput}
+              onChange={e => setDraft(d => ({ ...d, cciOverbought: e.target.value }))} />
+          </Box>
+        </Box>
+      ),
+      svg: (() => {
+        const os = Number(draft.cciOversold ?? params.cciOversold) || -100
+        const ob = Number(draft.cciOverbought ?? params.cciOverbought) || 100
+        const range = 250
+        const osY = 4 + (1 - (os + range) / (range * 2)) * 34
+        const obY = 4 + (1 - (ob + range) / (range * 2)) * 34
+        return (
+          <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+            <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b" strokeWidth="0.6" />
+            <text x="62" y="19" fill="#52525b" fontSize="3">0</text>
+            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2" />
+            <text x="5" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
+            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2" />
+            <text x="5" y={osY + 4} fill="#10b981" fontSize="3.5">{os}</text>
+            <text x="28" y="8" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1</text>
+            <text x="28" y="38" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
+            <path d="M4,21 C10,18 16,24 22,20 C28,16 34,28 40,23 C46,18 52,12 60,8 C64,6 66,5 68,5" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
+            <circle cx="60" cy="8" r="2.5" fill="#ef4444" opacity="0.9" />
+            <circle cx="14" cy="36" r="2.5" fill="#10b981" opacity="0.9" />
+          </svg>
+        )
+      })(),
+    },
+    {
+      key: 'scoreUseVWMA', label: 'VWMA', sub: '거래량 가중 이동평균',
+      hint: '"거래량을 반영한 진짜 평균가는 얼마인가?"\nVWMA20 = Σ(종가 × 거래량) / Σ거래량 (20봉).\n거래량이 많이 거래된 가격대에 더 큰 가중치를 부여.\n\n✅ 가격 > VWMA → 롱 +1 (거래량 기준 상승 추세)\n✅ 가격 < VWMA → 숏 +1 (거래량 기준 하락 추세)\n\n💡 MA20보다 세력·기관의 실제 진입 단가에 가까움\n💡 VWMA = WVMA (같은 지표, 표기 차이)',
+      desc: '거래량 가중 평균가 대비 현재 가격 위치. 단순 이평선보다 세력 진입 단가에 가까운 기준선.',
+      settings: null,
+      svg: (
+        <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+          <path d="M4,28 C12,26 20,24 32,21 C44,18 56,16 68,14" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3,2" />
+          <path d="M4,32 C12,28 20,24 30,20 C40,16 52,12 68,8" fill="none" stroke="currentColor" strokeWidth="2" />
+          <circle cx="38" cy="18" r="2.5" fill="#10b981" opacity="0.9" />
+          <text x="40" y="17" fill="#10b981" fontSize="3">롱 +1</text>
+          <text x="8" y="8" fill="currentColor" fontSize="3.5" opacity="0.6">━ 현재가</text>
+          <text x="8" y="14" fill="#f59e0b" fontSize="3.5">┅ VWMA20</text>
+          <text x="8" y="38" fill="#ef4444" fontSize="3" opacity="0.5">{'가격 < VWMA → 숏 +1'}</text>
+        </svg>
+      ),
     },
   ] as {
     key: keyof BacktestParams

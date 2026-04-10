@@ -211,6 +211,46 @@ export function calcMFI14(rows: Candle[]): (number | null)[] {
   return result
 }
 
+// ── CCI (Commodity Channel Index, period=20) ──────────────────────
+
+export function calcCCI20(rows: Candle[]): (number | null)[] {
+  const n = rows.length
+  const result: (number | null)[] = Array(n).fill(null)
+  const period = 20
+
+  for (let i = period - 1; i < n; i++) {
+    // Typical Price (TP) for the window
+    const window = rows.slice(i - period + 1, i + 1)
+    const tps = window.map(r => (r.high + r.low + r.close) / 3)
+    const tpMean = tps.reduce((a, b) => a + b, 0) / period
+    const meanDev = tps.reduce((a, b) => a + Math.abs(b - tpMean), 0) / period
+    if (meanDev === 0) continue
+    const currTP = (rows[i].high + rows[i].low + rows[i].close) / 3
+    result[i] = (currTP - tpMean) / (0.015 * meanDev)
+  }
+
+  return result
+}
+
+// ── VWMA (Volume Weighted Moving Average, period=20) ─────────────
+
+export function calcVWMA20(rows: Candle[]): (number | null)[] {
+  const n = rows.length
+  const result: (number | null)[] = Array(n).fill(null)
+  const period = 20
+
+  for (let i = period - 1; i < n; i++) {
+    let sumPV = 0, sumV = 0
+    for (let j = i - period + 1; j <= i; j++) {
+      sumPV += rows[j].close * rows[j].volume
+      sumV  += rows[j].volume
+    }
+    if (sumV > 0) result[i] = sumPV / sumV
+  }
+
+  return result
+}
+
 // ── MACD 히스토그램 ───────────────────────────────────────────────
 
 export function calcMACDHist(closes: number[]): (number | null)[] {
@@ -261,6 +301,8 @@ export function computeIndicators(rows: Candle[]): void {
   const adx  = calcADX14(rows)
   const mfi  = calcMFI14(rows)
   const macd = calcMACDHist(closes)
+  const cci  = calcCCI20(rows)
+  const vwma = calcVWMA20(rows)
 
   // 거래량
   const volMA20  = sma(volumes, 20)
@@ -292,6 +334,8 @@ export function computeIndicators(rows: Candle[]): void {
     row.adx14     = adx[i]
     row.mfi14     = mfi[i]
     row.macd_hist = macd[i]
+    row.cci20     = cci[i]
+    row.vwma20    = vwma[i]
 
     // 거래량
     row.vol_ma20    = volMA20[i]

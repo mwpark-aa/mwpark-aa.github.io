@@ -61,6 +61,12 @@ export function scoreLong(row: Candle, p: BacktestParams): number {
   // 연준 유동성: 확장 확정 (MA 위 + 상승)
   if (p.scoreUseFedLiquidity && row.fed_state === 1) score++
 
+  // CCI: 과매도 구간 (반등 신호)
+  if (p.scoreUseCCI && row.cci20 != null && row.cci20 < p.cciOversold) score++
+
+  // VWMA: 가격이 VWMA 위 (상승 압력)
+  if (p.scoreUseVWMA && row.vwma20 != null && row.close > row.vwma20) score++
+
   return score
 }
 
@@ -95,6 +101,12 @@ export function scoreShort(row: Candle, p: BacktestParams): number {
 
   // 연준 유동성: 수축 확정 (MA 아래 + 하락)
   if (p.scoreUseFedLiquidity && row.fed_state === -1) score++
+
+  // CCI: 과매수 구간 (하락 신호)
+  if (p.scoreUseCCI && row.cci20 != null && row.cci20 > p.cciOverbought) score++
+
+  // VWMA: 가격이 VWMA 아래 (하락 압력)
+  if (p.scoreUseVWMA && row.vwma20 != null && row.close < row.vwma20) score++
 
   return score
 }
@@ -205,6 +217,16 @@ export function buildSignalDetails(
     const label = row.fed_state === 1 ? '확장' : row.fed_state === -1 ? '수축' : '혼재'
     const scored = isLong ? row.fed_state === 1 : row.fed_state === -1
     parts.push(s(`연준: ${label}`, scored))
+  }
+  if (p.scoreUseCCI && row.cci20 != null) {
+    const v = Math.round(row.cci20)
+    const scored = isLong ? row.cci20 < p.cciOversold : row.cci20 > p.cciOverbought
+    parts.push(s(`CCI: ${v > 0 ? '+' : ''}${v}`, scored))
+  }
+  if (p.scoreUseVWMA && row.vwma20 != null) {
+    const above = row.close > row.vwma20
+    const scored = isLong ? above : !above
+    parts.push(s(`VWMA: ${above ? '위' : '아래'}`, scored))
   }
   if (rr != null && p.fixedTP === 0 && p.fixedSL === 0) {
     parts.push(`RR: ${rr.toFixed(2)}`)
