@@ -154,6 +154,7 @@ export function simulate(
   const equity: number[]        = [capital]
 
   let pos:    Position | null           = null
+  let closedOnCandle: number | null     = null  // 청산 발생 캔들 인덱스 (동일 캔들 재진입 방지)
   const cd:   Record<string, number>    = {}   // 신호 쿨다운 카운터
   let wins    = 0
   let losses  = 0
@@ -288,11 +289,12 @@ export function simulate(
         if (capital > peakEq) peakEq = capital
         else { const dd = (peakEq - capital) / peakEq * 100; if (dd > maxDD) maxDD = dd }
         pos = null
+        closedOnCandle = i  // 이 캔들에서 청산됨 → 동일 캔들 재진입 방지
       }
     }
 
-    // 포지션이 있으면 신규 진입 스킵
-    if (pos) continue
+    // 포지션이 있거나, 이번 캔들에서 방금 청산된 경우 신규 진입 스킵
+    if (pos || closedOnCandle === i) continue
 
     // ── 일일 손실 한도 초과 시 거래 중단 ─────────────────────────
     const today     = new Date(row.timestamp).toDateString()
