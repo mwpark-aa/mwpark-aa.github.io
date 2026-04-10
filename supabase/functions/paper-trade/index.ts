@@ -427,6 +427,18 @@ function buildSignalDetails(row: Candle, c: PaperConfig): string {
   }
   if (c.score_use_rvol && row.vol_rvol168 != null)
     parts.push(`RVOL: ${Math.round(row.vol_rvol168 * 10) / 10}x`)
+  if (c.score_use_bb && row.bb_upper != null && row.bb_lower != null) {
+    const bbPct = ((row.close - row.bb_lower) / (row.bb_upper - row.bb_lower) * 100).toFixed(0)
+    parts.push(`BB: ${bbPct}%`)
+  }
+  if (c.score_use_ichi && row.ichimoku_a != null && row.ichimoku_b != null) {
+    const above = row.close > row.ichimoku_a && row.close > row.ichimoku_b
+    parts.push(`일목: 구름${above ? '위' : '아래'}`)
+  }
+  if (c.score_use_fed_liquidity && row.fed_state != null) {
+    const label = row.fed_state === 1 ? '확장' : row.fed_state === -1 ? '수축' : '혼재'
+    parts.push(`연준: ${label}`)
+  }
   return parts.join(' | ')
 }
 

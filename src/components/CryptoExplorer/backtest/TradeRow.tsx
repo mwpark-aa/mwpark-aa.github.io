@@ -117,7 +117,7 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography sx={{ fontSize: 9, color: '#71717a' }}>
             {EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason}
-            {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details && ` : ${trade.exit_details}`}
+            {trade.exit_reason === 'SCORE_EXIT' && trade.exit_details ? ` : ${trade.exit_details}` : ''}
           </Typography>
           {trade.commission != null && trade.commission > 0 && (
             <Typography sx={{ fontSize: 9, color: '#dc2626', fontFamily: 'monospace', fontWeight: 600 }}>
@@ -203,7 +203,7 @@ const TradeRow = memo(function TradeRow({ trade, index, onScrollTo, initialCapit
             {isFirst ? (
               <Box>
                 <Typography sx={{ fontSize: 10, color: '#FFF', fontFamily: 'monospace', lineHeight: 1.3, whiteSpace: 'normal' }}>
-                  {EXIT_REASON_MAP[trade.exit_reason]}{trade.exit_reason === 'SCORE_EXIT' && ` : ${trade.exit_details}`}
+                  {EXIT_REASON_MAP[trade.exit_reason]}{trade.exit_reason === 'SCORE_EXIT' && trade.exit_details ? ` : ${trade.exit_details}` : ''}
                 </Typography>
               </Box>
             ) : <Box />}
