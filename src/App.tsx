@@ -7,7 +7,7 @@ import CryptoExplorer from './components/CryptoExplorer/CryptoExplorer'
 import type { Category, AppPage } from './types'
 
 export default function App() {
-  const [activePage, setActivePage] = useState<AppPage>('local')
+  const [activePage, setActivePage] = useState<AppPage>('crypto')
   const [activeCategory, setActiveCategory] = useState<Category>('All')
 
   return (
