@@ -11,7 +11,8 @@ const corsHeaders = {
 
 // ── 상수 ─────────────────────────────────────────────────────
 
-const COMMISSION         = 0.001
+const COMMISSION_TAKER   = 0.0005  // 시장가 (진입 / SCORE_EXIT / 강제청산)
+const COMMISSION_MAKER   = 0.0002  // 지정가 (TP / SL)
 const CAPITAL_PER_TRADE  = 0.20   // 포지션 1개당 사용 자본 비율 (마진 기준 20%)
 const SWING_LOOKBACK    = 4
 const WARMUP_CANDLES    = 200   // 지표 계산용 워밍업 (168봉 이상)
@@ -616,9 +617,12 @@ Deno.serve(async (req) => {
             ? qty * (pos.entry_price - exitPrice)
             : qty * (exitPrice - pos.entry_price)
 
-        const notionalQty = qty / c.leverage
-        const totalComm   = (pos.entry_price + exitPrice) * notionalQty * COMMISSION
-        const netCapital  = exitReason === 'LIQUIDATED' ? -(pos.capital_used as number) : grossPnl - totalComm
+        const notionalQty  = qty / c.leverage
+        const exitCommRate = (exitReason === 'TP' || exitReason === 'SL') ? COMMISSION_MAKER : COMMISSION_TAKER
+        const entryComm    = (pos.entry_price as number) * notionalQty * COMMISSION_TAKER
+        const exitComm     = exitPrice * notionalQty * exitCommRate
+        const totalComm    = entryComm + exitComm
+        const netCapital   = exitReason === 'LIQUIDATED' ? -(pos.capital_used as number) : grossPnl - totalComm
         capital += netCapital
 
         const pnlPct = (grossPnl / (pos.capital_used as number)) * 100
