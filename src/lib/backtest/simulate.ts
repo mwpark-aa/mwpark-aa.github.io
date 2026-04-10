@@ -1,7 +1,8 @@
 import type { Candle, BacktestParams, BacktestResult, BacktestTrade } from './types'
 import type { DailyBar } from './types'
 import {
-  COMMISSION,
+  COMMISSION_TAKER,
+  COMMISSION_MAKER,
   SIGNAL_COOLDOWN,
   DAILY_LOSS_LIMIT_PCT,
   WARMUP_CANDLES,
@@ -218,9 +219,10 @@ export function simulate(
         // 강제 청산: 증거금 전액 손실
         capital -= pos.capitalUsed
 
-        const entryComm = pos.entryPrice * pos.quantity * COMMISSION
-        const exitComm  = liqPrice       * pos.quantity * COMMISSION
-        const totalComm = entryComm + exitComm
+        const notionalQty = pos.quantity / p.leverage
+        const entryComm   = pos.entryPrice * notionalQty * COMMISSION_TAKER
+        const exitComm    = liqPrice       * notionalQty * COMMISSION_TAKER
+        const totalComm   = entryComm + exitComm
 
         const trade: BacktestTrade = {
           signal_type:    pos.signal_type,
@@ -272,11 +274,14 @@ export function simulate(
           ? pos.quantity * (pos.avgEntry - exitPrice)
           : pos.quantity * (exitPrice    - pos.avgEntry)
 
-        // 수수료: 명목 거래액 기준 (레버리지 제외)
-        const notionalQty = pos.quantity / p.leverage
-        const entryComm   = pos.entryPrice * notionalQty * COMMISSION
-        const exitComm    = exitPrice       * notionalQty * COMMISSION
-        const totalComm   = entryComm + exitComm
+        // 수수료: 진입 Taker, TP/SL Maker, SCORE_EXIT Taker
+        const notionalQty  = pos.quantity / p.leverage
+        const exitCommRate = (exitReason === 'TP' || exitReason === 'SL')
+          ? COMMISSION_MAKER
+          : COMMISSION_TAKER
+        const entryComm  = pos.entryPrice * notionalQty * COMMISSION_TAKER
+        const exitComm   = exitPrice       * notionalQty * exitCommRate
+        const totalComm  = entryComm + exitComm
 
         const netCapital = grossPnl - totalComm
         capital += netCapital
@@ -408,8 +413,8 @@ export function simulate(
       : pos.quantity * (exitPrice    - pos.avgEntry)
 
     const notionalQty = pos.quantity / p.leverage
-    const entryComm   = pos.entryPrice * notionalQty * COMMISSION
-    const exitComm    = exitPrice       * notionalQty * COMMISSION
+    const entryComm   = pos.entryPrice * notionalQty * COMMISSION_TAKER
+    const exitComm    = exitPrice       * notionalQty * COMMISSION_TAKER
     const totalComm   = entryComm + exitComm
     const netCapital  = grossPnl - totalComm
     capital += netCapital

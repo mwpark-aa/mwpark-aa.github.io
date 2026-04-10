@@ -153,7 +153,8 @@ export interface DailyBar {
 
 // ── 상수 ─────────────────────────────────────────────────────────
 
-export const COMMISSION         = 0.001   // 바이낸스 선물 기본 수수료율 (0.1%)
+export const COMMISSION_TAKER   = 0.0005  // 시장가 수수료 (진입 / SCORE_EXIT / 강제청산)
+export const COMMISSION_MAKER   = 0.0002  // 지정가 수수료 (TP / SL)
 export const CAPITAL_PER_TRADE  = 0.20    // 포지션 1개당 사용 자본 비율 (마진 기준)
 export const SWING_LOOKBACK     = 4      // 스윙 고저 탐색 범위 (캔들 수)
 export const SIGNAL_COOLDOWN    = 4      // 동일 신호 재발생 억제 기간 (캔들 수)
