@@ -64,7 +64,8 @@ async function fetchCandles(symbol: string, interval: string, limit = 280): Prom
 
 // ── 캔들 → lightweight-charts 포맷 ───────────────────────────
 
-const toT = (ms: number) => Math.floor(ms / 1000) as UTCTimestamp
+const KST_OFFSET_S = 9 * 3600  // lightweight-charts는 초 단위 UTC 기준 → KST +9h
+const toT = (ms: number) => (Math.floor(ms / 1000) + KST_OFFSET_S) as UTCTimestamp
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 
@@ -199,6 +200,17 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#27272a', scaleMargins: { top: 0.08, bottom: 0.08 } },
       timeScale: { borderColor: '#27272a', timeVisible: true, secondsVisible: false },
+      localization: {
+        timeFormatter: (t: number) => {
+          const d = new Date(t * 1000)
+          const y  = d.getUTCFullYear()
+          const mo = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const dd = String(d.getUTCDate()).padStart(2, '0')
+          const hh = String(d.getUTCHours()).padStart(2, '0')
+          const mm = String(d.getUTCMinutes()).padStart(2, '0')
+          return `${y}-${mo}-${dd} ${hh}:${mm}`
+        },
+      },
       handleScroll: true, handleScale: true,
     })
 

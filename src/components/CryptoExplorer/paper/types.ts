@@ -71,7 +71,13 @@ export const fmtPrice = (v: number) =>
 export const fmtPct = (v: number, sign = true) =>
   `${sign && v >= 0 ? '+' : ''}${v.toFixed(2)}%`
 
+const KST_OFFSET = 9 * 3_600_000
+
 export const fmtTime = (iso: string) => {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = new Date(new Date(iso).getTime() + KST_OFFSET)
+  const mo = d.getUTCMonth() + 1
+  const dd = d.getUTCDate()
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const mm = String(d.getUTCMinutes()).padStart(2, '0')
+  return `${mo}/${dd} ${hh}:${mm}`
 }

@@ -684,9 +684,12 @@ Deno.serve(async (req) => {
     }
 
     if (stillOpen.length === 0 && closedThisCycle.length === 0) {
-      // ── 8. 일일 손실 한도 확인 ────────────────────────────
-      const todayStart = new Date(lastCandleEnd)
-      todayStart.setUTCHours(0, 0, 0, 0)
+      // ── 8. 일일 손실 한도 확인 (KST 자정 기준 — 백테스트와 동일) ──
+      const KST_OFFSET_MS = 9 * 3_600_000
+      const kstMs = lastCandleEnd + KST_OFFSET_MS
+      const kstDay = new Date(kstMs)
+      const kstMidnightUTC = Date.UTC(kstDay.getUTCFullYear(), kstDay.getUTCMonth(), kstDay.getUTCDate()) - KST_OFFSET_MS
+      const todayStart = new Date(kstMidnightUTC)
       const { data: todayTrades } = await supabase
         .from('paper_positions')
         .select('net_pnl')

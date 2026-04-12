@@ -1,4 +1,8 @@
 import { useEffect, useRef, memo } from 'react'
+
+const KST_OFFSET_S = 9 * 3600
+const toKST = (ms: number) => (Math.floor(ms / 1000) + KST_OFFSET_S) as UTCTimestamp
+const tsToKST = (iso: string) => toKST(new Date(iso).getTime())
 import Box from '@mui/material/Box'
 import {
   createChart,
@@ -33,7 +37,7 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
   useEffect(() => {
     scrollToRef.current = (ts: string) => {
       if (!chartRef.current) return
-      const t = Math.floor(new Date(ts).getTime() / 1000) as UTCTimestamp
+      const t = tsToKST(ts)
       chartRef.current.timeScale().scrollToPosition(0, false)
       chartRef.current.timeScale().setVisibleRange({
         from: (t - 60 * 60 * 48) as UTCTimestamp,
@@ -72,6 +76,18 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
         borderColor: '#27272a',
         timeVisible: true,
         secondsVisible: false,
+      },
+      localization: {
+        timeFormatter: (t: number) => {
+          // t는 KST 기준 UTCTimestamp(초) → UTC getter로 KST 시각 읽기
+          const d = new Date(t * 1000)
+          const y  = d.getUTCFullYear()
+          const mo = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const dd = String(d.getUTCDate()).padStart(2, '0')
+          const hh = String(d.getUTCHours()).padStart(2, '0')
+          const mm = String(d.getUTCMinutes()).padStart(2, '0')
+          return `${y}-${mo}-${dd} ${hh}:${mm}`
+        },
       },
       handleScroll: true,
       handleScale: true,
@@ -114,14 +130,14 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
 
     const allMarkers: SeriesMarker<Time>[] = []
     for (const t of trades) {
-      const exitTime = Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp
+      const exitTime = tsToKST(t.exit_ts)
       const win = t.net_pnl > 0
       const isShort = t.direction === 'SHORT'
       const isSelected = t.id === selectedTradeId
 
       const entries = parseAddEntries(t)
       for (const e of entries) {
-        const eTime = Math.floor(new Date(e.ts).getTime() / 1000) as UTCTimestamp
+        const eTime = tsToKST(e.ts)
         const color = isSelected ? '#fbbf24' : (isShort ? '#ef4444' : '#3b82f6')
         allMarkers.push({
           time: eTime,

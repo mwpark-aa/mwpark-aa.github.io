@@ -11,7 +11,8 @@ import { simulate } from './backtest/simulate'
 
 export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
   const startMs = new Date(p.startDate).getTime()
-  const endMs   = new Date(p.endDate).getTime()
+  // 종료일을 KST 23:59:59 기준으로 계산 ("YYYY-MM-DD" → UTC 자정 = KST 09:00 이므로 +15h)
+  const endMs   = new Date(p.endDate).getTime() + 15 * 3_600_000
 
   // RVOL168 계산용 워밍업 구간 추가
   const msPerCandle =

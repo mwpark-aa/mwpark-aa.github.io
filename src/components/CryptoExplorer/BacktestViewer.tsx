@@ -148,7 +148,7 @@ export default function BacktestViewer() {
       )
 
       const startMs = new Date(params.startDate).getTime()
-      const endMs = new Date(params.endDate).getTime()
+      const endMs = new Date(params.endDate).getTime() + 15 * 3_600_000  // KST 23:59:59
       const candleData = await fetchOHLCV(selectedSymbol, params.interval, startMs, endMs)
       setCandles(candleData)
       setLastCommittedParams(committed)

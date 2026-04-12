@@ -144,7 +144,7 @@ export default function HistoryList({ history, activating, onActivate, onDelete 
                     }} />
                   ))}
                   <Typography sx={{ fontSize: 8, color: '#27272a', fontFamily: 'monospace', ml: 'auto' }}>
-                    {run.start_date} ~ {new Date(run.created_at).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                    {run.start_date} ~ {new Date(run.created_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })}
                   </Typography>
                 </Box>
               </Box>

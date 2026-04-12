@@ -13,12 +13,16 @@ export function fmtPct(v: number | undefined | null): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
 }
 
+const KST_OFFSET   = 9 * 3_600_000
+const KST_OFFSET_S = 9 * 3600  // 초 단위 (lightweight-charts용)
+
 export function fmtDate(iso: string | undefined | null): string {
   if (!iso) return '-'
   try {
-    const cleaned = iso.split('.')[0]
-    const [date, time] = cleaned.split('T')
-    return `${date} ${time.slice(0, 5)}`
+    const d = new Date(new Date(iso).getTime() + KST_OFFSET)
+    const date = d.toISOString().slice(0, 10)
+    const time = d.toISOString().slice(11, 16)
+    return `${date} ${time}`
   } catch {
     return '-'
   }
@@ -80,7 +84,7 @@ export async function fetchOHLCV(
 
     for (const k of data) {
       candles.push({
-        time: Math.floor(k[0] / 1000) as UTCTimestamp,
+        time: (Math.floor(k[0] / 1000) + KST_OFFSET_S) as UTCTimestamp,
         open: parseFloat(String(k[1])),
         high: parseFloat(String(k[2])),
         low: parseFloat(String(k[3])),

@@ -58,7 +58,7 @@ export default function HistoryPanel({ history, onApply, onDelete }: Props) {
               >
                 <Box onClick={() => onApply(run)} sx={{ display: 'contents' }}>
                   <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
-                    {new Date(run.created_at).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                    {new Date(run.created_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })}
                   </Typography>
                   <Chip
                     label={run.symbol}
