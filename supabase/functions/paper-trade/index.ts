@@ -381,6 +381,22 @@ function scoreShort(row: Candle, c: PaperConfig): number {
   return score
 }
 
+// ── 일봉 추세 맵 헬퍼 (MTF) ──────────────────────────────────
+// fetch.ts의 getDailyBar와 동일 로직
+
+type DailyBar = { close: number; ma120: number | null }
+
+function getDailyBar(map: Map<number, DailyBar>, ts: number): DailyBar | null {
+  const d = new Date(ts)
+  const todayMs    = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  const yesterdayMs = todayMs - 86_400_000
+  for (let i = 0; i < 7; i++) {
+    const bar = map.get(yesterdayMs - i * 86_400_000)
+    if (bar) return bar
+  }
+  return null
+}
+
 // ── TP/SL 계산 ───────────────────────────────────────────────
 
 // lib/backtest/scoring.ts의 calcTPSL과 동일하게 유지
@@ -567,6 +583,19 @@ Deno.serve(async (req) => {
 
     computeIndicators(rows)
 
+    // ── 4.5. 일봉 추세 맵 (MTF) ─────────────────────────────
+    // 백테스트의 buildDailyTrendMap + getDailyBar와 동일 로직
+    let dailyMap: Map<number, DailyBar> | null = null
+    if (c.use_daily_trend) {
+      const DAILY_WARMUP_MS = 220 * 86_400_000
+      const dailyRows = await fetchKlines(c.symbol, '1d', warmupStartTime - DAILY_WARMUP_MS, lastCandleEnd)
+      computeIndicators(dailyRows)
+      dailyMap = new Map()
+      for (const row of dailyRows) {
+        dailyMap.set(row.timestamp, { close: row.close, ma120: row.ma120 ?? null })
+      }
+    }
+
     const n         = rows.length
     const latestRow = rows[n - 1]!
     const iso       = (ts: number) => new Date(ts).toISOString()
@@ -672,18 +701,18 @@ Deno.serve(async (req) => {
         debugInfo.skipped = 'daily_loss_limit'
       } else {
         // ── 9. 쿨다운 확인 (백테스트와 동일: 신호별 4캔들) ──
+        // 방향별로 각각 마지막 1건씩 조회 (limit(2) 사용 시 같은 방향 2개로 채워질 경우 버그)
         const cooldownMs = SIGNAL_COOLDOWN * intervalMs
-        const { data: lastEntries } = await supabase
-          .from('paper_positions')
-          .select('entry_time, direction')
-          .eq('backtest_run_id', c.id)
-          .order('entry_time', { ascending: false })
-          .limit(2)
-
-        const lastLong  = lastEntries?.find(p => p.direction === 'LONG')
-        const lastShort = lastEntries?.find(p => p.direction === 'SHORT')
-        const longReady  = !lastLong  || (lastCandleEnd - new Date(lastLong.entry_time).getTime())  >= cooldownMs
-        const shortReady = !lastShort || (lastCandleEnd - new Date(lastShort.entry_time).getTime()) >= cooldownMs
+        const [{ data: lastLongEntry }, { data: lastShortEntry }] = await Promise.all([
+          supabase.from('paper_positions')
+            .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'LONG')
+            .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('paper_positions')
+            .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'SHORT')
+            .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
+        ])
+        const longReady  = !lastLongEntry  || (lastCandleEnd - new Date(lastLongEntry.entry_time).getTime())  >= cooldownMs
+        const shortReady = !lastShortEntry || (lastCandleEnd - new Date(lastShortEntry.entry_time).getTime()) >= cooldownMs
         debugInfo.long_ready = longReady; debugInfo.short_ready = shortReady
 
         // ── 10. 신호 감지 ─────────────────────────────────
@@ -701,13 +730,24 @@ Deno.serve(async (req) => {
           const { type: signalType, score } = signal
           const isShort = signalType === 'SHORT'
 
-          // MA120 추세 필터 (백테스트 simulate.ts line 350-353과 동일)
+          // MA120 추세 필터 (백테스트 simulate.ts와 동일)
           const ma120Blocked =
             latestRow.ma120 != null && (
               ( isShort && latestRow.close > latestRow.ma120) ||
               (!isShort && latestRow.close < latestRow.ma120)
             )
           debugInfo.ma120_blocked = ma120Blocked
+
+          // 일봉 추세 필터 (MTF) — 백테스트 simulate.ts dailyMap 블록과 동일
+          let mtfBlocked = false
+          if (dailyMap) {
+            const daily = getDailyBar(dailyMap, latestRow.timestamp)
+            if (daily && daily.ma120 != null) {
+              if (!isShort && daily.close < daily.ma120) mtfBlocked = true  // 일봉 하락장 → 롱 스킵
+              if ( isShort && daily.close > daily.ma120) mtfBlocked = true  // 일봉 상승장 → 숏 스킵
+            }
+            debugInfo.mtf_blocked = mtfBlocked
+          }
 
           // ── 11. 진입가: 다음 캔들 시가 (백테스트와 동일) ─
           // 백테스트: rows[i].open (신호 캔들 다음 봉 시가)
@@ -719,7 +759,7 @@ Deno.serve(async (req) => {
           } catch { /* fallback to close */ }
           debugInfo.entry_price = entryPrice
 
-          const { tp, sl } = ma120Blocked
+          const { tp, sl } = (ma120Blocked || mtfBlocked)
             ? { tp: null, sl: null }
             : calcTPSL(signalType, entryPrice, c)
 
