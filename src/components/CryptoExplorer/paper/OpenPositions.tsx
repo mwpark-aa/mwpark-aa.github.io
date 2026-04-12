@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
-import type { PaperPos, ActiveConfig } from './types'
+import type { PaperPos } from './types'
 import { fmtPrice, fmtPct, fmtTime } from './types'
 
 function OpenPositionRow({ pos, currentPrice }: { pos: PaperPos; currentPrice?: number }) {
@@ -116,12 +116,11 @@ function OpenPositionRow({ pos, currentPrice }: { pos: PaperPos; currentPrice?: 
 
 interface Props {
   openPos: PaperPos[]
-  prices: Record<string, number>
-  configs: ActiveConfig[]
+  currentPrice: number | null
+  symbol: string
 }
 
-export default function OpenPositions({ openPos, prices, configs }: Props) {
-  const configMap = Object.fromEntries(configs.map(c => [c.id, c]))
+export default function OpenPositions({ openPos, currentPrice, symbol }: Props) {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -146,22 +145,13 @@ export default function OpenPositions({ openPos, prices, configs }: Props) {
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {openPos.map(pos => {
-            const cfg = configMap[pos.backtest_run_id]
-            const configLabel = cfg
-              ? (cfg.name ?? `${cfg.symbol} ${cfg.interval} 점수${cfg.min_score}+`)
-              : null
-            return (
-              <Box key={pos.id}>
-                {configLabel && configs.length > 1 && (
-                  <Typography sx={{ fontSize: 9, color: '#3f3f46', px: 0.5, mb: 0.25 }}>
-                    {configLabel}
-                  </Typography>
-                )}
-                <OpenPositionRow pos={pos} currentPrice={prices[pos.symbol]} />
-              </Box>
-            )
-          })}
+          {openPos.map(pos => (
+            <OpenPositionRow
+              key={pos.id}
+              pos={pos}
+              currentPrice={pos.symbol === symbol ? currentPrice ?? undefined : undefined}
+            />
+          ))}
         </Box>
       )}
     </Box>

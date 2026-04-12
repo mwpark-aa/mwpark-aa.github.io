@@ -400,55 +400,70 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
       </Box>
 
       {/* ── 전략 기본 설정 ── */}
-      <Box>
-        <Typography sx={{ ...labelSx, mb: 1, color: '#71717a' }}>전략 기본 설정</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 1.5 }}>
-          <Box>
-            <LabelRow label="레버리지" hintId="leverage"
-              hint={'"얼마나 크게 배팅하냐"\n10x면 $1,000으로 $10,000 포지션.\n높을수록 수익·손실 폭 커지고 청산 위험 증가.'} />
-            <input type="number" min={1} max={200}
-              value={draft.leverage ?? String(params.leverage)} style={inputStyle}
-              onChange={e => setDraft(d => ({ ...d, leverage: e.target.value }))} />
-          </Box>
-          <Box>
-            <LabelRow label="초기 자본금 ($)" hintId="capital"
-              hint={'"백테스트 시작 시 가상 보유금"\n실제 투자금이 아닌 시뮬레이션용.\n수익률·MDD 계산의 기준이 됨.'} />
-            <input type="number" min={100} step={100}
-              value={draft.initialCapital ?? String(params.initialCapital)} style={inputStyle}
-              onChange={e => setDraft(d => ({ ...d, initialCapital: e.target.value }))} />
-          </Box>
-        </Box>
-      </Box>
+        <Box>
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)', // 👈 핵심
+                    gap: 1.5
+                }}
+            >
+                {/* 레버리지 */}
+                <Box>
+                    <LabelRow label="레버리지" hintId="leverage"
+                              hint={'"얼마나 크게 배팅하냐"\n10x면 $1,000으로 $10,000 포지션.\n높을수록 수익·손실 폭 커지고 청산 위험 증가.'}
+                    />
+                    <input
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={draft.leverage ?? String(params.leverage)}
+                        style={inputStyle}
+                        onChange={e => setDraft(d => ({ ...d, leverage: e.target.value }))}
+                    />
+                </Box>
 
-      {/* ── TP/SL 설정 ── */}
-      <Box>
-        <Typography sx={{ ...labelSx, mb: 1, color: '#a1a1aa' }}>TP / SL 설정</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 180px' }, gap: 1.5 }}>
-          <Box>
-            <LabelRow label="익절 % (+N)" hintId="fixedTP"
-              hint={'"진입가 기준 N% 오르면 무조건 익절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 익절.'} />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{ fontSize: 11, color: '#10b981', fontWeight: 700, flexShrink: 0 }}>+</Typography>
-              <input type="number" min={0.1} max={100} step={0.5}
-                value={draft.fixedTP ?? String(params.fixedTP)} style={inputStyle}
-                onChange={e => setDraft(d => ({ ...d, fixedTP: e.target.value }))} />
-              <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
-            </Box>
-          </Box>
-          <Box>
-            <LabelRow label="손절 % (-M)" hintId="fixedSL"
-              hint={'"진입가 기준 M% 내리면 무조건 손절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 손절.'} />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{ fontSize: 11, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>−</Typography>
-              <input type="number" min={0.1} max={100} step={0.5}
-                value={draft.fixedSL ?? String(params.fixedSL)} style={inputStyle}
-                onChange={e => setDraft(d => ({ ...d, fixedSL: e.target.value }))} />
-              <Typography sx={{ fontSize: 11, color: '#52525b', flexShrink: 0 }}>%</Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+                {/* 익절 */}
+                <Box>
+                    <LabelRow label="익절 % (+N)" hintId="fixedTP"
+                              hint={'"진입가 기준 N% 오르면 무조건 익절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 익절.'}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Typography sx={{ fontSize: 11, color: '#10b981', fontWeight: 700 }}>+</Typography>
+                        <input
+                            type="number"
+                            min={0.1}
+                            max={100}
+                            step={0.5}
+                            value={draft.fixedTP ?? String(params.fixedTP)}
+                            style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, fixedTP: e.target.value }))}
+                        />
+                        <Typography sx={{ fontSize: 11, color: '#52525b' }}>%</Typography>
+                    </Box>
+                </Box>
 
+                {/* 손절 */}
+                <Box>
+                    <LabelRow label="손절 % (-M)" hintId="fixedSL"
+                              hint={'"진입가 기준 M% 내리면 무조건 손절"\n현물 기준 (레버리지 무관).\nRR 필터 없이 무조건 해당 %로 손절.'}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Typography sx={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>−</Typography>
+                        <input
+                            type="number"
+                            min={0.1}
+                            max={100}
+                            step={0.5}
+                            value={draft.fixedSL ?? String(params.fixedSL)}
+                            style={inputStyle}
+                            onChange={e => setDraft(d => ({ ...d, fixedSL: e.target.value }))}
+                        />
+                        <Typography sx={{ fontSize: 11, color: '#52525b' }}>%</Typography>
+                    </Box>
+                </Box>
+            </Box>
+        </Box>
       {/* ── MTF 일봉 추세 필터 ── */}
       <Box
         sx={{

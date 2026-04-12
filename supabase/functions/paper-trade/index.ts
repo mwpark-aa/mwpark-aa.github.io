@@ -11,11 +11,13 @@ const corsHeaders = {
 
 // ── 상수 ─────────────────────────────────────────────────────
 
-const COMMISSION_TAKER   = 0.0005  // 시장가 (진입 / SCORE_EXIT / 강제청산)
-const COMMISSION_MAKER   = 0.0002  // 지정가 (TP / SL)
-const CAPITAL_PER_TRADE  = 0.20   // 포지션 1개당 사용 자본 비율 (마진 기준 20%)
-const SWING_LOOKBACK    = 4
-const WARMUP_CANDLES    = 200   // 지표 계산용 워밍업 (168봉 이상)
+const COMMISSION_TAKER    = 0.0005  // 시장가 (진입 / SCORE_EXIT / 강제청산)
+const COMMISSION_MAKER    = 0.0002  // 지정가 (TP / SL)
+const CAPITAL_PER_TRADE   = 0.20    // 포지션 1개당 사용 자본 비율 (마진 기준 20%)
+const SWING_LOOKBACK      = 4
+const WARMUP_CANDLES      = 200     // 지표 계산용 워밍업 (168봉 이상)
+const SIGNAL_COOLDOWN     = 4       // 동일 신호 재발생 억제 기간 (캔들 수)
+const DAILY_LOSS_LIMIT    = 0.06    // 하루 최대 손실 비율 (초기 자본 대비)
 
 // ── 타입 ─────────────────────────────────────────────────────
 
@@ -418,7 +420,10 @@ interface SignalResult {
   swingHigh: number
 }
 
-function detectSignal(rows: Candle[], i: number, c: PaperConfig): SignalResult | null {
+function detectSignal(
+  rows: Candle[], i: number, c: PaperConfig,
+  longReady = true, shortReady = true,
+): SignalResult | null {
   if (i < 1) return null
   const curr = rows[i]!
   const rvol = curr.vol_rvol168 ?? 1.0
@@ -440,11 +445,11 @@ function detectSignal(rows: Candle[], i: number, c: PaperConfig): SignalResult |
   const isUptrend   = !useMA || (curr.ma20! > curr.ma60! && curr.close > curr.ma60!)
   const isDowntrend = !useMA || (curr.ma20! < curr.ma60! && curr.close < curr.ma60!)
 
-  if (isUptrend) {
+  if (isUptrend && longReady) {
     const score = scoreLong(rowL, c)
     if (score >= c.min_score) return { type: 'LONG', score, swingLow, swingHigh }
   }
-  if (isDowntrend) {
+  if (isDowntrend && shortReady) {
     const score = scoreShort(rowS, c)
     if (score >= c.min_score) return { type: 'SHORT', score, swingLow, swingHigh }
   }
@@ -513,146 +518,206 @@ Deno.serve(async (req) => {
   )
 
   try {
-    // ── 1. 활성 설정 전체 로드 ───────────────────────────────
-    const { data: configRows, error: cfgErr } = await supabase
+    // ── 1. 활성 설정 로드 ─────────────────────────────────────
+    const { data: config, error: cfgErr } = await supabase
       .from('backtest_runs')
       .select('*')
       .eq('paper_trading_enabled', true)
+      .maybeSingle()
 
     if (cfgErr) throw cfgErr
-    if (!configRows || configRows.length === 0) {
+    if (!config) {
       return new Response(JSON.stringify({ message: '활성 페이퍼 설정 없음' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // ── 2. 자본 로드 ─────────────────────────────────────────
+    const c = config as PaperConfig
+
+    // ── 2. 인터벌 계산 및 최신 마감 캔들 시간 ────────────────
+    const intervalMs      = intervalToMs(c.interval)
+    const now             = Date.now()
+    const lastCandleEnd   = Math.floor(now / intervalMs) * intervalMs
+    const warmupStartTime = lastCandleEnd - WARMUP_CANDLES * intervalMs
+
+    // ── 3. 이미 처리한 캔들인지 확인 ─────────────────────────
     const { data: account } = await supabase
       .from('paper_account')
       .select('*')
       .eq('id', 1)
       .single()
 
-    let capital = account?.capital ?? (configRows[0] as PaperConfig).initial_capital ?? 10000
-    const iso   = (ts: number) => new Date(ts).toISOString()
-    const now   = Date.now()
-    let latestCandleEnd = 0
-
-    const allResults: Record<string, unknown>[] = []
-
-    // ── 3. 각 설정별 처리 (공유 자본) ────────────────────────
-    for (const cfg of configRows) {
-      const c = cfg as PaperConfig
-
-      const intervalMs      = intervalToMs(c.interval)
-      const lastCandleEnd   = Math.floor(now / intervalMs) * intervalMs
-      const warmupStartTime = lastCandleEnd - WARMUP_CANDLES * intervalMs
-      if (lastCandleEnd > latestCandleEnd) latestCandleEnd = lastCandleEnd
-
-      // 캔들 fetch
-      let rows: Candle[]
-      try {
-        rows = await fetchKlines(c.symbol, c.interval, warmupStartTime, lastCandleEnd)
-      } catch (e) {
-        allResults.push({ config_id: c.id, symbol: c.symbol, error: String(e) })
-        continue
+    if (account?.last_processed_ts) {
+      const lastProcessed = new Date(account.last_processed_ts).getTime()
+      if (lastProcessed >= lastCandleEnd) {
+        return new Response(JSON.stringify({
+          message: '이미 처리됨',
+          last_processed: account.last_processed_ts,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
-      if (rows.length < 50) {
-        allResults.push({ config_id: c.id, symbol: c.symbol, skipped: 'insufficient_candles', count: rows.length })
-        continue
+    }
+
+    // ── 4. 캔들 데이터 fetch ──────────────────────────────────
+    const rows = await fetchKlines(c.symbol, c.interval, warmupStartTime, lastCandleEnd)
+    if (rows.length < 50) {
+      return new Response(JSON.stringify({ message: '캔들 데이터 부족', count: rows.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    computeIndicators(rows)
+
+    const n         = rows.length
+    const latestRow = rows[n - 1]!
+    const iso       = (ts: number) => new Date(ts).toISOString()
+
+    // ── 5. 자본 및 오픈 포지션 로드 ──────────────────────────
+    let capital = account?.capital ?? 10000
+
+    const { data: openPositions } = await supabase
+      .from('paper_positions')
+      .select('*')
+      .eq('status', 'OPEN')
+      .eq('backtest_run_id', c.id)
+
+    const positions       = openPositions ?? []
+    const closedThisCycle: string[] = []
+
+    // ── 6. 오픈 포지션 SL / TP / SCORE_EXIT 체크 ─────────────
+    for (const pos of positions) {
+      const isShort    = pos.direction === 'SHORT'
+      const tp: number = pos.target_price
+      const sl: number = pos.stop_loss
+
+      const liqPrice = isShort
+        ? pos.entry_price * (1 + 1 / c.leverage)
+        : pos.entry_price * (1 - 1 / c.leverage)
+      const liqHit = isShort ? latestRow.high >= liqPrice : latestRow.low <= liqPrice
+
+      const currentScore = isShort ? scoreShort(latestRow, c) : scoreLong(latestRow, c)
+      const scoreExitHit = c.score_exit_threshold > 0 && currentScore <= c.score_exit_threshold
+
+      const slHit = isShort ? latestRow.high >= sl : latestRow.low  <= sl
+      const tpHit = isShort ? latestRow.low  <= tp : latestRow.high >= tp
+
+      let exitPrice: number | null = null
+      let exitReason = ''
+
+      if      (liqHit)       { exitPrice = liqPrice;        exitReason = 'LIQUIDATED' }
+      else if (slHit)        { exitPrice = sl;               exitReason = 'SL'         }
+      else if (scoreExitHit) { exitPrice = latestRow.close;  exitReason = 'SCORE_EXIT' }
+      else if (tpHit)        { exitPrice = tp;               exitReason = 'TP'         }
+
+      if (exitPrice != null) {
+        const qty      = pos.quantity as number
+        const grossPnl = exitReason === 'LIQUIDATED'
+          ? -pos.capital_used
+          : isShort
+            ? qty * (pos.entry_price - exitPrice)
+            : qty * (exitPrice - pos.entry_price)
+
+        const notionalQty  = qty / c.leverage
+        const exitCommRate = (exitReason === 'TP' || exitReason === 'SL') ? COMMISSION_MAKER : COMMISSION_TAKER
+        const entryComm    = (pos.entry_price as number) * notionalQty * COMMISSION_TAKER
+        const exitComm     = exitPrice * notionalQty * exitCommRate
+        const totalComm    = entryComm + exitComm
+        const netCapital   = exitReason === 'LIQUIDATED' ? -(pos.capital_used as number) : grossPnl - totalComm
+        capital += netCapital
+
+        const pnlPct = (grossPnl / (pos.capital_used as number)) * 100
+
+        await supabase
+          .from('paper_positions')
+          .update({
+            status:      'CLOSED',
+            exit_price:  Math.round(exitPrice * 1e6) / 1e6,
+            exit_time:   iso(latestRow.timestamp),
+            exit_reason: exitReason,
+            net_pnl:     Math.round(grossPnl * 10000) / 10000,
+            pnl_pct:     Math.round(pnlPct   * 10000) / 10000,
+          })
+          .eq('id', pos.id)
+
+        closedThisCycle.push(pos.id)
       }
+    }
 
-      computeIndicators(rows)
-      const n         = rows.length
-      const latestRow = rows[n - 1]!
+    // ── 7. 오픈 포지션 없고 이번 사이클에 청산 없을 때만 진입 체크 ──
+    // (백테스트와 동일: 청산한 캔들에서 재진입 금지)
+    const stillOpen = positions.filter(p => !closedThisCycle.includes(p.id))
 
-      // 오픈 포지션 로드
-      const { data: openPositions } = await supabase
+    let newPosition: Record<string, unknown> | null = null
+    const debugInfo: Record<string, unknown> = {
+      candle_count:      n,
+      open_before:       positions.length,
+      closed_this_cycle: closedThisCycle.length,
+      still_open:        stillOpen.length,
+    }
+
+    if (stillOpen.length === 0 && closedThisCycle.length === 0) {
+      // ── 8. 일일 손실 한도 확인 ────────────────────────────
+      const todayStart = new Date(lastCandleEnd)
+      todayStart.setUTCHours(0, 0, 0, 0)
+      const { data: todayTrades } = await supabase
         .from('paper_positions')
-        .select('*')
-        .eq('status', 'OPEN')
+        .select('net_pnl')
         .eq('backtest_run_id', c.id)
+        .eq('status', 'CLOSED')
+        .gte('exit_time', todayStart.toISOString())
 
-      const positions       = openPositions ?? []
-      const closedThisCycle: string[] = []
+      const dailyLoss = (todayTrades ?? []).reduce((s, t) => s + (t.net_pnl ?? 0), 0)
+      debugInfo.daily_loss = dailyLoss
 
-      // ── SL / TP / SCORE_EXIT 체크 ─────────────────────────
-      for (const pos of positions) {
-        const isShort    = pos.direction === 'SHORT'
-        const tp: number = pos.target_price
-        const sl: number = pos.stop_loss
+      if (dailyLoss < -(account?.initial_capital ?? 10000) * DAILY_LOSS_LIMIT) {
+        debugInfo.skipped = 'daily_loss_limit'
+      } else {
+        // ── 9. 쿨다운 확인 (백테스트와 동일: 신호별 4캔들) ──
+        const cooldownMs = SIGNAL_COOLDOWN * intervalMs
+        const { data: lastEntries } = await supabase
+          .from('paper_positions')
+          .select('entry_time, direction')
+          .eq('backtest_run_id', c.id)
+          .order('entry_time', { ascending: false })
+          .limit(2)
 
-        const liqPrice = isShort
-          ? pos.entry_price * (1 + 1 / c.leverage)
-          : pos.entry_price * (1 - 1 / c.leverage)
-        const liqHit = isShort ? latestRow.high >= liqPrice : latestRow.low <= liqPrice
+        const lastLong  = lastEntries?.find(p => p.direction === 'LONG')
+        const lastShort = lastEntries?.find(p => p.direction === 'SHORT')
+        const longReady  = !lastLong  || (lastCandleEnd - new Date(lastLong.entry_time).getTime())  >= cooldownMs
+        const shortReady = !lastShort || (lastCandleEnd - new Date(lastShort.entry_time).getTime()) >= cooldownMs
+        debugInfo.long_ready = longReady; debugInfo.short_ready = shortReady
 
-        const currentScore = isShort ? scoreShort(latestRow, c) : scoreLong(latestRow, c)
-        const scoreExitHit = c.score_exit_threshold > 0 && currentScore <= c.score_exit_threshold
+        // ── 10. 신호 감지 ─────────────────────────────────
+        const signalIdx = n - 1   // 방금 마감한 캔들 (백테스트의 i-1)
+        const signal    = detectSignal(rows, signalIdx, c, longReady, shortReady)
 
-        const slHit = isShort ? latestRow.high >= sl : latestRow.low  <= sl
-        const tpHit = isShort ? latestRow.low  <= tp : latestRow.high >= tp
-
-        let exitPrice: number | null = null
-        let exitReason = ''
-
-        if      (liqHit)       { exitPrice = liqPrice;       exitReason = 'LIQUIDATED' }
-        else if (slHit)        { exitPrice = sl;              exitReason = 'SL'         }
-        else if (scoreExitHit) { exitPrice = latestRow.close; exitReason = 'SCORE_EXIT' }
-        else if (tpHit)        { exitPrice = tp;              exitReason = 'TP'         }
-
-        if (exitPrice != null) {
-          const qty      = pos.quantity as number
-          const grossPnl = exitReason === 'LIQUIDATED'
-            ? -pos.capital_used
-            : isShort
-              ? qty * (pos.entry_price - exitPrice)
-              : qty * (exitPrice - pos.entry_price)
-
-          const notionalQty  = qty / c.leverage
-          const exitCommRate = (exitReason === 'TP' || exitReason === 'SL') ? COMMISSION_MAKER : COMMISSION_TAKER
-          const entryComm    = (pos.entry_price as number) * notionalQty * COMMISSION_TAKER
-          const exitComm     = exitPrice * notionalQty * exitCommRate
-          const totalComm    = entryComm + exitComm
-          const netCapital   = exitReason === 'LIQUIDATED' ? -(pos.capital_used as number) : grossPnl - totalComm
-          capital += netCapital
-
-          const pnlPct = (grossPnl / (pos.capital_used as number)) * 100
-
-          await supabase
-            .from('paper_positions')
-            .update({
-              status:      'CLOSED',
-              exit_price:  Math.round(exitPrice * 1e6) / 1e6,
-              exit_time:   iso(latestRow.timestamp),
-              exit_reason: exitReason,
-              net_pnl:     Math.round(grossPnl * 10000) / 10000,
-              pnl_pct:     Math.round(pnlPct   * 10000) / 10000,
-            })
-            .eq('id', pos.id)
-
-          closedThisCycle.push(pos.id)
+        debugInfo.signal = signal ? { type: signal.type, score: signal.score } : null
+        debugInfo.latest_indicators = {
+          close: latestRow.close, rsi: latestRow.rsi14, adx: latestRow.adx14,
+          macd: latestRow.macd_hist, rvol: latestRow.vol_rvol168,
+          ma20: latestRow.ma20, ma60: latestRow.ma60, ma120: latestRow.ma120, atr: latestRow.atr14,
         }
-      }
-
-      // ── 신규 진입 체크 ────────────────────────────────────
-      const stillOpen    = positions.filter(p => !closedThisCycle.includes(p.id))
-      let newPosition: Record<string, unknown> | null = null
-
-      if (stillOpen.length === 0) {
-        const signalIdx = n - 1
-        const signal    = detectSignal(rows, signalIdx, c)
 
         if (signal) {
-          const { type: signalType, score, swingLow, swingHigh } = signal
-          const isShort    = signalType === 'SHORT'
-          const entryPrice = latestRow.close
+          const { type: signalType, score } = signal
+          const isShort = signalType === 'SHORT'
 
+          // MA120 추세 필터 (백테스트 simulate.ts line 350-353과 동일)
           const ma120Blocked =
             latestRow.ma120 != null && (
               ( isShort && latestRow.close > latestRow.ma120) ||
               (!isShort && latestRow.close < latestRow.ma120)
             )
+          debugInfo.ma120_blocked = ma120Blocked
+
+          // ── 11. 진입가: 다음 캔들 시가 (백테스트와 동일) ─
+          // 백테스트: rows[i].open (신호 캔들 다음 봉 시가)
+          // 페이퍼: lastCandleEnd 시작 캔들의 시가
+          let entryPrice = latestRow.close  // 기본값 (fallback)
+          try {
+            const nextRows = await fetchKlines(c.symbol, c.interval, lastCandleEnd, lastCandleEnd + intervalMs)
+            if (nextRows.length > 0) entryPrice = nextRows[0]!.open
+          } catch { /* fallback to close */ }
+          debugInfo.entry_price = entryPrice
 
           const { tp, sl } = ma120Blocked
             ? { tp: null, sl: null }
@@ -660,6 +725,7 @@ Deno.serve(async (req) => {
 
           if (tp != null && sl != null) {
             const { quantity, capitalUsed } = calcPositionSize(capital, entryPrice, sl, c.leverage)
+            debugInfo.quantity = quantity; debugInfo.capital_used = capitalUsed
 
             if (quantity > 0) {
               const signalDetails = buildSignalDetails(latestRow, c, signalType)
@@ -676,47 +742,42 @@ Deno.serve(async (req) => {
                 capital_used:          Math.round(capitalUsed * 1e4) / 1e4,
                 original_quantity:     Math.round(quantity    * 1e8) / 1e8,
                 original_capital_used: Math.round(capitalUsed * 1e4) / 1e4,
-                entry_time:            iso(latestRow.timestamp),
+                // 백테스트와 동일: 진입 시각 = 다음 캔들 시작 시각
+                entry_time:            iso(lastCandleEnd),
                 signal_details:        signalDetails,
                 score,
                 status:                'OPEN',
                 peak_price:            Math.round(entryPrice * 1e6) / 1e6,
-                last_candle_ts:        iso(latestRow.timestamp),
+                last_candle_ts:        iso(lastCandleEnd),
               }
               const { error: insertErr } = await supabase.from('paper_positions').insert(newPosition)
               if (insertErr) {
-                console.error('[paper-trade] insert error:', insertErr.message)
+                debugInfo.insert_error = insertErr.message
                 newPosition = null
               }
             }
           }
         }
       }
-
-      allResults.push({
-        config_id: c.id,
-        symbol:    c.symbol,
-        closed:    closedThisCycle.length,
-        opened:    newPosition ? 1 : 0,
-      })
     }
 
-    // ── 4. 자본 및 처리 시각 업데이트 ────────────────────────
-    if (latestCandleEnd > 0) {
-      await supabase
-        .from('paper_account')
-        .upsert({
-          id:                1,
-          capital:           Math.round(capital * 100) / 100,
-          updated_at:        iso(latestCandleEnd),
-          last_processed_ts: iso(latestCandleEnd),
-        }, { onConflict: 'id' })
-    }
+    // ── 9. 자본 및 처리 시각 업데이트 ────────────────────────
+    await supabase
+      .from('paper_account')
+      .upsert({
+        id:                1,
+        capital:           Math.round(capital * 100) / 100,
+        updated_at:        iso(latestRow.timestamp),
+        last_processed_ts: iso(lastCandleEnd),
+      }, { onConflict: 'id' })
 
     return new Response(JSON.stringify({
-      ok:      true,
-      capital: Math.round(capital * 100) / 100,
-      configs: allResults,
+      ok:          true,
+      candle_time: iso(latestRow.timestamp),
+      closed:      closedThisCycle.length,
+      opened:      newPosition ? 1 : 0,
+      capital:     Math.round(capital * 100) / 100,
+      debug:       debugInfo,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
-import Chip from '@mui/material/Chip'
 import type { ActiveConfig, PaperAccount } from './types'
 import { fmtTime } from './types'
 
@@ -29,6 +28,11 @@ export default function ConfigBanner({ configs, account }: Props) {
           실제 체결 시점과 최대{' '}
           <Box component="span" sx={{ color: '#52525b', fontFamily: 'monospace' }}>1캔들</Box>
           의 차이가 발생할 수 있습니다.
+          {account?.last_processed_ts && (
+            <Box component="span" sx={{ color: '#3f3f46', ml: 1, fontFamily: 'monospace' }}>
+              (마지막 실행 {fmtTime(account.last_processed_ts)})
+            </Box>
+          )}
         </Typography>
       </Box>
     </>
