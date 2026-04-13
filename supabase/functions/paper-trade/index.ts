@@ -40,7 +40,6 @@ interface PaperConfig {
   symbol: string
   interval: string
   leverage: number
-  min_rr: number
   rsi_oversold: number
   rsi_overbought: number
   min_score: number
@@ -762,15 +761,14 @@ Deno.serve(async (req) => {
             ? qty * (pos.entry_price - exitPrice)
             : qty * (exitPrice - pos.entry_price)
 
-        const notionalQty  = qty / c.leverage
         const exitCommRate = (exitReason === 'TP' || exitReason === 'SL') ? COMMISSION_MAKER : COMMISSION_TAKER
-        const entryComm    = (pos.entry_price as number) * notionalQty * COMMISSION_TAKER
-        const exitComm     = exitPrice * notionalQty * exitCommRate
+        const entryComm    = (pos.entry_price as number) * qty * COMMISSION_TAKER
+        const exitComm     = exitPrice * qty * exitCommRate
         const totalComm    = entryComm + exitComm
         const netCapital   = exitReason === 'LIQUIDATED' ? -(pos.capital_used as number) : grossPnl - totalComm
         capital += netCapital
 
-        const pnlPct = (grossPnl / (pos.capital_used as number)) * 100
+        const pnlPct = (netCapital / (pos.capital_used as number)) * 100
 
         await supabase
           .from('paper_positions')
@@ -779,7 +777,7 @@ Deno.serve(async (req) => {
             exit_price:  Math.round(exitPrice * 1e6) / 1e6,
             exit_time:   iso(latestRow.timestamp),
             exit_reason: exitReason,
-            net_pnl:     Math.round(grossPnl * 10000) / 10000,
+            net_pnl:     Math.round(netCapital * 10000) / 10000,
             pnl_pct:     Math.round(pnlPct   * 10000) / 10000,
           })
           .eq('id', pos.id)

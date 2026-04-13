@@ -75,7 +75,6 @@ export interface RunHistory {
   start_date: string
   end_date: string
   leverage: number
-  min_rr: number
   rsi_oversold: number
   rsi_overbought: number
   min_score: number
