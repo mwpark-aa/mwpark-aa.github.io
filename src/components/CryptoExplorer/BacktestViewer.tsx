@@ -73,6 +73,7 @@ export default function BacktestViewer() {
     fedLiquidityMAPeriod: 13,
     cciOversold: -100,
     cciOverbought: 100,
+    cciMaxEntry: 0,
     fixedTP: 2,
     fixedSL: 1,
     tpslMode: 'fixed' as const,
@@ -88,7 +89,7 @@ export default function BacktestViewer() {
     rvolThreshold: '1.5', rvolSkip: '0.4',
     fixedTP: '2', fixedSL: '1',
     scoreExitThreshold: '0',
-    cciOversold: '-100', cciOverbought: '100',
+    cciOversold: '-100', cciOverbought: '100', cciMaxEntry: '0',
   })
 
   const handleScrollTo = useCallback((ts: string) => {
@@ -113,6 +114,7 @@ export default function BacktestViewer() {
       scoreExitThreshold:  parseFloat(draft.scoreExitThreshold)  || 0,
       cciOversold:         parseFloat(draft.cciOversold)         || -100,
       cciOverbought:       parseFloat(draft.cciOverbought)       || 100,
+      cciMaxEntry:         parseFloat(draft.cciMaxEntry)         || 0,
       tpslMode:            params.tpslMode,
       useDailyTrend:       params.useDailyTrend,
     }
@@ -192,6 +194,7 @@ export default function BacktestViewer() {
         fed_liquidity_ma_period: params.fedLiquidityMAPeriod,
         cci_oversold: lastCommittedParams.cciOversold,
         cci_overbought: lastCommittedParams.cciOverbought,
+        cci_max_entry: lastCommittedParams.cciMaxEntry,
         fixed_tp: lastCommittedParams.fixedTP,
         fixed_sl: lastCommittedParams.fixedSL,
         score_exit_threshold: lastCommittedParams.scoreExitThreshold,
@@ -237,6 +240,7 @@ export default function BacktestViewer() {
       fedLiquidityMAPeriod: (best as any).fed_liquidity_ma_period ?? 13,
       cciOversold: (best as any).cci_oversold ?? -100,
       cciOverbought: (best as any).cci_overbought ?? 100,
+      cciMaxEntry: (best as any).cci_max_entry ?? 0,
       fixedTP: (best as any).fixed_tp ?? 0, fixedSL: (best as any).fixed_sl ?? 0,
       scoreExitThreshold: (best as any).score_exit_threshold ?? 0,
       useDailyTrend: (best as any).use_daily_trend ?? false,
@@ -252,6 +256,7 @@ export default function BacktestViewer() {
       scoreExitThreshold: String((best as any).score_exit_threshold ?? 0),
       cciOversold: String((best as any).cci_oversold ?? -100),
       cciOverbought: String((best as any).cci_overbought ?? 100),
+      cciMaxEntry: String((best as any).cci_max_entry ?? 0),
     }))
   }, [])
 
@@ -295,6 +300,7 @@ export default function BacktestViewer() {
       fedLiquidityMAPeriod: (run as any).fed_liquidity_ma_period ?? 13,
       cciOversold: (run as any).cci_oversold ?? -100,
       cciOverbought: (run as any).cci_overbought ?? 100,
+      cciMaxEntry: (run as any).cci_max_entry ?? 0,
       adxThreshold: run.adx_threshold ?? 20, rvolThreshold: run.rvol_threshold ?? 1.5,
       rvolSkip: run.rvol_skip ?? 0.4,
       fixedTP: (run as any).fixed_tp ?? 0, fixedSL: (run as any).fixed_sl ?? 0,
@@ -311,6 +317,7 @@ export default function BacktestViewer() {
       scoreExitThreshold: String((run as any).score_exit_threshold ?? 0),
       cciOversold: String((run as any).cci_oversold ?? -100),
       cciOverbought: String((run as any).cci_overbought ?? 100),
+      cciMaxEntry: String((run as any).cci_max_entry ?? 0),
     })
     setShowHistory(false)
     setShowParams(true)

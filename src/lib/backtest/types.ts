@@ -31,6 +31,7 @@ export interface BacktestParams {
   fedLiquidityMAPeriod: number   // MA 기간 (주 단위, 기본 13 ≈ 3개월)
   cciOversold: number            // CCI 과매도 기준 (기본 -100)
   cciOverbought: number          // CCI 과매수 기준 (기본 +100)
+  cciMaxEntry: number            // CCI 진입 차단 절댓값 (기본 0 = 비활성화)
 
   // TP/SL
   fixedTP: number                // 고정 익절 % (현물 기준, 0 = ATR 자동)

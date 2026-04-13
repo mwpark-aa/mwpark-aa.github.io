@@ -58,6 +58,7 @@ interface PaperConfig {
   fed_liquidity_ma_period: number
   cci_oversold: number
   cci_overbought: number
+  cci_max_entry: number
   adx_threshold: number
   rvol_threshold: number
   rvol_skip: number
@@ -461,11 +462,16 @@ function detectSignal(
   const isUptrend   = !useMA || (curr.ma20! > curr.ma60! && curr.close > curr.ma60!)
   const isDowntrend = !useMA || (curr.ma20! < curr.ma60! && curr.close < curr.ma60!)
 
-  if (isUptrend && longReady) {
+  // CCI 진입 차단
+  const cciCap = (c.cci_max_entry ?? 0) > 0 && curr.cci20 != null
+  const longBlocked  = cciCap && curr.cci20! < -(c.cci_max_entry ?? 0)
+  const shortBlocked = cciCap && curr.cci20! >  (c.cci_max_entry ?? 0)
+
+  if (isUptrend && longReady && !longBlocked) {
     const score = scoreLong(rowL, c)
     if (score >= c.min_score) return { type: 'LONG', score, swingLow, swingHigh }
   }
-  if (isDowntrend && shortReady) {
+  if (isDowntrend && shortReady && !shortBlocked) {
     const score = scoreShort(rowS, c)
     if (score >= c.min_score) return { type: 'SHORT', score, swingLow, swingHigh }
   }

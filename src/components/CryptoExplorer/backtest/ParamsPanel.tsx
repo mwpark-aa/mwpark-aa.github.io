@@ -302,10 +302,10 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
     },
     {
       key: 'scoreUseCCI', label: 'CCI', sub: '상품채널지수 과열/침체',
-      hint: '"가격이 통계적 평균에서 얼마나 벗어났나?"\nCCI = (TP - SMA(TP)) / (0.015 × 평균편차), 기간 20봉.\n\n✅ CCI < 하한(기본 -100) → 롱 +1 (극도 과매도, 반등 신호)\n✅ CCI > 상한(기본 +100) → 숏 +1 (극도 과매수, 하락 신호)\n\n💡 ±100은 일반적 신호 구간, ±200은 극단적 신호 구간\n💡 RSI와 함께 사용 시 이중 확인 효과',
+      hint: '"가격이 통계적 평균에서 얼마나 벗어났나?"\nCCI = (TP - SMA(TP)) / (0.015 × 평균편차), 기간 20봉.\n\n✅ CCI < 하한(기본 -100) → 롱 +1 (극도 과매도, 반등 신호)\n✅ CCI > 상한(기본 +100) → 숏 +1 (극도 과매수, 하락 신호)\n\n🚫 진입 차단: CCI 절댓값이 차단 임계값 초과 시 진입 금지\n   (0 = 비활성화, 예: 200 → CCI < -200 or > +200 이면 진입 안 함)\n\n💡 ±200 이상은 급변 구간으로 시장가 체결이 어려울 수 있음',
       desc: '가격이 통계적 평균에서 극단적으로 벗어날 때 신호. 과매도(-100↓)에서 롱, 과매수(+100↑)에서 숏.',
       settings: (
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.75 }}>
           <Box>
             <Typography sx={{ fontSize: 9, color: '#60a5fa99', mb: 0.5 }}>하한 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(과매도)</Typography></Typography>
             <input type="number" min={-300} max={-50}
@@ -317,6 +317,12 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
             <input type="number" min={50} max={300}
               value={draft.cciOverbought ?? String(params.cciOverbought)} style={smInput}
               onChange={e => setDraft(d => ({ ...d, cciOverbought: e.target.value }))} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 9, color: '#f59e0b99', mb: 0.5 }}>차단 <Typography component="span" sx={{ fontSize: 8, color: '#52525b' }}>(0=off)</Typography></Typography>
+            <input type="number" min={0} max={500}
+              value={draft.cciMaxEntry ?? String(params.cciMaxEntry)} style={smInput}
+              onChange={e => setDraft(d => ({ ...d, cciMaxEntry: e.target.value }))} />
           </Box>
         </Box>
       ),

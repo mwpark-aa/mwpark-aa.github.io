@@ -74,12 +74,17 @@ export function detectSignals(
     fired.push({ signal_type: type, tp, sl, rr, score })
   }
 
-  if (isUptrend   && isReady('LONG')) {
+  // CCI 진입 차단: 절댓값이 cciMaxEntry를 초과하면 해당 방향 진입 금지
+  const cciCap = p.cciMaxEntry > 0 && curr.cci20 != null
+  const longBlocked  = cciCap && curr.cci20! < -p.cciMaxEntry
+  const shortBlocked = cciCap && curr.cci20! >  p.cciMaxEntry
+
+  if (isUptrend   && isReady('LONG')  && !longBlocked) {
     const score = scoreLong(rowForLong, p)
     if (score > 0) add('LONG', score)
   }
 
-  if (isDowntrend && isReady('SHORT')) {
+  if (isDowntrend && isReady('SHORT') && !shortBlocked) {
     const score = scoreShort(rowForShort, p)
     if (score > 0) add('SHORT', score)
   }

@@ -94,6 +94,7 @@ export interface RunHistory {
   fixed_tp?: number
   fixed_sl?: number
   score_exit_threshold?: number
+  cci_max_entry?: number
   total_return_pct: number
   win_rate: number
   max_drawdown_pct: number
