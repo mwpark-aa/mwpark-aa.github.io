@@ -327,24 +327,67 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
         </Box>
       ),
       svg: (() => {
-        const os = Number(draft.cciOversold ?? params.cciOversold) || -100
-        const ob = Number(draft.cciOverbought ?? params.cciOverbought) || 100
+        const os  = Number(draft.cciOversold  ?? params.cciOversold)  || -100
+        const ob  = Number(draft.cciOverbought ?? params.cciOverbought) || 100
+        const cap = Number(draft.cciMaxEntry   ?? params.cciMaxEntry)  || 0
         const range = 250
-        const osY = 4 + (1 - (os + range) / (range * 2)) * 34
-        const obY = 4 + (1 - (ob + range) / (range * 2)) * 34
+        const toY = (v: number) => 4 + (1 - (v + range) / (range * 2)) * 34
+        const osY   = toY(os)
+        const obY   = toY(ob)
+        const capPY = cap > 0 ? Math.max(4,  toY(cap))  : 4
+        const capNY = cap > 0 ? Math.min(38, toY(-cap)) : 38
+
+        // 파형이 롱→숏→차단 순으로 지나가게
+        const waveD = `M4,21 C8,${osY+2} 14,${osY-2} 20,${osY-1} C25,${osY-3} 30,21 36,${obY+2} C40,${obY-1} 46,${obY-3} 52,${capPY+2} C56,${capPY-1} 62,${capPY-2} 68,${capPY-1}`
+
         return (
           <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-            <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b" strokeWidth="0.6" />
-            <text x="62" y="19" fill="#52525b" fontSize="3">0</text>
-            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef444455" strokeWidth="0.7" strokeDasharray="3,2" />
-            <text x="5" y={obY - 1.5} fill="#ef4444" fontSize="3.5">{ob}</text>
-            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b98155" strokeWidth="0.7" strokeDasharray="3,2" />
-            <text x="5" y={osY + 4} fill="#10b981" fontSize="3.5">{os}</text>
-            <text x="28" y="8" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1</text>
-            <text x="28" y="38" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
-            <path d="M4,21 C10,18 16,24 22,20 C28,16 34,28 40,23 C46,18 52,12 60,8 C64,6 66,5 68,5" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
-            <circle cx="60" cy="8" r="2.5" fill="#ef4444" opacity="0.9" />
-            <circle cx="14" cy="36" r="2.5" fill="#10b981" opacity="0.9" />
+            {/* ── 구역 배경 ── */}
+            {/* 차단 구역 (위 / 아래) */}
+            {cap > 0 && <rect x="4" y="4" width="64" height={Math.max(0, capPY - 4)} fill="#f59e0b1c" />}
+            {cap > 0 && <rect x="4" y={capNY} width="64" height={Math.max(0, 38 - capNY)} fill="#f59e0b1c" />}
+            {/* 숏 +1 구역 */}
+            <rect x="4" y={capPY} width="64" height={Math.max(0, obY - capPY)} fill="#ef44441a" />
+            {/* 롱 +1 구역 */}
+            <rect x="4" y={osY} width="64" height={Math.max(0, capNY - osY)} fill="#10b9811a" />
+
+            {/* ── 기준선 ── */}
+            <line x1="4" y1="21" x2="68" y2="21" stroke="#3f3f46" strokeWidth="0.5" />
+            {cap > 0 && <line x1="4" y1={capPY} x2="68" y2={capPY} stroke="#f59e0b" strokeWidth="0.9" strokeDasharray="2,2" opacity="0.8" />}
+            {cap > 0 && <line x1="4" y1={capNY} x2="68" y2={capNY} stroke="#f59e0b" strokeWidth="0.9" strokeDasharray="2,2" opacity="0.8" />}
+            <line x1="4" y1={obY} x2="68" y2={obY} stroke="#ef4444" strokeWidth="0.7" strokeDasharray="3,2" opacity="0.55" />
+            <line x1="4" y1={osY} x2="68" y2={osY} stroke="#10b981" strokeWidth="0.7" strokeDasharray="3,2" opacity="0.55" />
+
+            {/* ── 수치 라벨 ── */}
+            {cap > 0 && <text x="5" y={Math.max(7, capPY - 1.5)} fill="#f59e0b" fontSize="3">+{cap}</text>}
+            <text x="5" y={obY - 1.5} fill="#ef4444" fontSize="3">+{ob}</text>
+            <text x="5" y={Math.min(41, osY + 4)} fill="#10b981" fontSize="3">{os}</text>
+            {cap > 0 && <text x="5" y={Math.min(41, capNY + 4)} fill="#f59e0b" fontSize="3">-{cap}</text>}
+
+            {/* ── 구역 이름 ── */}
+            {cap > 0 && capPY - 4 > 5   && <text x="36" y={(4 + capPY) / 2 + 1.2} fill="#f59e0b" fontSize="2.8" textAnchor="middle" opacity="0.85">진입차단</text>}
+            {obY - capPY > 5             && <text x="52" y={(capPY + obY) / 2 + 1.2} fill="#ef4444" fontSize="2.8" textAnchor="middle">숏 +1</text>}
+            {capNY - osY > 5             && <text x="52" y={(osY + capNY) / 2 + 1.2} fill="#10b981" fontSize="2.8" textAnchor="middle">롱 +1</text>}
+            {cap > 0 && 38 - capNY > 5  && <text x="36" y={(capNY + 38) / 2 + 1.2} fill="#f59e0b" fontSize="2.8" textAnchor="middle" opacity="0.85">진입차단</text>}
+
+            {/* ── CCI 파형 ── */}
+            <path d={waveD} fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.6" />
+
+            {/* 롱 +1 마커 */}
+            <circle cx="17" cy={osY - 1} r="2" fill="#10b981" opacity="0.9" />
+
+            {/* 숏 +1 마커 */}
+            <circle cx="46" cy={obY - 1} r="2" fill="#ef4444" opacity="0.9" />
+
+            {/* 차단 마커 (X) */}
+            {cap > 0 && (() => {
+              const cx = 62, cy = capPY - 1
+              return <>
+                <circle cx={cx} cy={cy} r="2.2" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.9" />
+                <line x1={cx-1.3} y1={cy-1.3} x2={cx+1.3} y2={cy+1.3} stroke="#f59e0b" strokeWidth="0.9" opacity="0.9" />
+                <line x1={cx+1.3} y1={cy-1.3} x2={cx-1.3} y2={cy+1.3} stroke="#f59e0b" strokeWidth="0.9" opacity="0.9" />
+              </>
+            })()}
           </svg>
         )
       })(),
@@ -400,7 +443,7 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
             hint={'1h = 1시간봉, 4h = 4시간봉, 1d = 일봉.\n짧을수록 거래 횟수 많고 노이즈 많음.'} />
           <select value={params.interval} style={{ ...inputStyle, cursor: 'pointer' }}
             onChange={e => setParams(p => ({ ...p, interval: e.target.value }))}>
-            {['15m', '30m', '1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
+            {['5m', '15m', '30m', '1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </Box>
       </Box>
