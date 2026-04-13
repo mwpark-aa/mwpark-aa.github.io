@@ -8,8 +8,6 @@ create table if not exists backtest_runs (
   start_date      date not null,
   end_date        date not null,
   leverage        numeric not null,
-  min_rr          numeric not null,
-  min_rr_ratio    numeric not null,
   rsi_oversold    integer not null,
   rsi_overbought  integer not null,
   min_score       integer not null,

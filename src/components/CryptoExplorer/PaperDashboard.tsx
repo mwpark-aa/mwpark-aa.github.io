@@ -84,6 +84,10 @@ export default function PaperDashboard() {
     const willActivate = !run.paper_trading_enabled
 
     if (willActivate) {
+      // 기존 포지션 정리 (OPEN, CLOSED 모두)
+      await supabase.from('paper_positions').delete().eq('backtest_run_id', run.id)
+
+      // 계좌 초기화
       await supabase.from('paper_account').upsert({
         id: 1,
         capital: INITIAL_CAPITAL,

@@ -6,7 +6,6 @@ export interface BacktestParams {
   endDate: string
   interval: string
   leverage: number
-  minRR: number
   rsiOversold: number
   rsiOverbought: number
   minScore: number

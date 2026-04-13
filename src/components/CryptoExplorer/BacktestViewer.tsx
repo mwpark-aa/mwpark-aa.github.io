@@ -52,7 +52,6 @@ export default function BacktestViewer() {
     endDate: defaultEndDate,
     interval: '1h',
     leverage: 5,
-    minRR: 1.5,
     minScore: 4,
     initialCapital: 10000,
     rsiOversold: 35,
@@ -82,7 +81,7 @@ export default function BacktestViewer() {
   })
 
   const [draft, setDraft] = useState<Record<string, string>>({
-    leverage: '5', minRR: '1.5',
+    leverage: '5',
     minScore: '4',
     rsiOversold: '35', rsiOverbought: '65',
     adxThreshold: '20',
@@ -100,7 +99,6 @@ export default function BacktestViewer() {
   const runBacktest = useCallback(async () => {
     const committed = {
       leverage:            parseFloat(draft.leverage)            || params.leverage,
-      minRR:               parseFloat(draft.minRR)               || params.minRR,
       rsiOversold:         parseFloat(draft.rsiOversold)         || params.rsiOversold,
       rsiOverbought:       parseFloat(draft.rsiOverbought)       || params.rsiOverbought,
       minScore:            isNaN(parseFloat(draft.minScore)) ? params.minScore : parseFloat(draft.minScore),
@@ -173,7 +171,6 @@ export default function BacktestViewer() {
         start_date: params.startDate,
         end_date: params.endDate,
         leverage: lastCommittedParams.leverage,
-        min_rr: lastCommittedParams.minRR,
         rsi_oversold: lastCommittedParams.rsiOversold,
         rsi_overbought: lastCommittedParams.rsiOverbought,
         min_score: lastCommittedParams.minScore,
@@ -224,7 +221,7 @@ export default function BacktestViewer() {
     setSelectedSymbol(best.symbol as CryptoSymbol)
     setParams(p => ({
       ...p,
-      interval: best.interval, leverage: best.leverage, minRR: best.min_rr,
+      interval: best.interval, leverage: best.leverage,
       rsiOversold: best.rsi_oversold ?? 35, rsiOverbought: best.rsi_overbought ?? 65,
       minScore: best.min_score, initialCapital: 10000,
       scoreUseADX: best.score_use_adx ?? true, scoreUseRSI: best.score_use_rsi ?? true,
@@ -247,7 +244,7 @@ export default function BacktestViewer() {
     }))
     setDraft(d => ({
       ...d,
-      leverage: String(best.leverage), minRR: String(best.min_rr),
+      leverage: String(best.leverage),
       rsiOversold: String(best.rsi_oversold ?? 35), rsiOverbought: String(best.rsi_overbought ?? 65),
       minScore: String(best.min_score),
       adxThreshold: String(best.adx_threshold ?? 20),
@@ -286,7 +283,7 @@ export default function BacktestViewer() {
     setParams(p => ({
       ...p,
       startDate: run.start_date, endDate: run.end_date, interval: run.interval,
-      leverage: run.leverage, minRR: run.min_rr,
+      leverage: run.leverage,
       rsiOversold: run.rsi_oversold ?? 35, rsiOverbought: run.rsi_overbought ?? 65,
       minScore: run.min_score, initialCapital: run.initial_capital ?? p.initialCapital,
       scoreUseADX: run.score_use_adx ?? true, scoreUseRSI: run.score_use_rsi ?? true,
@@ -308,7 +305,7 @@ export default function BacktestViewer() {
       useDailyTrend: (run as any).use_daily_trend ?? false,
     }))
     setDraft({
-      leverage: String(run.leverage), minRR: String(run.min_rr),
+      leverage: String(run.leverage),
       rsiOversold: String(run.rsi_oversold ?? 35), rsiOverbought: String(run.rsi_overbought ?? 65),
       minScore: String(run.min_score),
       adxThreshold: String(run.adx_threshold ?? 20),

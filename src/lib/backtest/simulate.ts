@@ -219,9 +219,8 @@ export function simulate(
         // 강제 청산: 증거금 전액 손실
         capital -= pos.capitalUsed
 
-        const notionalQty = pos.quantity / p.leverage
-        const entryComm   = pos.entryPrice * notionalQty * COMMISSION_TAKER
-        const exitComm    = liqPrice       * notionalQty * COMMISSION_TAKER
+        const entryComm   = pos.entryPrice * pos.quantity * COMMISSION_TAKER
+        const exitComm    = liqPrice       * pos.quantity * COMMISSION_TAKER
         const totalComm   = entryComm + exitComm
 
         const trade: BacktestTrade = {
@@ -275,18 +274,17 @@ export function simulate(
           : pos.quantity * (exitPrice    - pos.avgEntry)
 
         // 수수료: 진입 Taker, TP/SL Maker, SCORE_EXIT Taker
-        const notionalQty  = pos.quantity / p.leverage
         const exitCommRate = (exitReason === 'TP' || exitReason === 'SL')
           ? COMMISSION_MAKER
           : COMMISSION_TAKER
-        const entryComm  = pos.entryPrice * notionalQty * COMMISSION_TAKER
-        const exitComm   = exitPrice       * notionalQty * exitCommRate
+        const entryComm  = pos.entryPrice * pos.quantity * COMMISSION_TAKER
+        const exitComm   = exitPrice       * pos.quantity * exitCommRate
         const totalComm  = entryComm + exitComm
 
         const netCapital = grossPnl - totalComm
         capital += netCapital
 
-        const pnlPct   = grossPnl / pos.capitalUsed * 100
+        const pnlPct   = netCapital / pos.capitalUsed * 100
         const exitDetails = scoreExitHit
           ? buildExitDetails(pos.direction, pos.entryRow, row, p)
           : undefined
@@ -303,7 +301,7 @@ export function simulate(
           quantity:       pos.origQuantity,
           capital_used:   pos.capitalUsed,
           capital_before: Math.round(pos.capitalBefore * 100) / 100,
-          net_pnl:        Math.round(grossPnl * 10000) / 10000,
+          net_pnl:        Math.round(netCapital * 10000) / 10000,
           pnl_pct:        Math.round(pnlPct   * 10000) / 10000,
           exit_reason:    exitReason,
           score:          pos.score,
@@ -412,14 +410,13 @@ export function simulate(
       ? pos.quantity * (pos.avgEntry - exitPrice)
       : pos.quantity * (exitPrice    - pos.avgEntry)
 
-    const notionalQty = pos.quantity / p.leverage
-    const entryComm   = pos.entryPrice * notionalQty * COMMISSION_TAKER
-    const exitComm    = exitPrice       * notionalQty * COMMISSION_TAKER
+    const entryComm   = pos.entryPrice * pos.quantity * COMMISSION_TAKER
+    const exitComm    = exitPrice       * pos.quantity * COMMISSION_TAKER
     const totalComm   = entryComm + exitComm
     const netCapital  = grossPnl - totalComm
     capital += netCapital
 
-    const pnlPct = grossPnl / pos.capitalUsed * 100
+    const pnlPct = netCapital / pos.capitalUsed * 100
     const exitTs = iso(lastRow.timestamp)
 
     // entry_ts > exit_ts 역전 방어 (데이터 순서 문제)
@@ -440,7 +437,7 @@ export function simulate(
       quantity:       pos.origQuantity,
       capital_used:   pos.capitalUsed,
       capital_before: Math.round(pos.capitalBefore * 100) / 100,
-      net_pnl:        Math.round(grossPnl * 10000) / 10000,
+      net_pnl:        Math.round(netCapital * 10000) / 10000,
       pnl_pct:        Math.round(pnlPct   * 10000) / 10000,
       exit_reason:    'DATA_END',
       score:          pos.score,
