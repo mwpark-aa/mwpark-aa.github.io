@@ -17,7 +17,6 @@ const CAPITAL_PER_TRADE   = 0.20    // 포지션 1개당 사용 자본 비율 (�
 const SWING_LOOKBACK      = 4
 const WARMUP_CANDLES      = 200     // 지표 계산용 워밍업 (168봉 이상)
 const SIGNAL_COOLDOWN     = 4       // 동일 신호 재발생 억제 기간 (캔들 수)
-const DAILY_LOSS_LIMIT    = 0.06    // 하루 최대 손실 비율 (초기 자본 대비)
 
 // ── 타입 ─────────────────────────────────────────────────────
 
@@ -799,127 +798,107 @@ Deno.serve(async (req) => {
     }
 
     if (stillOpen.length === 0 && closedThisCycle.length === 0) {
-      // ── 8. 일일 손실 한도 확인 (KST 자정 기준 — 백테스트와 동일) ──
-      const KST_OFFSET_MS = 9 * 3_600_000
-      const kstMs = lastCandleEnd + KST_OFFSET_MS
-      const kstDay = new Date(kstMs)
-      const kstMidnightUTC = Date.UTC(kstDay.getUTCFullYear(), kstDay.getUTCMonth(), kstDay.getUTCDate()) - KST_OFFSET_MS
-      const todayStart = new Date(kstMidnightUTC)
-      const { data: todayTrades } = await supabase
-        .from('paper_positions')
-        .select('net_pnl')
-        .eq('backtest_run_id', c.id)
-        .eq('status', 'CLOSED')
-        .gte('exit_time', todayStart.toISOString())
+      // ── 8. 쿨다운 확인 (백테스트와 동일: 신호별 4캔들) ──
+      // 방향별로 각각 마지막 1건씩 조회 (limit(2) 사용 시 같은 방향 2개로 채워질 경우 버그)
+      const cooldownMs = SIGNAL_COOLDOWN * intervalMs
+      const [{ data: lastLongEntry }, { data: lastShortEntry }] = await Promise.all([
+        supabase.from('paper_positions')
+          .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'LONG')
+          .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('paper_positions')
+          .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'SHORT')
+          .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
+      ])
+      const longReady  = !lastLongEntry  || (lastCandleEnd - new Date(lastLongEntry.entry_time).getTime())  >= cooldownMs
+      const shortReady = !lastShortEntry || (lastCandleEnd - new Date(lastShortEntry.entry_time).getTime()) >= cooldownMs
+      debugInfo.long_ready = longReady; debugInfo.short_ready = shortReady
 
-      const dailyLoss = (todayTrades ?? []).reduce((s, t) => s + (t.net_pnl ?? 0), 0)
-      debugInfo.daily_loss = dailyLoss
+      // ── 9. 신호 감지 ──────────────────────────────────
+      const signalIdx = n - 1   // 방금 마감한 캔들 (백테스트의 i-1)
+      const signal    = detectSignal(rows, signalIdx, c, longReady, shortReady)
 
-      if (dailyLoss < -(account?.initial_capital ?? 10000) * DAILY_LOSS_LIMIT) {
-        debugInfo.skipped = 'daily_loss_limit'
-      } else {
-        // ── 9. 쿨다운 확인 (백테스트와 동일: 신호별 4캔들) ──
-        // 방향별로 각각 마지막 1건씩 조회 (limit(2) 사용 시 같은 방향 2개로 채워질 경우 버그)
-        const cooldownMs = SIGNAL_COOLDOWN * intervalMs
-        const [{ data: lastLongEntry }, { data: lastShortEntry }] = await Promise.all([
-          supabase.from('paper_positions')
-            .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'LONG')
-            .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('paper_positions')
-            .select('entry_time').eq('backtest_run_id', c.id).eq('direction', 'SHORT')
-            .order('entry_time', { ascending: false }).limit(1).maybeSingle(),
-        ])
-        const longReady  = !lastLongEntry  || (lastCandleEnd - new Date(lastLongEntry.entry_time).getTime())  >= cooldownMs
-        const shortReady = !lastShortEntry || (lastCandleEnd - new Date(lastShortEntry.entry_time).getTime()) >= cooldownMs
-        debugInfo.long_ready = longReady; debugInfo.short_ready = shortReady
+      debugInfo.signal = signal ? { type: signal.type, score: signal.score } : null
+      debugInfo.latest_indicators = {
+        close: latestRow.close, rsi: latestRow.rsi14, adx: latestRow.adx14,
+        macd: latestRow.macd_hist, rvol: latestRow.vol_rvol168,
+        ma20: latestRow.ma20, ma60: latestRow.ma60, ma120: latestRow.ma120, atr: latestRow.atr14,
+      }
 
-        // ── 10. 신호 감지 ─────────────────────────────────
-        const signalIdx = n - 1   // 방금 마감한 캔들 (백테스트의 i-1)
-        const signal    = detectSignal(rows, signalIdx, c, longReady, shortReady)
+      if (signal) {
+        const { type: signalType, score } = signal
+        const isShort = signalType === 'SHORT'
 
-        debugInfo.signal = signal ? { type: signal.type, score: signal.score } : null
-        debugInfo.latest_indicators = {
-          close: latestRow.close, rsi: latestRow.rsi14, adx: latestRow.adx14,
-          macd: latestRow.macd_hist, rvol: latestRow.vol_rvol168,
-          ma20: latestRow.ma20, ma60: latestRow.ma60, ma120: latestRow.ma120, atr: latestRow.atr14,
+        // MA120 추세 필터 (백테스트 simulate.ts와 동일)
+        const ma120Blocked =
+          latestRow.ma120 != null && (
+            ( isShort && latestRow.close > latestRow.ma120) ||
+            (!isShort && latestRow.close < latestRow.ma120)
+          )
+        debugInfo.ma120_blocked = ma120Blocked
+
+        // 일봉 추세 필터 (MTF) — 백테스트 simulate.ts dailyMap 블록과 동일
+        let mtfBlocked = false
+        if (dailyMap) {
+          const daily = getDailyBar(dailyMap, latestRow.timestamp)
+          if (daily && daily.ma120 != null) {
+            if (!isShort && daily.close < daily.ma120) mtfBlocked = true  // 일봉 하락장 → 롱 스킵
+            if ( isShort && daily.close > daily.ma120) mtfBlocked = true  // 일봉 상승장 → 숏 스킵
+          }
+          debugInfo.mtf_blocked = mtfBlocked
         }
 
-        if (signal) {
-          const { type: signalType, score } = signal
-          const isShort = signalType === 'SHORT'
+        // ── 10. 진입가: 다음 캔들 시가 (백테스트와 동일) ─
+        // 백테스트: rows[i].open (신호 캔들 다음 봉 시가)
+        // 페이퍼: lastCandleEnd 시작 캔들의 시가
+        let entryPrice = latestRow.close  // 기본값 (fallback)
+        try {
+          const nextRows = await fetchKlines(c.symbol, c.interval, lastCandleEnd, lastCandleEnd + intervalMs)
+          if (nextRows.length > 0) entryPrice = nextRows[0]!.open
+        } catch { /* fallback to close */ }
+        debugInfo.entry_price = entryPrice
 
-          // MA120 추세 필터 (백테스트 simulate.ts와 동일)
-          const ma120Blocked =
-            latestRow.ma120 != null && (
-              ( isShort && latestRow.close > latestRow.ma120) ||
-              (!isShort && latestRow.close < latestRow.ma120)
-            )
-          debugInfo.ma120_blocked = ma120Blocked
+        const { tp, sl } = (ma120Blocked || mtfBlocked)
+          ? { tp: null, sl: null }
+          : calcTPSL(signalType, entryPrice, c)
 
-          // 일봉 추세 필터 (MTF) — 백테스트 simulate.ts dailyMap 블록과 동일
-          let mtfBlocked = false
-          if (dailyMap) {
-            const daily = getDailyBar(dailyMap, latestRow.timestamp)
-            if (daily && daily.ma120 != null) {
-              if (!isShort && daily.close < daily.ma120) mtfBlocked = true  // 일봉 하락장 → 롱 스킵
-              if ( isShort && daily.close > daily.ma120) mtfBlocked = true  // 일봉 상승장 → 숏 스킵
+        if (tp != null && sl != null) {
+          const { quantity, capitalUsed } = calcPositionSize(capital, entryPrice, sl, c.leverage)
+          debugInfo.quantity = quantity; debugInfo.capital_used = capitalUsed
+
+          if (quantity > 0) {
+            const signalDetails = buildSignalDetails(latestRow, c, signalType)
+            newPosition = {
+              backtest_run_id:       c.id,
+              symbol:                c.symbol,
+              signal_type:           signalType,
+              direction:             signalType,
+              entry_price:           Math.round(entryPrice * 1e6) / 1e6,
+              avg_entry_price:       Math.round(entryPrice * 1e6) / 1e6,
+              target_price:          tp,
+              stop_loss:             sl,
+              quantity:              Math.round(quantity    * 1e8) / 1e8,
+              capital_used:          Math.round(capitalUsed * 1e4) / 1e4,
+              original_quantity:     Math.round(quantity    * 1e8) / 1e8,
+              original_capital_used: Math.round(capitalUsed * 1e4) / 1e4,
+              // 백테스트와 동일: 진입 시각 = 다음 캔들 시작 시각
+              entry_time:            iso(lastCandleEnd),
+              signal_details:        signalDetails,
+              score,
+              status:                'OPEN',
+              peak_price:            Math.round(entryPrice * 1e6) / 1e6,
+              last_candle_ts:        iso(lastCandleEnd),
             }
-            debugInfo.mtf_blocked = mtfBlocked
-          }
-
-          // ── 11. 진입가: 다음 캔들 시가 (백테스트와 동일) ─
-          // 백테스트: rows[i].open (신호 캔들 다음 봉 시가)
-          // 페이퍼: lastCandleEnd 시작 캔들의 시가
-          let entryPrice = latestRow.close  // 기본값 (fallback)
-          try {
-            const nextRows = await fetchKlines(c.symbol, c.interval, lastCandleEnd, lastCandleEnd + intervalMs)
-            if (nextRows.length > 0) entryPrice = nextRows[0]!.open
-          } catch { /* fallback to close */ }
-          debugInfo.entry_price = entryPrice
-
-          const { tp, sl } = (ma120Blocked || mtfBlocked)
-            ? { tp: null, sl: null }
-            : calcTPSL(signalType, entryPrice, c)
-
-          if (tp != null && sl != null) {
-            const { quantity, capitalUsed } = calcPositionSize(capital, entryPrice, sl, c.leverage)
-            debugInfo.quantity = quantity; debugInfo.capital_used = capitalUsed
-
-            if (quantity > 0) {
-              const signalDetails = buildSignalDetails(latestRow, c, signalType)
-              newPosition = {
-                backtest_run_id:       c.id,
-                symbol:                c.symbol,
-                signal_type:           signalType,
-                direction:             signalType,
-                entry_price:           Math.round(entryPrice * 1e6) / 1e6,
-                avg_entry_price:       Math.round(entryPrice * 1e6) / 1e6,
-                target_price:          tp,
-                stop_loss:             sl,
-                quantity:              Math.round(quantity    * 1e8) / 1e8,
-                capital_used:          Math.round(capitalUsed * 1e4) / 1e4,
-                original_quantity:     Math.round(quantity    * 1e8) / 1e8,
-                original_capital_used: Math.round(capitalUsed * 1e4) / 1e4,
-                // 백테스트와 동일: 진입 시각 = 다음 캔들 시작 시각
-                entry_time:            iso(lastCandleEnd),
-                signal_details:        signalDetails,
-                score,
-                status:                'OPEN',
-                peak_price:            Math.round(entryPrice * 1e6) / 1e6,
-                last_candle_ts:        iso(lastCandleEnd),
-              }
-              const { error: insertErr } = await supabase.from('paper_positions').insert(newPosition)
-              if (insertErr) {
-                debugInfo.insert_error = insertErr.message
-                newPosition = null
-              }
+            const { error: insertErr } = await supabase.from('paper_positions').insert(newPosition)
+            if (insertErr) {
+              debugInfo.insert_error = insertErr.message
+              newPosition = null
             }
           }
         }
       }
     }
 
-    // ── 9. 자본 및 처리 시각 업데이트 ────────────────────────
+    // ── 11. 자본 및 처리 시각 업데이트 ───────────────────────
     await supabase
       .from('paper_account')
       .upsert({

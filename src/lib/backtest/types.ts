@@ -158,5 +158,4 @@ export const COMMISSION_MAKER   = 0.0002  // 지정가 수수료 (TP / SL)
 export const CAPITAL_PER_TRADE  = 0.20    // 포지션 1개당 사용 자본 비율 (마진 기준)
 export const SWING_LOOKBACK     = 4      // 스윙 고저 탐색 범위 (캔들 수)
 export const SIGNAL_COOLDOWN    = 4      // 동일 신호 재발생 억제 기간 (캔들 수)
-export const DAILY_LOSS_LIMIT_PCT = 0.06 // 하루 최대 손실 한도 (초과 시 당일 거래 중단)
 export const WARMUP_CANDLES     = 168    // RVOL168 계산을 위한 워밍업 캔들 수

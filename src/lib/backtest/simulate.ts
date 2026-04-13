@@ -4,7 +4,6 @@ import {
   COMMISSION_TAKER,
   COMMISSION_MAKER,
   SIGNAL_COOLDOWN,
-  DAILY_LOSS_LIMIT_PCT,
   WARMUP_CANDLES,
 } from './types'
 import {
@@ -322,13 +321,6 @@ export function simulate(
 
     // 포지션이 있거나, 이번 캔들에서 방금 청산된 경우 신규 진입 스킵
     if (pos || closedOnCandle === i) continue
-
-    // ── 일일 손실 한도 초과 시 거래 중단 ─────────────────────────
-    const today     = new Date(row.timestamp).toDateString()
-    const dailyLoss = trades
-      .filter(t => new Date(t.exit_ts).toDateString() === today)
-      .reduce((sum, t) => sum + t.net_pnl, 0)
-    if (dailyLoss < -p.initialCapital * DAILY_LOSS_LIMIT_PCT) continue
 
     // 워밍업 구간 및 사용자 지정 시작일 이전 봉은 진입하지 않음
     if (i < 1) continue
