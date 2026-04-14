@@ -790,6 +790,9 @@ Deno.serve(async (req) => {
 
         const pnlPct = (netCapital / (pos.capital_used as number)) * 100
 
+        // 청산 시 signal_details 업데이트 (진입 신호 정보 보존)
+        const updatedSignalDetails = buildSignalDetails(latestRow, c, pos.direction)
+
         await supabase
           .from('paper_positions')
           .update({
@@ -797,6 +800,7 @@ Deno.serve(async (req) => {
             exit_price:  Math.round(exitPrice * 1e6) / 1e6,
             exit_time:   iso(latestRow.timestamp),
             exit_reason: exitReason,
+            signal_details: updatedSignalDetails,
             net_pnl:     Math.round(netCapital * 10000) / 10000,
             pnl_pct:     Math.round(pnlPct   * 10000) / 10000,
           })
