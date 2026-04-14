@@ -143,7 +143,7 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
           time: eTime,
           position: isShort ? 'aboveBar' : 'belowBar',
           color,
-          shape: isShort ? 'arrowDown' : 'arrowUp',
+          shape: isShort ? 'arrowUp' : 'arrowDown',
           text: e.step === 1 ? (isShort ? '숏진입' : '롱진입') : (isShort ? '숏추가' : '롱추가'),
         })
       }
@@ -152,7 +152,7 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
         time: exitTime,
         position: isShort ? 'belowBar' : 'aboveBar',
         color: isSelected ? '#fbbf24' : (win ? '#10b981' : '#ec4899'),
-        shape: isShort ? 'arrowUp' : 'arrowDown',
+        shape: isShort ? 'arrowDown' : 'arrowUp',
         text: `${win ? '익절' : '손절'} ${fmtPct(t.pnl_pct)}`,
       })
     }
