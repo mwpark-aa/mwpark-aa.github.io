@@ -694,8 +694,29 @@ Deno.serve(async (req) => {
       const warmupDate  = new Date(warmupStartTime).toISOString().slice(0, 10)
       const endDate     = new Date(lastCandleEnd).toISOString().slice(0, 10)
       const maPeriod    = c.fed_liquidity_ma_period ?? 13
-      const fedBars     = await fetchFedBars(warmupDate, endDate, maPeriod)
-      attachFedData(rows, fedBars)
+      try {
+        const resp = await fetch(
+          new URL('/functions/v1/fed-liquidity', Deno.env.get('SUPABASE_URL') || '').toString(),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+            },
+            body: JSON.stringify({ startDate: warmupDate, endDate, maPeriod }),
+          }
+        )
+        if (resp.ok) {
+          const { data } = await resp.json()
+          const fedBars = (data ?? []).map((bar: any) => ({
+            date: bar.date,
+            state: bar.state,
+          }))
+          attachFedData(rows, fedBars)
+        }
+      } catch (err) {
+        console.error('[paper-trade] Fed liquidity fetch error:', err)
+      }
     }
 
     // ── 4.7. 일봉 추세 맵 (MTF) ─────────────────────────────
