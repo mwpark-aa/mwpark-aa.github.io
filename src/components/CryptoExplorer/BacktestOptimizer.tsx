@@ -365,7 +365,7 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
               {estimatedCount.toLocaleString()}
             </Typography>
             {tooMany && (
-              <Typography sx={{ fontSize: 9, color: '#ef4444' }}>50,000개 초과</Typography>
+              <Typography sx={{ fontSize: 9, color: '#ef4444' }}>5,000개 초과</Typography>
             )}
           </Box>
         )}
@@ -574,7 +574,7 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
             },
           }}
         >
-          {loading ? '최적화 중...' : selectedCount === 0 ? '지표를 먼저 선택하세요' : tooMany ? '조합 수 초과 (50,000개 제한)' : '🚀 최적화 시작'}
+          {loading ? '최적화 중...' : selectedCount === 0 ? '지표를 먼저 선택하세요' : tooMany ? '조합 수 초과 (5,000개 제한)' : '🚀 최적화 시작'}
         </Box>
       </Box>
 
