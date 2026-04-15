@@ -245,6 +245,12 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
 
       const scoreValues = Array.from({ length: Math.max(N, 1) }, (_, i) => i + 1)
 
+      // 선택 안 한 지표는 명시적으로 false 로 포함 (적용 시 기존 params 값이 남지 않도록)
+      const unselectedFalse: Record<string, boolean> = {}
+      for (const ind of indicators) {
+        if (!ind.selected) unselectedFalse[ind.def.key] = false
+      }
+
       const combinations: Partial<BacktestParams>[] = []
       for (const bc of boolCombos) {
         const activeCount = Object.values(bc).filter(Boolean).length
@@ -255,7 +261,7 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
           for (const minScore of validScores) {
             for (const scoreExit of validScores) {
               combinations.push({
-                ...bc, ...nc, minScore, scoreExitThreshold: scoreExit,
+                ...unselectedFalse, ...bc, ...nc, minScore, scoreExitThreshold: scoreExit,
               } as Partial<BacktestParams>)
             }
           }
