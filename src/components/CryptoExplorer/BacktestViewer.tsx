@@ -503,7 +503,14 @@ export default function BacktestViewer() {
               endDate={params.endDate}
               baseParams={params}
               onApplyParams={(newParams) => {
-                setParams(p => ({ ...p, ...newParams }))
+                // 모든 boolean 지표를 먼저 false로 초기화 후 newParams로 덮어씀
+                const boolReset = {
+                  scoreUseADX: false, scoreUseRSI: false, scoreUseMACD: false,
+                  scoreUseRVOL: false, scoreUseBB: false, scoreUseIchi: false,
+                  scoreUseGoldenCross: false, scoreUseCCI: false, scoreUseVWMA: false,
+                  scoreUseFedLiquidity: false, useDailyTrend: false,
+                }
+                setParams(p => ({ ...p, ...boolReset, ...newParams }))
                 const newDraft = { ...draft }
                 Object.entries(newParams).forEach(([k, v]) => {
                   newDraft[k] = String(v)
