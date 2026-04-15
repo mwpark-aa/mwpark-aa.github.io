@@ -3,7 +3,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import LinearProgress from '@mui/material/LinearProgress'
 import Divider from '@mui/material/Divider'
-import type { BacktestResult } from './backtest/types'
+import type { BacktestParams as LocalBacktestParams, BacktestResult } from './backtest/types'
 import type { BacktestParams } from '../../lib/backtest/types'
 import { fetchKlines, buildDailyTrendMap, fetchFedLiquidity, attachFedData } from '../../lib/backtest/fetch'
 import { computeIndicators } from '../../lib/backtest/indicators'
@@ -85,7 +85,7 @@ interface IndicatorState {
 }
 
 interface OptimizerResult {
-  params: Partial<BacktestParams>
+  params: Partial<LocalBacktestParams>
   result: BacktestResult
 }
 
@@ -94,8 +94,8 @@ interface Props {
   interval: string
   startDate: string
   endDate: string
-  baseParams: BacktestParams
-  onApplyParams: (params: Partial<BacktestParams>) => void
+  baseParams: LocalBacktestParams
+  onApplyParams: (params: Partial<LocalBacktestParams>) => void
 }
 
 type SortKey = 'total_return_pct' | 'win_rate' | 'max_drawdown_pct' | 'sharpe_ratio' | 'profit_factor'
@@ -315,7 +315,7 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
     return (b.result[sortKey] as number) - (a.result[sortKey] as number)
   })
 
-  const paramSummary = (p: Partial<BacktestParams>) => {
+  const paramSummary = (p: Partial<LocalBacktestParams>) => {
     const parts: string[] = []
     if (p.minScore !== undefined) parts.push(`진입:${p.minScore}`)
     if (p.scoreExitThreshold !== undefined) parts.push(`퇴장:${p.scoreExitThreshold}`)
