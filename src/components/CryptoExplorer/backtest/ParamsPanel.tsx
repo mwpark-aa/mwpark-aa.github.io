@@ -426,28 +426,6 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
   return (
     <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #1f1f23', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-      {/* ── 기간 + 인터벌 ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 100px' }, gap: 1.5 }}>
-        <Box>
-          <LabelRow label="시작일" />
-          <input type="date" value={params.startDate} style={inputStyle}
-            onChange={e => setParams(p => ({ ...p, startDate: e.target.value }))} />
-        </Box>
-        <Box>
-          <LabelRow label="종료일" />
-          <input type="date" value={params.endDate} style={inputStyle}
-            onChange={e => setParams(p => ({ ...p, endDate: e.target.value }))} />
-        </Box>
-        <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-          <LabelRow label="캔들 단위" hintId="interval"
-            hint={'1h = 1시간봉, 4h = 4시간봉, 1d = 일봉.\n짧을수록 거래 횟수 많고 노이즈 많음.'} />
-          <select value={params.interval} style={{ ...inputStyle, cursor: 'pointer' }}
-            onChange={e => setParams(p => ({ ...p, interval: e.target.value }))}>
-            {['5m', '15m', '30m', '1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
-        </Box>
-      </Box>
-
       {/* ── 전략 기본 설정 ── */}
         <Box>
             <Box

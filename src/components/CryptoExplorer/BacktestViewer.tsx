@@ -16,6 +16,7 @@ import ResultSummary from './backtest/ResultSummary'
 import HistoryPanel from './backtest/HistoryPanel'
 import ParamsPanel from './backtest/ParamsPanel'
 import SaveDialog from './backtest/SaveDialog'
+import BacktestOptimizer from './BacktestOptimizer'
 
 // ─────────────────────────────────────────────────────────────
 // Defaults
@@ -42,6 +43,7 @@ export default function BacktestViewer() {
   const [history, setHistory] = useState<RunHistory[]>([])
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showOptimizer, setShowOptimizer] = useState(false)
   const [testName, setTestName] = useState('')
   const [lastCommittedParams, setLastCommittedParams] = useState<any>(null)
 
@@ -331,6 +333,7 @@ export default function BacktestViewer() {
         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
 
           {/* Row 1: symbol + buttons */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography sx={{ fontSize: 12, color: '#71717a', fontWeight: 600 }}>코인</Typography>
@@ -353,22 +356,34 @@ export default function BacktestViewer() {
               </Box>
             </Box>
 
-            <Box sx={{ ml: { xs: 0, sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ ml: { xs: 0, sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
               <Box
-                component="button"
-                onClick={() => { setShowHistory(v => !v); setShowParams(false) }}
-                sx={{
-                  px: 2, py: 0.75, borderRadius: 2, border: '1px solid #27272a',
-                  background: showHistory ? '#27272a' : 'transparent',
-                  color: showHistory ? '#a1a1aa' : '#71717a', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  '&:hover': { borderColor: '#52525b', color: '#a1a1aa' },
-                }}
+                  component="button"
+                  onClick={() => { setShowHistory(v => !v); setShowParams(false); setShowOptimizer(false) }}
+                  sx={{
+                    px: 2, py: 0.75, borderRadius: 2, border: '1px solid #27272a',
+                    background: showHistory ? '#27272a' : 'transparent',
+                    color: showHistory ? '#a1a1aa' : '#71717a', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    '&:hover': { borderColor: '#52525b', color: '#a1a1aa' },
+                  }}
               >
                 이력 {history.length > 0 && `(${history.length})`}
               </Box>
               <Box
                 component="button"
-                onClick={() => { setShowParams(v => !v); setShowHistory(false) }}
+                onClick={() => { setShowOptimizer(v => !v); setShowParams(false); setShowHistory(false) }}
+                sx={{
+                  px: 2, py: 0.75, borderRadius: 2, border: '1px solid #3b82f6aa',
+                  background: showOptimizer ? '#3b82f620' : 'transparent',
+                  color: showOptimizer ? '#3b82f6' : '#71717a', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  '&:hover': { borderColor: '#3b82f6', color: '#3b82f6' },
+                }}
+              >
+                파라미터 최적화
+              </Box>
+              <Box
+                component="button"
+                onClick={() => { setShowParams(v => !v); setShowHistory(false); setShowOptimizer(false) }}
                 sx={{
                   px: 2, py: 0.75, borderRadius: 2, border: '1px solid #27272a',
                   background: showParams ? '#27272a' : 'transparent',
@@ -415,6 +430,50 @@ export default function BacktestViewer() {
             </Box>
           </Box>
 
+          {/* Row 2: date + interval */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>시작일</Typography>
+              <input
+                type="date"
+                value={params.startDate}
+                onChange={e => setParams(p => ({ ...p, startDate: e.target.value }))}
+                style={{
+                  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
+                  color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none',
+                  colorScheme: 'dark',
+                }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</Typography>
+              <input
+                type="date"
+                value={params.endDate}
+                onChange={e => setParams(p => ({ ...p, endDate: e.target.value }))}
+                style={{
+                  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
+                  color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none',
+                  colorScheme: 'dark',
+                }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>캔들</Typography>
+              <select
+                value={params.interval}
+                onChange={e => setParams(p => ({ ...p, interval: e.target.value }))}
+                style={{
+                  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
+                  color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none', cursor: 'pointer',
+                }}
+              >
+                {['5m', '15m', '30m', '1h', '4h', '1d'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </Box>
+          </Box>
+          </Box>
+
           {/* Row 2: History */}
           {showHistory && (
             <HistoryPanel
@@ -432,6 +491,27 @@ export default function BacktestViewer() {
               draft={draft}
               setDraft={setDraft}
               result={result}
+            />
+          )}
+
+          {/* Row 4: Optimizer */}
+          {showOptimizer && (
+            <BacktestOptimizer
+              symbol={selectedSymbol}
+              interval={params.interval}
+              startDate={params.startDate}
+              endDate={params.endDate}
+              baseParams={params}
+              onApplyParams={(newParams) => {
+                setParams(p => ({ ...p, ...newParams }))
+                const newDraft = { ...draft }
+                Object.entries(newParams).forEach(([k, v]) => {
+                  newDraft[k] = String(v)
+                })
+                setDraft(newDraft)
+                setShowOptimizer(false)
+                setShowParams(true)
+              }}
             />
           )}
 
