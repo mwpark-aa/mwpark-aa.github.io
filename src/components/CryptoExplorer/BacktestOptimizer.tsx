@@ -331,7 +331,7 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
     return parts.join('  ')
   }
 
-  const tooMany = estimatedCount > 50000
+  const tooMany = estimatedCount > 5000
 
   // 수치 파라미터가 있고 선택된 지표들
   const expandableInds = indicators.filter(ind => ind.selected && ind.def.numParams.length > 0)
