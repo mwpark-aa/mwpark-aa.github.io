@@ -4,14 +4,11 @@ import Chip from '@mui/material/Chip'
 import type { ClosedTrade, ActiveConfig } from './types'
 import { fmtPct } from './types'
 import CommonTradeRow from '../common/CommonTradeRow'
+import CommonTradeListHeader from '../common/CommonTradeListHeader'
+import CommonTradeStats from '../common/CommonTradeStats'
+import CommonEmptyState from '../common/CommonEmptyState'
 
 function ConfigTradeSection({ config, trades }: { config: ActiveConfig | undefined; trades: ClosedTrade[] }) {
-  const wins    = trades.filter(t => t.net_pnl > 0).length
-  const losses  = trades.filter(t => t.net_pnl <= 0).length
-  const winRate = trades.length > 0 ? (wins / trades.length * 100).toFixed(0) : null
-  const avgPnl  = trades.length > 0
-    ? trades.reduce((s, t) => s + t.pnl_pct, 0) / trades.length
-    : null
   const label = config
     ? (config.name ?? `${config.symbol} ${config.interval} 점수${config.min_score}+`)
     : '알 수 없는 설정'
@@ -30,37 +27,13 @@ function ConfigTradeSection({ config, trades }: { config: ActiveConfig | undefin
         }}>
           {label}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
-            {trades.length}건
-          </Typography>
-          {winRate != null && (
-            <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
-              {wins}승 {losses}패{' '}
-              <Box component="span" sx={{ color: Number(winRate) >= 50 ? '#10b981' : '#ef4444' }}>
-                ({winRate}%)
-              </Box>
-            </Typography>
-          )}
-          {avgPnl != null && (
-            <Typography sx={{ fontSize: 9, fontFamily: 'monospace', color: avgPnl >= 0 ? '#10b98188' : '#ef444488' }}>
-              avg {fmtPct(avgPnl)}
-            </Typography>
-          )}
-        </Box>
+        <CommonTradeStats trades={trades} showCount={true} compact={true} formatPct={fmtPct} />
       </Box>
 
-      {/* 컬럼 헤더 (데스크탑) */}
-      <Box sx={{
-        display: { xs: 'none', sm: 'grid' },
-        gridTemplateColumns: '36px 100px 1.5fr 1.0fr 100px 80px 80px',
-        gap: 0.75, px: 1.5, py: 0.5,
-        background: '#0a0a0b', borderBottom: '1px solid #1a1a1e',
-      }}>
-        {['방향', '진입', '시그널', '청산이유', '청산', '손익', '투입'].map(h => (
-          <Typography key={h} sx={{ fontSize: 9, color: '#3f3f46', fontWeight: 600 }}>{h}</Typography>
-        ))}
-      </Box>
+      <CommonTradeListHeader
+        columns={['방향', '진입', '시그널', '청산이유', '청산', '손익', '투입']}
+        showCommission={false}
+      />
 
       {/* 거래 행 */}
       <Box sx={{
@@ -118,7 +91,7 @@ export default function ClosedTradeList({ trades, configs }: Props) {
 
       {trades.length === 0 ? (
         <Box sx={{ py: 3, textAlign: 'center', borderRadius: 2, border: '1px solid #1f1f23' }}>
-          <Typography sx={{ fontSize: 11, color: '#3f3f46' }}>아직 청산된 거래가 없습니다</Typography>
+          <CommonEmptyState message="아직 청산된 거래가 없습니다" minHeight={undefined} />
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

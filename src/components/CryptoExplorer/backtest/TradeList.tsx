@@ -4,6 +4,8 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
 import CommonTradeRow from '../common/CommonTradeRow'
+import CommonTradeListHeader from '../common/CommonTradeListHeader'
+import CommonEmptyState from '../common/CommonEmptyState'
 import type { BacktestTrade } from './types'
 
 interface Props {
@@ -30,24 +32,10 @@ export default function TradeList({ trades, loading, selectedTradeId, onScrollTo
           '&::-webkit-scrollbar': { height: 3 },
           '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 },
         }}>
-          {/* 헤더 — 데스크탑만 표시 */}
-          <Box sx={{
-            display: { xs: 'none', sm: 'grid' },
-            gridTemplateColumns: '36px 100px 1.5fr 1.0fr 100px 80px 80px 80px',
-            gap: 1,
-            px: 1.5, py: 0.75, mb: 0.5,
-            minWidth: 540,
-            borderBottom: '1px solid #27272a',
-          }}>
-            {['방향', '진입', '매수 이유', '매도 이유', '청산', '손익', '', '수수료'].map((h) => (
-              <Typography
-                key={h}
-                sx={{ fontSize: 9, color: '#52525b', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}
-              >
-                {h}
-              </Typography>
-            ))}
-          </Box>
+          <CommonTradeListHeader
+            columns={['방향', '진입', '매수 이유', '매도 이유', '청산', '손익', '', '수수료']}
+            showCommission={true}
+          />
 
           <Box sx={{
             display: 'flex',
@@ -77,11 +65,7 @@ export default function TradeList({ trades, loading, selectedTradeId, onScrollTo
                 />
               ))
             ) : (
-              <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: 12, color: '#3f3f46' }}>
-                  거래 데이터가 존재하지 않습니다.
-                </Typography>
-              </Box>
+              <CommonEmptyState />
             )}
           </Box>
         </Box>
