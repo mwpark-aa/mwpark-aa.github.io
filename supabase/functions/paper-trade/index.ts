@@ -932,7 +932,7 @@ Deno.serve(async (req) => {
           .update({
             status:      'CLOSED',
             exit_price:  Math.round(exitPrice * 1e6) / 1e6,
-            exit_time:   iso(latestRow.timestamp),
+            exit_time:   iso(lastCandleEnd),  // 캔들 종가 시각 (= 다음 캔들 시가)
             exit_reason: exitReason,
             exit_details: exitDetails,
             net_pnl:     Math.round(netCapital * 10000) / 10000,

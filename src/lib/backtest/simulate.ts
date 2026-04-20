@@ -186,8 +186,12 @@ export function simulate(
   let maxDD   = 0
 
   // 사용자 지정 시작 시간 (워밍업 구간 이전 봉은 신호 탐색에서 제외)
-  const startMs = new Date(p.startDate).getTime()
-  const iso = (ts: number) => new Date(ts).toISOString()
+  const startMs    = new Date(p.startDate).getTime()
+  const iso        = (ts: number) => new Date(ts).toISOString()
+  // 캔들 종가 시각 = 시가 timestamp + 인터벌
+  // Binance kline timestamp는 Open Time이므로, 종가 시각 = 다음 캔들 Open Time
+  const intervalMs = n > 1 ? rows[1].timestamp - rows[0].timestamp : 3_600_000
+  const closeIso   = (i: number) => iso(rows[i].timestamp + intervalMs)
 
   // ── 메인 루프 ────────────────────────────────────────────────────
   for (let i = WARMUP_CANDLES; i < n; i++) {
@@ -239,7 +243,7 @@ export function simulate(
           exit_reason:    'LIQUIDATED',
           score:          pos.score,
           entry_ts:       pos.entryTs,
-          exit_ts:        iso(row.timestamp),
+          exit_ts:        closeIso(i),   // 캔들 종가 시각 (시가 + intervalMs)
         };
         (trade as any).commission = Math.round(totalComm * 10000) / 10000
         trades.push(trade)
@@ -350,7 +354,7 @@ export function simulate(
             exit_reason:    exitReason,
             score:          pos.score,
             entry_ts:       pos.entryTs,
-            exit_ts:        iso(row.timestamp),
+            exit_ts:        closeIso(i),  // 캔들 종가 시각 (시가 + intervalMs)
           };
           (trade as any).commission = Math.round(totalComm * 10000) / 10000
           trades.push(trade)
@@ -459,7 +463,7 @@ export function simulate(
     capital += netCapital
 
     const pnlPct = netCapital / pos.capitalUsed * 100
-    const exitTs = iso(lastRow.timestamp)
+    const exitTs = closeIso(n - 1)  // 마지막 캔들 종가 시각
 
     // entry_ts > exit_ts 역전 방어 (데이터 순서 문제)
     const entryTime = new Date(pos.entryTs).getTime()
