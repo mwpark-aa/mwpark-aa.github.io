@@ -865,6 +865,16 @@ Deno.serve(async (req) => {
     const closedThisCycle: string[] = []
 
     // ── 6. 오픈 포지션 SL / TP / SCORE_EXIT 체크 ─────────────
+    // SCORE_EXIT는 백테스트와 동일하게 다음 봉 시가에 청산:
+    // 직전 마감 캔들에서 점수 감지 → 새로 열린 봉의 시가에 시장가 청산
+    let nextCandleOpen: number | null = null
+    if (positions.length > 0 && c.score_exit_threshold > 0) {
+      try {
+        const nextRows = await fetchKlines(c.symbol, c.interval, lastCandleEnd, lastCandleEnd + intervalMs)
+        if (nextRows.length > 0) nextCandleOpen = nextRows[0]!.open
+      } catch { /* fallback to latestRow.close */ }
+    }
+
     for (const pos of positions) {
       const isShort    = pos.direction === 'SHORT'
       const tp: number = pos.target_price
@@ -884,10 +894,10 @@ Deno.serve(async (req) => {
       let exitPrice: number | null = null
       let exitReason = ''
 
-      if      (liqHit)       { exitPrice = liqPrice;        exitReason = 'LIQUIDATED' }
-      else if (slHit)        { exitPrice = sl;               exitReason = 'SL'         }
-      else if (scoreExitHit) { exitPrice = latestRow.close;  exitReason = 'SCORE_EXIT' }
-      else if (tpHit)        { exitPrice = tp;               exitReason = 'TP'         }
+      if      (liqHit)       { exitPrice = liqPrice;                                   exitReason = 'LIQUIDATED' }
+      else if (slHit)        { exitPrice = sl;                                          exitReason = 'SL'         }
+      else if (scoreExitHit) { exitPrice = nextCandleOpen ?? latestRow.close;           exitReason = 'SCORE_EXIT' }
+      else if (tpHit)        { exitPrice = tp;                                          exitReason = 'TP'         }
 
       if (exitPrice != null) {
         const qty      = pos.quantity as number

@@ -19,22 +19,24 @@ import { getDailyBar } from './fetch'
 // ── 포지션 내부 상태 ─────────────────────────────────────────────
 
 interface Position {
-  signal_type:    string
-  signal_details: string
-  direction:      'LONG' | 'SHORT'
-  entryPrice:     number
-  avgEntry:       number
-  tp:             number
-  sl:             number
-  quantity:       number
-  origQuantity:   number
-  capitalUsed:    number
-  capitalBefore:  number   // 진입 직전 보유 자본
-  peakPrice:      number
-  score:          number
-  entryTs:        string
-  entryRow:       Candle   // 진입 직전 캔들 (SCORE_EXIT 비교용)
-  entryScore:     number
+  signal_type:       string
+  signal_details:    string
+  direction:         'LONG' | 'SHORT'
+  entryPrice:        number
+  avgEntry:          number
+  tp:                number
+  sl:                number
+  quantity:          number
+  origQuantity:      number
+  capitalUsed:       number
+  capitalBefore:     number   // 진입 직전 보유 자본
+  peakPrice:         number
+  score:             number
+  entryTs:           string
+  entryRow:          Candle   // 진입 직전 캔들 (SCORE_EXIT 비교용)
+  entryScore:        number
+  pendingScoreExit?: boolean  // 다음 봉 시가에 SCORE_EXIT 청산 예약
+  scoreExitRow?:     Candle   // SCORE_EXIT 감지 시점 캔들 (exit_details 계산용)
 }
 
 // ── SCORE_EXIT 청산 시 지표 변화 요약 ────────────────────────────
@@ -201,12 +203,12 @@ export function simulate(
     if (pos) {
       const isShort = pos.direction === 'SHORT'
 
-      // 최고/최저가 추적 (미래 기능 대비)
+      // 최고/최저가 추적
       pos.peakPrice = isShort
         ? Math.min(pos.peakPrice, row.low)
         : Math.max(pos.peakPrice, row.high)
 
-      // ── 강제 청산 (레버리지 초과 손실) ───────────────────────────
+      // ── 강제 청산 (레버리지 초과 손실) — pendingScoreExit보다 항상 우선 ──
       const liqPrice = isShort
         ? pos.entryPrice * (1 + 1 / p.leverage)
         : pos.entryPrice * (1 - 1 / p.leverage)
@@ -215,7 +217,6 @@ export function simulate(
         : row.low  <= liqPrice
 
       if (isLiquidated) {
-        // 강제 청산: 증거금 전액 손실
         capital -= pos.capitalUsed
 
         const entryComm   = pos.entryPrice * pos.quantity * COMMISSION_TAKER
@@ -252,40 +253,25 @@ export function simulate(
         continue
       }
 
-      // ── SL / TP / SCORE_EXIT 조건 ────────────────────────────────
-      const slHit = isShort ? row.high >= pos.sl : row.low  <= pos.sl
-      const tpHit = isShort ? row.low  <= pos.tp : row.high >= pos.tp
+      // ── 이전 캔들에서 예약된 SCORE_EXIT: 현재 봉 시가에 청산 ────────
+      // 진입 로직과 동일한 구조: 신호 캔들 close 감지 → 다음 봉 open 실행
+      if (pos.pendingScoreExit) {
+        const exitPrice  = row.open
+        const exitReason = 'SCORE_EXIT'
 
-      const currentScore = isShort ? scoreShort(row, p) : scoreLong(row, p)
-      const scoreExitHit = p.scoreExitThreshold > 0 && currentScore <= p.scoreExitThreshold
-
-      let exitPrice:  number | null = null
-      let exitReason: string        = ''
-
-      // SL → SCORE_EXIT → TP 순서로 우선순위 처리
-      if      (slHit)        { exitPrice = pos.sl;    exitReason = 'SL'         }
-      else if (scoreExitHit) { exitPrice = row.close; exitReason = 'SCORE_EXIT' }
-      else if (tpHit)        { exitPrice = pos.tp;    exitReason = 'TP'         }
-
-      if (exitPrice != null) {
         const grossPnl = isShort
           ? pos.quantity * (pos.avgEntry - exitPrice)
           : pos.quantity * (exitPrice    - pos.avgEntry)
 
-        // 수수료: 진입 Taker, TP/SL Maker, SCORE_EXIT Taker
-        const exitCommRate = (exitReason === 'TP' || exitReason === 'SL')
-          ? COMMISSION_MAKER
-          : COMMISSION_TAKER
         const entryComm  = pos.entryPrice * pos.quantity * COMMISSION_TAKER
-        const exitComm   = exitPrice       * pos.quantity * exitCommRate
+        const exitComm   = exitPrice       * pos.quantity * COMMISSION_TAKER
         const totalComm  = entryComm + exitComm
-
         const netCapital = grossPnl - totalComm
         capital += netCapital
 
-        const pnlPct   = netCapital / pos.capitalUsed * 100
-        const exitDetails = scoreExitHit
-          ? buildExitDetails(pos.direction, pos.entryRow, row, p)
+        const pnlPct     = netCapital / pos.capitalUsed * 100
+        const exitDetails = pos.scoreExitRow
+          ? buildExitDetails(pos.direction, pos.entryRow, pos.scoreExitRow, p)
           : undefined
 
         const trade: BacktestTrade = {
@@ -315,7 +301,71 @@ export function simulate(
         if (capital > peakEq) peakEq = capital
         else { const dd = (peakEq - capital) / peakEq * 100; if (dd > maxDD) maxDD = dd }
         pos = null
-        closedOnCandle = i  // 이 캔들에서 청산됨 → 동일 캔들 재진입 방지
+        closedOnCandle = i
+        // pendingScoreExit 청산 후에도 동일 봉 재진입 방지 (continue 대신 fall-through)
+      }
+
+      // ── SL / TP / SCORE_EXIT 감지 (pendingScoreExit 없는 경우만) ────
+      if (pos) {
+        const slHit = isShort ? row.high >= pos.sl : row.low  <= pos.sl
+        const tpHit = isShort ? row.low  <= pos.tp : row.high >= pos.tp
+
+        const currentScore = isShort ? scoreShort(row, p) : scoreLong(row, p)
+        const scoreExitHit = p.scoreExitThreshold > 0 && currentScore <= p.scoreExitThreshold
+
+        let exitPrice:  number | null = null
+        let exitReason: string        = ''
+
+        // SL → TP 즉시 청산 (지정가 주문은 캔들 중 가격 도달 시 체결)
+        if      (slHit) { exitPrice = pos.sl; exitReason = 'SL' }
+        else if (tpHit) { exitPrice = pos.tp; exitReason = 'TP' }
+
+        if (exitPrice != null) {
+          const grossPnl = isShort
+            ? pos.quantity * (pos.avgEntry - exitPrice)
+            : pos.quantity * (exitPrice    - pos.avgEntry)
+
+          const exitCommRate = COMMISSION_MAKER
+          const entryComm  = pos.entryPrice * pos.quantity * COMMISSION_TAKER
+          const exitComm   = exitPrice       * pos.quantity * exitCommRate
+          const totalComm  = entryComm + exitComm
+          const netCapital = grossPnl - totalComm
+          capital += netCapital
+
+          const pnlPct = netCapital / pos.capitalUsed * 100
+
+          const trade: BacktestTrade = {
+            signal_type:    pos.signal_type,
+            signal_details: pos.signal_details,
+            direction:      pos.direction,
+            entry_price:    pos.entryPrice,
+            exit_price:     exitPrice,
+            tp:             pos.tp,
+            sl:             pos.sl,
+            quantity:       pos.origQuantity,
+            capital_used:   pos.capitalUsed,
+            capital_before: Math.round(pos.capitalBefore * 100) / 100,
+            net_pnl:        Math.round(netCapital * 10000) / 10000,
+            pnl_pct:        Math.round(pnlPct   * 10000) / 10000,
+            exit_reason:    exitReason,
+            score:          pos.score,
+            entry_ts:       pos.entryTs,
+            exit_ts:        iso(row.timestamp),
+          };
+          (trade as any).commission = Math.round(totalComm * 10000) / 10000
+          trades.push(trade)
+
+          if (netCapital > 0) wins++; else losses++
+          equity.push(capital)
+          if (capital > peakEq) peakEq = capital
+          else { const dd = (peakEq - capital) / peakEq * 100; if (dd > maxDD) maxDD = dd }
+          pos = null
+          closedOnCandle = i
+        } else if (scoreExitHit) {
+          // SCORE_EXIT 감지 → 다음 봉 시가 청산 예약 (진입 로직과 동일한 1봉 딜레이)
+          pos.pendingScoreExit = true
+          pos.scoreExitRow     = row
+        }
       }
     }
 
