@@ -10,9 +10,19 @@ interface Props {
   activating: string | null
   onActivate: (run: RunHistory) => void
   onDelete: (id: string) => void
+  activeKey?: 'paper_trading_enabled' | 'live_trading_enabled'
+  activateLabel?: string
+  activeColor?: string        // hex 또는 MUI 색상
+  activeBgColor?: string
 }
 
-export default function HistoryList({ history, activating, onActivate, onDelete }: Props) {
+export default function HistoryList({
+  history, activating, onActivate, onDelete,
+  activeKey     = 'paper_trading_enabled',
+  activateLabel = '이 설정으로 페이퍼 트레이딩 시작',
+  activeColor   = '#4ade80',
+  activeBgColor = '#16a34a',
+}: Props) {
   return (
     <Box>
       <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1 }}>
@@ -30,7 +40,7 @@ export default function HistoryList({ history, activating, onActivate, onDelete 
           </Typography>
         )}
         {history.map((run) => {
-          const isActive  = run.paper_trading_enabled === true
+          const isActive  = run[activeKey] === true
           const ret       = run.total_return_pct
           const retColor  = ret >= 0 ? '#10b981' : '#ef4444'
           const isLoading = activating === run.id
@@ -52,22 +62,22 @@ export default function HistoryList({ history, activating, onActivate, onDelete 
               sx={{ display: 'grid', gridTemplateColumns: '20px 1fr 20px', gap: 1, alignItems: 'flex-start' }}
             >
               {/* 활성화 토글 */}
-              <Tooltip title={isActive ? '비활성화' : '이 설정으로 페이퍼 트레이딩 시작'} placement="right">
+              <Tooltip title={isActive ? '비활성화' : activateLabel} placement="right">
                 <Box
                   onClick={() => !isLoading && onActivate(run)}
                   sx={{
                     width: 20, height: 20, mt: '10px', borderRadius: '50%', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: isActive ? '#16a34a' : '#1f1f23',
-                    border: `1px solid ${isActive ? '#22c55e' : '#3f3f46'}`,
+                    background: isActive ? activeBgColor : '#1f1f23',
+                    border: `1px solid ${isActive ? activeColor : '#3f3f46'}`,
                     cursor: isLoading ? 'wait' : 'pointer',
                     transition: 'all 0.15s',
-                    '&:hover': { background: isActive ? '#15803d' : '#27272a', borderColor: isActive ? '#4ade80' : '#52525b' },
+                    '&:hover': { background: isActive ? activeBgColor : '#27272a', borderColor: isActive ? activeColor : '#52525b' },
                   }}
                 >
                   {isLoading
-                    ? <CircularProgress size={8} sx={{ color: '#4ade80' }} />
-                    : <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#4ade80' : '#52525b' }} />
+                    ? <CircularProgress size={8} sx={{ color: activeColor }} />
+                    : <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? activeColor : '#52525b' }} />
                   }
                 </Box>
               </Tooltip>
@@ -75,15 +85,15 @@ export default function HistoryList({ history, activating, onActivate, onDelete 
               {/* 이력 카드 */}
               <Box sx={{
                 px: 1.5, py: 1, borderRadius: 1.5,
-                background: isActive ? '#052e16' : '#0a0a0b',
-                border: `1px solid ${isActive ? '#16a34a55' : '#1f1f23'}`,
+                background: isActive ? `${activeBgColor}18` : '#0a0a0b',
+                border: `1px solid ${isActive ? `${activeBgColor}55` : '#1f1f23'}`,
                 minWidth: 0,
               }}>
                 {/* 행 1: 이름 + 성과 */}
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.6, flexWrap: 'wrap' }}>
                   <Typography sx={{
                     fontSize: 13, fontWeight: 800,
-                    color: isActive ? '#4ade80' : '#e4e4e7',
+                    color: isActive ? activeColor : '#e4e4e7',
                     flex: '1 1 auto', minWidth: 0,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
@@ -110,8 +120,8 @@ export default function HistoryList({ history, activating, onActivate, onDelete 
                   {[run.symbol, run.interval, `${run.leverage}x`, `점수${run.min_score}+`].map(label => (
                     <Chip key={label} label={label} size="small" sx={{
                       height: 14, fontSize: 8, fontWeight: 700,
-                      bgcolor: isActive ? '#16a34a18' : '#27272a',
-                      color: isActive ? '#86efac' : '#71717a',
+                      bgcolor: isActive ? `${activeBgColor}18` : '#27272a',
+                      color: isActive ? activeColor : '#71717a',
                       '& .MuiChip-label': { px: 0.5 },
                     }} />
                   ))}

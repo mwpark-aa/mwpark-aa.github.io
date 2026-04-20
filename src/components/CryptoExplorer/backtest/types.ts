@@ -70,6 +70,7 @@ export interface RunHistory {
   created_at: string
   name?: string
   paper_trading_enabled?: boolean
+  live_trading_enabled?: boolean
   symbol: string
   interval: string
   start_date: string
