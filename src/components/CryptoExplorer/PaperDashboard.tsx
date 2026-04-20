@@ -4,13 +4,14 @@ import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
 import { supabase } from '../../lib/supabase'
 import type { RunHistory } from './backtest/types'
-import PaperChart from './PaperChart'
+import PaperChart, { type PaperChartHandle } from './PaperChart'
 import ConfigBanner from './paper/ConfigBanner'
 import HistoryList from './paper/HistoryList'
 import AccountSummary from './paper/AccountSummary'
 import OpenPositions from './paper/OpenPositions'
 import ClosedTradeList from './paper/ClosedTradeList'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
+import type { Candle } from '../../lib/backtest/types'
 
 const INITIAL_CAPITAL = 10000
 
@@ -24,6 +25,8 @@ export default function PaperDashboard() {
   const [loading,      setLoading]      = useState(true)
   const [activating,   setActivating]   = useState<string | null>(null)
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const chartRef = useRef<PaperChartHandle>(null)
+  const [latestCandle, setLatestCandle] = useState<Candle | null>(null)
 
   // ── 데이터 로드 ──────────────────────────────────────────────
 
@@ -160,6 +163,15 @@ export default function PaperDashboard() {
     return () => { if (priceTimer.current) clearInterval(priceTimer.current) }
   }, [config?.symbol, fetchPrice])
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (chartRef.current?.latestCandle) {
+        setLatestCandle(chartRef.current.latestCandle)
+      }
+    }, 500)
+    return () => clearInterval(timer)
+  }, [])
+
   // ── 계산 ─────────────────────────────────────────────────────
 
   const unrealizedPnl = openPos.reduce((sum, pos) => {
@@ -229,6 +241,7 @@ export default function PaperDashboard() {
         currentPrice={currentPrice}
       />
       <PaperChart
+        ref={chartRef}
         symbol={config.symbol}
         interval={config.interval}
         chartConfig={{
@@ -248,7 +261,7 @@ export default function PaperDashboard() {
           direction:    openPos[0].direction,
         } : null}
       />
-      <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} />
+      <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} latestCandle={latestCandle} />
       <ClosedTradeList trades={closedTrades} configs={[config]} />
     </Box>
   )

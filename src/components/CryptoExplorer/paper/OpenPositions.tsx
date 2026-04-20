@@ -3,8 +3,50 @@ import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
 import type { PaperPos } from './types'
 import { fmtPrice, fmtPct, fmtTime } from './types'
+import type { Candle } from '../../../lib/backtest/types'
 
-function OpenPositionRow({ pos, currentPrice }: { pos: PaperPos; currentPrice?: number }) {
+// signal_details 파싱 및 현재값 계산
+function parseSignalDetails(signal: string | null | undefined) {
+  if (!signal) return []
+  return signal.split(' | ').map(part => {
+    const scored = part.endsWith('✓')
+    const label = scored ? part.slice(0, -1) : part
+    return { label, scored }
+  })
+}
+
+function getCurrentIndicatorValue(label: string, candle: Candle | null) {
+  if (!candle) return null
+
+  const trimmed = label.trim()
+
+  if (trimmed.startsWith('RSI')) {
+    return candle.rsi14 != null ? candle.rsi14.toFixed(0) : null
+  }
+  if (trimmed.startsWith('ADX')) {
+    return candle.adx14 != null ? candle.adx14.toFixed(1) : null
+  }
+  if (trimmed.startsWith('BB')) {
+    if (candle.bb_upper != null && candle.bb_lower != null) {
+      const pct = ((candle.close - candle.bb_lower) / (candle.bb_upper - candle.bb_lower)) * 100
+      return pct.toFixed(0)
+    }
+    return null
+  }
+  if (trimmed.startsWith('일목')) {
+    if (candle.ichimoku_a != null && candle.ichimoku_b != null) {
+      return candle.close > candle.ichimoku_a ? '구름위' : '구름아래'
+    }
+    return null
+  }
+  if (trimmed.startsWith('MACD')) {
+    return candle.macd_hist != null ? (candle.macd_hist >= 0 ? '양' : '음') : null
+  }
+
+  return null
+}
+
+function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null }) {
   const isShort   = pos.direction === 'SHORT'
   const refPrice  = currentPrice ?? pos.entry_price
   const unrealPct = isShort
@@ -20,107 +62,154 @@ function OpenPositionRow({ pos, currentPrice }: { pos: PaperPos; currentPrice?: 
     : null
 
   return (
-    <Box sx={{
-      display: 'grid',
-      gridTemplateColumns: { xs: '1fr', sm: '120px 1fr 120px 140px' },
-      gap: 1.5, px: 2, py: 1.5,
-      borderRadius: 2, background: '#111113',
-      borderLeft: `3px solid ${isShort ? '#f97316' : '#3b82f6'}`,
-      border: `1px solid ${isShort ? '#f9731622' : '#3b82f622'}`,
-      alignItems: 'center',
-    }}>
-      {/* 심볼 + 방향 */}
-      <Box>
-        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.5 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace' }}>
-            {pos.symbol}
-          </Typography>
-          <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
-            height: 16, fontSize: 9, fontWeight: 800,
-            bgcolor: isShort ? '#f9731620' : '#3b82f620',
-            color: isShort ? '#f97316' : '#3b82f6',
-            border: `1px solid ${isShort ? '#f9731640' : '#3b82f640'}`,
-            '& .MuiChip-label': { px: 0.75 },
-          }} />
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: {xs: '1fr', sm: '120px 140px 1fr 1fr 120px 140px'},
+        gap: 1.5, px: 2, py: 1.5,
+        borderRadius: 2, background: '#111113',
+        borderLeft: `3px solid ${isShort ? '#f97316' : '#3b82f6'}`,
+        border: `1px solid ${isShort ? '#f9731622' : '#3b82f622'}`,
+        alignItems: 'center',
+      }}>
+        {/* 심볼 + 방향 */}
+        <Box>
+          <Box sx={{display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.5}}>
+            <Typography sx={{fontSize: 14, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace'}}>
+              {pos.symbol}
+            </Typography>
+            <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
+              height: 16, fontSize: 9, fontWeight: 800,
+              bgcolor: isShort ? '#f9731620' : '#3b82f620',
+              color: isShort ? '#f97316' : '#3b82f6',
+              border: `1px solid ${isShort ? '#f9731640' : '#3b82f640'}`,
+              '& .MuiChip-label': {px: 0.75},
+            }}/>
+          </Box>
+          <Typography sx={{fontSize: 9, color: '#52525b'}}>{fmtTime(pos.entry_time)}</Typography>
+          {pos.score != null && (
+              <Typography sx={{fontSize: 9, color: '#52525b'}}>점수 {pos.score}</Typography>
+          )}
         </Box>
-        <Typography sx={{ fontSize: 9, color: '#52525b' }}>{fmtTime(pos.entry_time)}</Typography>
-        {pos.score != null && (
-          <Typography sx={{ fontSize: 9, color: '#52525b' }}>점수 {pos.score}</Typography>
-        )}
-      </Box>
 
-      {/* 진입가 + 시그널 */}
-      <Box>
-        <Typography sx={{ fontSize: 9, color: '#52525b', mb: 0.25 }}>진입가</Typography>
-        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace' }}>
-          ${fmtPrice(pos.entry_price)}
-        </Typography>
+        {/* 진입가 */}
+        <Box>
+          <Typography sx={{fontSize: 9, color: '#52525b', mb: 0.25}}>진입가</Typography>
+          <Typography sx={{fontSize: 13, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace'}}>
+            ${fmtPrice(pos.entry_price)}
+          </Typography>
+        </Box>
+
+        {/* 지표 (진입시 | 현재) */}
         {pos.signal_details && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3, mt: 0.25 }}>
-            {pos.signal_details.split(' | ').map((part, i, arr) => {
-              const scored = part.endsWith('✓')
-              const label  = scored ? part.slice(0, -1) : part
-              return (
-                <Typography key={i} sx={{
-                  fontSize: 9, fontFamily: 'monospace',
-                  color: scored ? (isShort ? '#f97316' : '#10b981') : '#3f3f46',
-                  fontWeight: scored ? 700 : 400,
-                }}>
-                  {label}{i < arr.length - 1 ? ' |' : ''}
-                </Typography>
-              )
-            })}
-          </Box>
+            <Box>
+              <Box>
+                <Typography sx={{fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600}}>진입시</Typography>
+                <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.25}}>
+                  {parseSignalDetails(pos.signal_details).map((item, i, arr) => {
+                    const scored = item.scored
+                    return (
+                        <Typography key={`entry-${i}`} sx={{
+                          fontSize: 10, fontFamily: 'monospace',
+                          color: scored ? (isShort ? '#f97316' : '#10b981') : '#3f3f46',
+                          fontWeight: scored ? 700 : 400,
+                        }}>
+                          {item.label}{i < arr.length - 1 ? ' |' : ''}
+                        </Typography>
+                    )
+                  })}
+                </Box>
+              </Box>
+            </Box>
         )}
-      </Box>
 
-      {/* 미실현 손익 */}
-      <Box>
-        <Typography sx={{ fontSize: 9, color: '#52525b', mb: 0.25 }}>미실현 손익</Typography>
-        <Typography sx={{ fontSize: 15, fontWeight: 800, color: pnlColor, fontFamily: 'monospace' }}>
-          {currentPrice ? fmtPct(unrealPct) : '—'}
-        </Typography>
-        {currentPrice && (
-          <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
-            ${fmtPrice(currentPrice)}
+        {pos.signal_details && (
+            <Box>
+              {/* 현재 */}
+              {latestCandle && (
+                  <Box>
+                    <Typography sx={{fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600}}>현재</Typography>
+                    <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.25}}>
+                      {parseSignalDetails(pos.signal_details).map((item, i, arr) => {
+                        const currentVal = getCurrentIndicatorValue(item.label, latestCandle)
+                        return (
+                            <Typography key={`current-${i}`} sx={{
+                              fontSize: 10, fontFamily: 'monospace',
+                              color: '#e4e4e7',
+                              fontWeight: 600,
+                            }}>
+                              {currentVal !== null ? currentVal : '—'}
+                              {i < arr.length - 1 ? ' |' : ''}
+                            </Typography>
+                        )
+                      })}
+                    </Box>
+                  </Box>
+              )}
+            </Box>
+        )}
+
+        {/* 미실현 손익 */}
+        <Box>
+          <Typography sx={{fontSize: 9, color: '#52525b', mb: 0.25}}>미실현 손익</Typography>
+          <Typography sx={{fontSize: 15, fontWeight: 800, color: pnlColor, fontFamily: 'monospace'}}>
+            {currentPrice ? fmtPct(unrealPct) : '—'}
           </Typography>
-        )}
-      </Box>
-
-      {/* TP / SL + 프로그레스 */}
-      <Box sx={{ textAlign: 'right' }}>
-        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', mb: 0.5 }}>
-          {pos.target_price != null && (
-            <Typography sx={{ fontSize: 9, color: '#10b98188', fontFamily: 'monospace' }}>
-              TP ${fmtPrice(pos.target_price)}
-            </Typography>
-          )}
-          {pos.stop_loss != null && (
-            <Typography sx={{ fontSize: 9, color: '#ef444488', fontFamily: 'monospace' }}>
-              SL ${fmtPrice(pos.stop_loss)}
-            </Typography>
+          {currentPrice && (
+              <Typography sx={{fontSize: 9, color: '#52525b', fontFamily: 'monospace'}}>
+                ${fmtPrice(currentPrice)}
+              </Typography>
           )}
         </Box>
-        {progressPct != null && (
-          <Box sx={{ width: 100, height: 3, bgcolor: '#27272a', borderRadius: 99, overflow: 'hidden', ml: 'auto', mb: 0.5 }}>
-            <Box sx={{ width: `${progressPct}%`, height: '100%', bgcolor: pnlColor, borderRadius: 99, transition: 'width 0.4s' }} />
+
+        {/* TP / SL + 프로그레스 */}
+        <Box sx={{textAlign: 'right'}}>
+          <Box sx={{display: 'flex', gap: 1.5, justifyContent: 'flex-end', mb: 0.5}}>
+            {pos.target_price != null && (
+                <Typography sx={{fontSize: 9, color: '#10b98188', fontFamily: 'monospace'}}>
+                  TP ${fmtPrice(pos.target_price)}
+                </Typography>
+            )}
+            {pos.stop_loss != null && (
+                <Typography sx={{fontSize: 9, color: '#ef444488', fontFamily: 'monospace'}}>
+                  SL ${fmtPrice(pos.stop_loss)}
+                </Typography>
+            )}
           </Box>
-        )}
-        <Typography sx={{ fontSize: 9, color: '#52525b' }}>
-          ${pos.capital_used.toLocaleString('en', { maximumFractionDigits: 0 })} 투입
-        </Typography>
+          {progressPct != null && (
+              <Box sx={{
+                width: 100,
+                height: 3,
+                bgcolor: '#27272a',
+                borderRadius: 99,
+                overflow: 'hidden',
+                ml: 'auto',
+                mb: 0.5
+              }}>
+                <Box sx={{
+                  width: `${progressPct}%`,
+                  height: '100%',
+                  bgcolor: pnlColor,
+                  borderRadius: 99,
+                  transition: 'width 0.4s'
+                }}/>
+              </Box>
+          )}
+          <Typography sx={{fontSize: 9, color: '#52525b'}}>
+            ${pos.capital_used.toLocaleString('en', {maximumFractionDigits: 0})} 투입
+          </Typography>
+        </Box>
       </Box>
-    </Box>
-  )
+  );
 }
 
 interface Props {
   openPos: PaperPos[]
   currentPrice: number | null
   symbol: string
+  latestCandle?: Candle | null
 }
 
-export default function OpenPositions({ openPos, currentPrice, symbol }: Props) {
+export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle }: Props) {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -150,6 +239,7 @@ export default function OpenPositions({ openPos, currentPrice, symbol }: Props) 
               key={pos.id}
               pos={pos}
               currentPrice={pos.symbol === symbol ? currentPrice ?? undefined : undefined}
+              latestCandle={pos.symbol === symbol ? latestCandle : undefined}
             />
           ))}
         </Box>

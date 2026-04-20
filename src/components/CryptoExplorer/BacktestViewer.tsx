@@ -4,12 +4,13 @@ import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
+import type { UTCTimestamp } from 'lightweight-charts'
 import { supabase } from '../../lib/supabase'
 import { runBacktest as execBacktest, type BacktestParams as LibBacktestParams, type BacktestTrade as LibBacktestTrade } from '../../lib/backtest'
+import { fetchKlines } from '../../lib/backtest/fetch'
 import { CRYPTO_SYMBOLS, type CryptoSymbol } from '../../constants/crypto'
 
 import type { BacktestParams, BacktestResult, BacktestTrade, OHLCVCandle, RunHistory } from './backtest/types'
-import { fetchOHLCV } from './backtest/utils'
 import BacktestChart from './backtest/BacktestChart'
 import TradeList from './backtest/TradeList'
 import ResultSummary from './backtest/ResultSummary'
@@ -151,7 +152,15 @@ export default function BacktestViewer() {
 
       const startMs = new Date(params.startDate).getTime()
       const endMs = new Date(params.endDate).getTime() + 15 * 3_600_000  // KST 23:59:59
-      const candleData = await fetchOHLCV(selectedSymbol, params.interval, startMs, endMs)
+      const KST_OFFSET_S = 9 * 3600
+      const rawCandles = await fetchKlines(selectedSymbol, params.interval, startMs, endMs)
+      const candleData: OHLCVCandle[] = rawCandles.map(c => ({
+        time: (Math.floor(c.timestamp / 1000) + KST_OFFSET_S) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
       setCandles(candleData)
       setLastCommittedParams(committed)
       setTestName('')

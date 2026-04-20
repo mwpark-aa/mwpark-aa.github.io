@@ -1,4 +1,4 @@
-import { useEffect, useRef, memo } from 'react'
+import { useEffect, useRef, memo, forwardRef } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import {
@@ -44,9 +44,13 @@ interface Props {
   chartConfig: ChartConfig
 }
 
+export interface PaperChartHandle {
+  latestCandle: Candle | null
+}
+
 // ── Binance REST fetch ────────────────────────────────────────
 
-async function fetchCandles(symbol: string, interval: string, limit = 280): Promise<Candle[]> {
+async function fetchCandles(symbol: string, interval: string, limit = 500): Promise<Candle[]> {
   const resp = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=${symbol}USDT&interval=${interval}&limit=${limit}`
   )
@@ -69,11 +73,24 @@ const toT = (ms: number) => (Math.floor(ms / 1000) + KST_OFFSET_S) as UTCTimesta
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 
-const PaperChart = memo(function PaperChart({ symbol, interval, position, chartConfig }: Props) {
+const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart({ symbol, interval, position, chartConfig }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
   const wsRef        = useRef<WebSocket | null>(null)
   const candlesRef   = useRef<Candle[]>([])
+  const latestCandleRef = useRef<Candle | null>(null)
+
+  // ref 노출
+  useEffect(() => {
+    const updateRef = () => {
+      if (typeof ref === 'function') {
+        ref({ latestCandle: latestCandleRef.current })
+      } else if (ref) {
+        ref.current = { latestCandle: latestCandleRef.current }
+      }
+    }
+    updateRef()
+  })
 
   // 시리즈 refs
   const candleSeriesRef  = useRef<ISeriesApi<'Candlestick', any> | null>(null)
@@ -136,8 +153,10 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
       adxSeriesRef.current?.setData(candles.filter(c => c.adx14 != null).map(c => ({ time: toT(c.timestamp), value: c.adx14! })))
     }
 
-    // 마지막 캔들로 스크롤
-    if (n > 0) chartRef.current?.timeScale().scrollToRealTime()
+    if (n > 0) {
+      latestCandleRef.current = candles[n - 1]
+      chartRef.current?.timeScale().scrollToRealTime()
+    }
   }
 
   // ── 마지막 캔들 1건만 업데이트 ────────────────────────────
@@ -164,6 +183,8 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
     if (chartConfig.showRSI   && c.rsi14     != null) rsiSeriesRef.current?.update({ time: t, value: c.rsi14 })
     if (chartConfig.showMACD  && c.macd_hist != null) macdSeriesRef.current?.update({ time: t, value: c.macd_hist, color: c.macd_hist >= 0 ? '#10b981aa' : '#ef4444aa' })
     if (chartConfig.showADX   && c.adx14     != null) adxSeriesRef.current?.update({ time: t, value: c.adx14 })
+
+    latestCandleRef.current = c
   }
 
   // ── 차트 초기화 + WebSocket (symbol / interval 변경 시) ───
@@ -449,6 +470,6 @@ const PaperChart = memo(function PaperChart({ symbol, interval, position, chartC
       )}
     </Box>
   )
-})
+}))
 
 export default PaperChart
