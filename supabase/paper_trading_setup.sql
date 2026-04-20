@@ -21,6 +21,8 @@ ALTER TABLE backtest_runs
 ALTER TABLE paper_positions
   ADD COLUMN IF NOT EXISTS backtest_run_id  uuid REFERENCES backtest_runs(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS signal_details   text,
+  ADD COLUMN IF NOT EXISTS exit_details     text,
+  ADD COLUMN IF NOT EXISTS entry_row        jsonb,
   ADD COLUMN IF NOT EXISTS last_candle_ts   timestamptz;  -- 마지막으로 체크한 캔들 시각
 
 -- ── paper_account: 마지막 처리 캔들 추적 ─────────────────────

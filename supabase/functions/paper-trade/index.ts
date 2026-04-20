@@ -627,6 +627,122 @@ function buildSignalDetails(row: Candle, c: PaperConfig, direction: string): str
   return parts.join(' | ')
 }
 
+// ── SCORE_EXIT 청산 시 지표 변화 요약 ────────────────────────
+
+function buildExitDetails(
+  direction: string,
+  entryRow: Candle,
+  exitRow: Candle,
+  c: PaperConfig,
+): string | undefined {
+  const isShort = direction === 'SHORT'
+  const parts: string[] = []
+
+  if (c.score_use_rsi && entryRow.rsi14 != null && exitRow.rsi14 != null) {
+    const entryScore   = isShort ? (entryRow.rsi14 > c.rsi_overbought ? 1 : 0) : (entryRow.rsi14 < c.rsi_oversold ? 1 : 0)
+    const currentScore = isShort ? (exitRow.rsi14  > c.rsi_overbought ? 1 : 0) : (exitRow.rsi14  < c.rsi_oversold ? 1 : 0)
+    if (currentScore < entryScore) {
+      parts.push(`RSI: ${Math.round(entryRow.rsi14)} → ${Math.round(exitRow.rsi14)}`)
+    }
+  }
+
+  if (c.score_use_adx && entryRow.adx14 != null && exitRow.adx14 != null) {
+    const entryScore   = entryRow.adx14 >= c.adx_threshold ? 1 : 0
+    const currentScore = exitRow.adx14  >= c.adx_threshold ? 1 : 0
+    if (currentScore < entryScore) {
+      parts.push(`ADX: ${Math.round(entryRow.adx14 * 10) / 10} → ${Math.round(exitRow.adx14 * 10) / 10}`)
+    }
+  }
+
+  if (c.score_use_macd && entryRow.macd_hist != null && exitRow.macd_hist != null) {
+    const entryScore   = isShort ? (entryRow.macd_hist < 0 ? 1 : 0) : (entryRow.macd_hist > 0 ? 1 : 0)
+    const currentScore = isShort ? (exitRow.macd_hist  < 0 ? 1 : 0) : (exitRow.macd_hist  > 0 ? 1 : 0)
+    if (currentScore < entryScore) {
+      const fmt = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v * 1000) / 1000}`
+      parts.push(`MACD: ${fmt(entryRow.macd_hist)} → ${fmt(exitRow.macd_hist)}`)
+    }
+  }
+
+  if (c.score_use_rvol && entryRow.vol_rvol168 != null && exitRow.vol_rvol168 != null) {
+    const entryScore   = entryRow.vol_rvol168 >= c.rvol_threshold ? 1 : 0
+    const currentScore = exitRow.vol_rvol168  >= c.rvol_threshold ? 1 : 0
+    if (currentScore < entryScore) {
+      parts.push(`RVOL: ${Math.round(entryRow.vol_rvol168 * 10) / 10}x → ${Math.round(exitRow.vol_rvol168 * 10) / 10}x`)
+    }
+  }
+
+  if (
+    c.score_use_golden_cross
+    && entryRow.ma20 != null && entryRow.ma60 != null
+    && exitRow.ma20  != null && exitRow.ma60  != null
+  ) {
+    const entryTrend   = entryRow.ma20 > entryRow.ma60 ? '상승' : '하락'
+    const currentTrend = exitRow.ma20  > exitRow.ma60  ? '상승' : '하락'
+    const entryScore   = isShort ? (entryTrend   === '하락' ? 1 : 0) : (entryTrend   === '상승' ? 1 : 0)
+    const currentScore = isShort ? (currentTrend === '하락' ? 1 : 0) : (currentTrend === '상승' ? 1 : 0)
+    if (currentScore < entryScore) {
+      parts.push(`MA: ${entryTrend} → ${currentTrend}`)
+    }
+  }
+
+  if (c.score_use_bb && entryRow.bb_lower != null && entryRow.bb_upper != null
+    && exitRow.bb_lower != null && exitRow.bb_upper != null) {
+    const entryScore   = isShort
+      ? (entryRow.close >= entryRow.bb_upper ? 1 : 0)
+      : (entryRow.close <= entryRow.bb_lower ? 1 : 0)
+    const currentScore = isShort
+      ? (exitRow.close  >= exitRow.bb_upper  ? 1 : 0)
+      : (exitRow.close  <= exitRow.bb_lower  ? 1 : 0)
+    if (currentScore < entryScore) {
+      const fmt = (r: Candle) => `${((r.close - r.bb_lower!) / (r.bb_upper! - r.bb_lower!) * 100).toFixed(0)}%`
+      parts.push(`BB: ${fmt(entryRow)} → ${fmt(exitRow)}`)
+    }
+  }
+
+  if (c.score_use_ichi
+    && entryRow.ichimoku_a != null && entryRow.ichimoku_b != null
+    && exitRow.ichimoku_a  != null && exitRow.ichimoku_b  != null) {
+    const aboveCloud = (r: Candle) => r.close > r.ichimoku_a! && r.close > r.ichimoku_b!
+    const belowCloud = (r: Candle) => r.close < r.ichimoku_a! && r.close < r.ichimoku_b!
+    const entryScore   = isShort ? (belowCloud(entryRow) ? 1 : 0) : (aboveCloud(entryRow) ? 1 : 0)
+    const currentScore = isShort ? (belowCloud(exitRow)  ? 1 : 0) : (aboveCloud(exitRow)  ? 1 : 0)
+    if (currentScore < entryScore) {
+      const label = (r: Candle) => aboveCloud(r) ? '구름위' : belowCloud(r) ? '구름아래' : '구름안'
+      parts.push(`일목: ${label(entryRow)} → ${label(exitRow)}`)
+    }
+  }
+
+  if (c.score_use_fed_liquidity && entryRow.fed_state != null && exitRow.fed_state != null) {
+    const entryScore   = isShort ? (entryRow.fed_state === -1 ? 1 : 0) : (entryRow.fed_state === 1 ? 1 : 0)
+    const currentScore = isShort ? (exitRow.fed_state  === -1 ? 1 : 0) : (exitRow.fed_state  === 1 ? 1 : 0)
+    if (currentScore < entryScore) {
+      const label = (s: number) => s === 1 ? '확장' : s === -1 ? '수축' : '혼재'
+      parts.push(`연준: ${label(entryRow.fed_state)} → ${label(exitRow.fed_state)}`)
+    }
+  }
+
+  if (c.score_use_cci && entryRow.cci20 != null && exitRow.cci20 != null) {
+    const entryScore   = isShort ? (entryRow.cci20 > c.cci_overbought ? 1 : 0) : (entryRow.cci20 < c.cci_oversold ? 1 : 0)
+    const currentScore = isShort ? (exitRow.cci20  > c.cci_overbought ? 1 : 0) : (exitRow.cci20  < c.cci_oversold ? 1 : 0)
+    if (currentScore < entryScore) {
+      const fmt = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v)}`
+      parts.push(`CCI: ${fmt(entryRow.cci20)} → ${fmt(exitRow.cci20)}`)
+    }
+  }
+
+  if (c.score_use_vwma && entryRow.vwma20 != null && exitRow.vwma20 != null) {
+    const entryAbove   = entryRow.close > entryRow.vwma20
+    const exitAbove    = exitRow.close  > exitRow.vwma20
+    const entryScore   = isShort ? (!entryAbove ? 1 : 0) : (entryAbove ? 1 : 0)
+    const currentScore = isShort ? (!exitAbove  ? 1 : 0) : (exitAbove  ? 1 : 0)
+    if (currentScore < entryScore) {
+      parts.push(`VWMA: ${entryAbove ? '위' : '아래'} → ${exitAbove ? '위' : '아래'}`)
+    }
+  }
+
+  return parts.length > 0 ? parts.join(' | ') : undefined
+}
+
 // ── 메인 핸들러 ──────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -790,8 +906,16 @@ Deno.serve(async (req) => {
 
         const pnlPct = (netCapital / (pos.capital_used as number)) * 100
 
-        // 청산 시 signal_details 업데이트 (진입 신호 정보 보존)
-        const updatedSignalDetails = buildSignalDetails(latestRow, c, pos.direction)
+        // SCORE_EXIT 청산 시 지표 변화 표시
+        let exitDetails: string | undefined = undefined
+        if (exitReason === 'SCORE_EXIT' && pos.entry_row) {
+          try {
+            const entryRow = JSON.parse(pos.entry_row as string) as Candle
+            exitDetails = buildExitDetails(pos.direction, entryRow, latestRow, c)
+          } catch {
+            // entry_row 파싱 실패 시 무시
+          }
+        }
 
         await supabase
           .from('paper_positions')
@@ -800,7 +924,7 @@ Deno.serve(async (req) => {
             exit_price:  Math.round(exitPrice * 1e6) / 1e6,
             exit_time:   iso(latestRow.timestamp),
             exit_reason: exitReason,
-            signal_details: updatedSignalDetails,
+            exit_details: exitDetails,
             net_pnl:     Math.round(netCapital * 10000) / 10000,
             pnl_pct:     Math.round(pnlPct   * 10000) / 10000,
           })
@@ -908,6 +1032,7 @@ Deno.serve(async (req) => {
               // 백테스트와 동일: 진입 시각 = 다음 캔들 시작 시각
               entry_time:            iso(lastCandleEnd),
               signal_details:        signalDetails,
+              entry_row:             JSON.stringify(latestRow),
               score,
               status:                'OPEN',
               peak_price:            Math.round(entryPrice * 1e6) / 1e6,

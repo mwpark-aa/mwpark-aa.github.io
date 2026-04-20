@@ -570,8 +570,6 @@ export default function BacktestViewer() {
         <TradeList
           trades={trades}
           loading={loading}
-          result={result}
-          params={params}
           selectedTradeId={selectedTradeId}
           onScrollTo={handleScrollTo}
           onSelectTrade={setSelectedTradeId}

@@ -3,20 +3,18 @@ import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
-import TradeRow from './TradeRow'
-import type { BacktestTrade, BacktestResult, BacktestParams } from './types'
+import CommonTradeRow from '../common/CommonTradeRow'
+import type { BacktestTrade } from './types'
 
 interface Props {
   trades: BacktestTrade[]
   loading: boolean
-  result: BacktestResult | null
-  params: BacktestParams
   selectedTradeId: string | null
   onScrollTo: (ts: string) => void
   onSelectTrade: (id: string) => void
 }
 
-export default function TradeList({ trades, loading, result, params, selectedTradeId, onScrollTo, onSelectTrade }: Props) {
+export default function TradeList({ trades, loading, selectedTradeId, onScrollTo, onSelectTrade }: Props) {
   return (
     <Card sx={{ background: '#111113', border: '1px solid #27272a', borderRadius: 3 }}>
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
@@ -66,14 +64,16 @@ export default function TradeList({ trades, loading, result, params, selectedTra
           }}>
             {trades.length > 0 ? (
               trades.map((t, i) => (
-                <TradeRow
+                <CommonTradeRow
                   key={t.id}
                   trade={t}
                   index={i}
                   onScrollTo={onScrollTo}
-                  initialCapital={result?.initial_capital ?? params.initialCapital}
                   onSelectTrade={onSelectTrade}
                   isSelected={t.id === selectedTradeId}
+                  showCommission={true}
+                  showAvgEntry={true}
+                  showCapitalBefore={true}
                 />
               ))
             ) : (

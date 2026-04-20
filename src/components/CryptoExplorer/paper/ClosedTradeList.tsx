@@ -1,173 +1,9 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
-import useMediaQuery from '@mui/material/useMediaQuery'
 import type { ClosedTrade, ActiveConfig } from './types'
-import { fmtPrice, fmtPct, fmtTime } from './types'
-
-const EXIT_REASON_MAP: Record<string, string> = {
-  TP:         '목표가 달성',
-  SL:         '손절가 달성',
-  SCORE_EXIT: '신호약화',
-  LIQUIDATED: '청산',
-  DATA_END:   '데이터 종료',
-}
-
-function SignalDetails({ details, isShort }: { details: string; isShort: boolean }) {
-  const parts = details.split(' | ')
-  return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
-      {parts.map((part, i) => {
-        const scored = part.endsWith('✓')
-        const label  = scored ? part.slice(0, -1) : part
-        return (
-          <Typography key={i} sx={{
-            fontSize: 9, fontFamily: 'monospace', lineHeight: 1.4,
-            color: scored ? (isShort ? '#f97316' : '#10b981') : '#52525b',
-            fontWeight: scored ? 700 : 400,
-          }}>
-            {label}{i < parts.length - 1 ? ' |' : ''}
-          </Typography>
-        )
-      })}
-    </Box>
-  )
-}
-
-function ClosedTradeRow({ trade }: { trade: ClosedTrade }) {
-  const isShort      = trade.direction === 'SHORT'
-  const win          = trade.net_pnl >= 0
-  const pnlColor     = win ? '#10b981' : '#ec4899'
-  const dirColor     = isShort ? '#ef4444' : '#3b82f6'
-  const exitColor    = win ? '#10b981' : '#ef4444'
-  const isMobile     = useMediaQuery('(max-width:600px)')
-
-  const exitLabel = EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason
-
-  if (isMobile) {
-    return (
-      <Box sx={{
-        borderRadius: 1.5,
-        borderLeft: `3px solid ${dirColor}66`,
-        background: '#111113',
-        px: 1.5, py: 1,
-      }}>
-        {/* 행 1: 방향 + 시각 + 손익 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
-              height: 16, fontSize: 9, fontWeight: 800,
-              bgcolor: `${dirColor}18`, color: dirColor,
-              border: `1px solid ${dirColor}44`,
-              '& .MuiChip-label': { px: 0.75 },
-            }} />
-            <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
-              {fmtTime(trade.entry_time)} → {fmtTime(trade.exit_time)}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 800, color: pnlColor, fontFamily: 'monospace', lineHeight: 1.2 }}>
-              {fmtPct(trade.pnl_pct)}
-            </Typography>
-            <Typography sx={{ fontSize: 9, color: pnlColor, fontFamily: 'monospace', opacity: 0.8 }}>
-              {win ? '+' : ''}${trade.net_pnl.toFixed(2)}
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* 행 2: 진입가 → 청산가 */}
-        <Box sx={{ mb: 0.5 }}>
-          <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>진입 → 청산</Typography>
-          <Typography sx={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
-            {fmtPrice(trade.entry_price)} →{' '}
-            <Box component="span" sx={{ color: exitColor }}>{fmtPrice(trade.exit_price)}</Box>
-          </Typography>
-        </Box>
-
-        {/* 행 3: 시그널 */}
-        {trade.signal_details && (
-          <Box sx={{ mb: 0.4 }}>
-            <SignalDetails details={trade.signal_details} isShort={isShort} />
-          </Box>
-        )}
-
-        {/* 행 4: 청산 이유 + 투입금 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 9, color: '#71717a' }}>{exitLabel}</Typography>
-          <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
-            투입 ${trade.capital_used.toFixed(0)}
-          </Typography>
-        </Box>
-      </Box>
-    )
-  }
-
-  // ── 데스크탑 ────────────────────────────────────────────────────
-  return (
-    <Box sx={{
-      display: 'grid',
-      gridTemplateColumns: '36px 100px 1.5fr 1.0fr 100px 80px 80px',
-      gap: 0.75, px: 1.5, py: 0.55,
-      background: '#111113',
-      borderRadius: 1.5,
-      borderLeft: `3px solid ${dirColor}66`,
-      alignItems: 'center',
-      '&:hover': { background: `${dirColor}08` },
-      transition: 'background 0.15s',
-    }}>
-      {/* 방향 */}
-      <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
-        height: 15, fontSize: 8, fontWeight: 800,
-        bgcolor: `${dirColor}18`, color: dirColor,
-        border: `1px solid ${dirColor}44`,
-        '& .MuiChip-label': { px: 0.5 },
-      }} />
-
-      {/* 진입 */}
-      <Box>
-        <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>{fmtTime(trade.entry_time)}</Typography>
-        <Typography sx={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>{fmtPrice(trade.entry_price)}</Typography>
-      </Box>
-
-      {/* 시그널 */}
-      <Box>
-        {trade.signal_details && <SignalDetails details={trade.signal_details} isShort={isShort} />}
-      </Box>
-
-      {/* 청산 이유 */}
-      <Box>
-        <Typography sx={{ fontSize: 10, color: '#fff', fontFamily: 'monospace', lineHeight: 1.3 }}>
-          {exitLabel}
-        </Typography>
-      </Box>
-
-      {/* 청산 */}
-      <Box>
-        <Typography sx={{ fontSize: 9, color: '#a1a1aa' }}>{fmtTime(trade.exit_time)}</Typography>
-        <Typography sx={{ fontSize: 10, color: exitColor, fontFamily: 'monospace', fontWeight: 700 }}>
-          {fmtPrice(trade.exit_price)}
-        </Typography>
-      </Box>
-
-      {/* 손익 */}
-      <Box sx={{ textAlign: 'right' }}>
-        <Typography sx={{ fontSize: 11, fontWeight: 800, color: pnlColor, fontFamily: 'monospace', lineHeight: 1.2 }}>
-          {fmtPct(trade.pnl_pct)}
-        </Typography>
-        <Typography sx={{ fontSize: 9, color: pnlColor, fontFamily: 'monospace', opacity: 0.75 }}>
-          {win ? '+' : ''}${trade.net_pnl.toFixed(2)}
-        </Typography>
-      </Box>
-
-      {/* 투입금 */}
-      <Box sx={{ textAlign: 'right' }}>
-        <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
-          투입 ${trade.capital_used.toFixed(0)}
-        </Typography>
-      </Box>
-    </Box>
-  )
-}
+import { fmtPct } from './types'
+import CommonTradeRow from '../common/CommonTradeRow'
 
 function ConfigTradeSection({ config, trades }: { config: ActiveConfig | undefined; trades: ClosedTrade[] }) {
   const wins    = trades.filter(t => t.net_pnl > 0).length
@@ -233,8 +69,19 @@ function ConfigTradeSection({ config, trades }: { config: ActiveConfig | undefin
         '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 },
       }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0.75 }}>
-          {trades.map(t => (
-            <ClosedTradeRow key={t.id} trade={t} />
+          {trades.map((t, i) => (
+            <CommonTradeRow
+              key={t.id}
+              trade={{
+                ...t,
+                entry_ts: t.entry_time,
+                exit_ts: t.exit_time,
+              } as any}
+              index={i}
+              showCommission={false}
+              showAvgEntry={false}
+              showCapitalBefore={false}
+            />
           ))}
         </Box>
       </Box>

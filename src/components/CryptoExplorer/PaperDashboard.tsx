@@ -68,7 +68,7 @@ export default function PaperDashboard() {
   const loadClosedTrades = useCallback(async (configId?: string) => {
     const query = supabase
       .from('paper_positions')
-      .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score, signal_details, capital_used')
+      .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score, signal_details, exit_details, capital_used')
       .eq('status', 'CLOSED')
       .order('exit_time', { ascending: false })
       .limit(100)

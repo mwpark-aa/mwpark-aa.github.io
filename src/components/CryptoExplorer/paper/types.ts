@@ -58,6 +58,7 @@ export interface ClosedTrade {
   exit_time: string
   score?: number | null
   signal_details?: string | null
+  exit_details?: string | null
   capital_used: number
 }
 
