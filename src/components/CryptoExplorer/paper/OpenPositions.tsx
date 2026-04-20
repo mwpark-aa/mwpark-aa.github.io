@@ -15,35 +15,31 @@ function parseSignalDetails(signal: string | null | undefined) {
   })
 }
 
-function getCurrentIndicatorValue(label: string, candle: Candle | null) {
-  if (!candle) return null
+function getFormattedIndicatorValue(label: string, candle: Candle | null): string {
+  if (!candle) return '—'
 
   const trimmed = label.trim()
+  const indicatorName = trimmed.split(':')[0]
+  let value: string | null = null
 
   if (trimmed.startsWith('RSI')) {
-    return candle.rsi14 != null ? candle.rsi14.toFixed(0) : null
-  }
-  if (trimmed.startsWith('ADX')) {
-    return candle.adx14 != null ? candle.adx14.toFixed(1) : null
-  }
-  if (trimmed.startsWith('BB')) {
+    value = candle.rsi14 != null ? candle.rsi14.toFixed(0) : null
+  } else if (trimmed.startsWith('ADX')) {
+    value = candle.adx14 != null ? candle.adx14.toFixed(1) : null
+  } else if (trimmed.startsWith('BB')) {
     if (candle.bb_upper != null && candle.bb_lower != null) {
       const pct = ((candle.close - candle.bb_lower) / (candle.bb_upper - candle.bb_lower)) * 100
-      return pct.toFixed(0)
+      value = pct.toFixed(0)
     }
-    return null
-  }
-  if (trimmed.startsWith('일목')) {
+  } else if (trimmed.startsWith('일목')) {
     if (candle.ichimoku_a != null && candle.ichimoku_b != null) {
-      return candle.close > candle.ichimoku_a ? '구름위' : '구름아래'
+      value = candle.close > candle.ichimoku_a ? '구름위' : '구름아래'
     }
-    return null
-  }
-  if (trimmed.startsWith('MACD')) {
-    return candle.macd_hist != null ? (candle.macd_hist >= 0 ? '양' : '음') : null
+  } else if (trimmed.startsWith('MACD')) {
+    value = candle.macd_hist != null ? (candle.macd_hist >= 0 ? '양' : '음') : null
   }
 
-  return null
+  return `${indicatorName}: ${value !== null ? value : '—'}`
 }
 
 function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null }) {
@@ -124,21 +120,19 @@ function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; c
 
         {pos.signal_details && (
             <Box>
-              {/* 현재 */}
               {latestCandle && (
                   <Box>
                     <Typography sx={{fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600}}>현재</Typography>
                     <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.25}}>
                       {parseSignalDetails(pos.signal_details).map((item, i, arr) => {
-                        const currentVal = getCurrentIndicatorValue(item.label, latestCandle)
+                        const formattedValue = getFormattedIndicatorValue(item.label, latestCandle)
                         return (
                             <Typography key={`current-${i}`} sx={{
                               fontSize: 10, fontFamily: 'monospace',
                               color: '#e4e4e7',
                               fontWeight: 600,
                             }}>
-                              {currentVal !== null ? currentVal : '—'}
-                              {i < arr.length - 1 ? ' |' : ''}
+                              {formattedValue}{i < arr.length - 1 ? ' |' : ''}
                             </Typography>
                         )
                       })}
