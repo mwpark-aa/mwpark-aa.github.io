@@ -10,8 +10,9 @@ import { computeIndicators } from './backtest/indicators'
 import { simulate } from './backtest/simulate'
 
 export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
-  const startMs = new Date(p.startDate).getTime()
-  // 종료일을 KST 23:59:59 기준으로 계산 ("YYYY-MM-DD" → UTC 자정 = KST 09:00 이므로 +15h)
+  // "YYYY-MM-DD" → UTC 자정 = KST 09:00 이므로 -9h 해야 KST 00:00 기준
+  const startMs = new Date(p.startDate).getTime() - 9 * 3_600_000
+  // 종료일 KST 23:59:59 = UTC 자정 + 15h
   const endMs   = new Date(p.endDate).getTime() + 15 * 3_600_000
 
   // RVOL168 계산용 워밍업 구간 추가
@@ -29,7 +30,10 @@ export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
   // 연준 유동성 데이터 부착
   let fedLatest: number | null = null
   if (p.scoreUseFedLiquidity) {
-    const fedBars = await fetchFedLiquidity(p.startDate, p.endDate, p.fedLiquidityMAPeriod)
+    // FRED 주간 데이터(WALCL)는 목요일 업데이트 → startDate가 월요일이면 직전 목요일 데이터가
+    // fed-liquidity 필터에서 제외됨. 14일 여유를 두어 항상 최근 데이터가 포함되도록 함.
+    const fedStartStr = new Date(startMs - 14 * 86_400_000).toISOString().slice(0, 10)
+    const fedBars = await fetchFedLiquidity(fedStartStr, p.endDate, p.fedLiquidityMAPeriod)
     attachFedData(rows, fedBars)
     const lastWithFed = [...rows].reverse().find(r => r.fed_net_liquidity != null)
     fedLatest = lastWithFed?.fed_net_liquidity ?? null

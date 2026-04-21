@@ -807,8 +807,11 @@ Deno.serve(async (req) => {
 
     // ── 4.5. 연준 유동성 데이터 부착 ─────────────────────────
     if (c.score_use_fed_liquidity) {
-      const warmupDate  = new Date(warmupStartTime).toISOString().slice(0, 10)
-      const endDate     = new Date(lastCandleEnd).toISOString().slice(0, 10)
+      // FRED 주간 데이터(WALCL)는 목요일 업데이트 → warmupDate(~2일 전)로 조회하면
+      // 최신 데이터가 startDate보다 이전이라 filtered 결과가 빈 배열이 됨.
+      // 최소 30일 전부터 조회해 항상 최근 주간 데이터가 포함되도록 함.
+      const fedStartDate = new Date(lastCandleEnd - 30 * 86_400_000).toISOString().slice(0, 10)
+      const endDate      = new Date(lastCandleEnd).toISOString().slice(0, 10)
       const maPeriod    = c.fed_liquidity_ma_period ?? 13
       try {
         const resp = await fetch(
@@ -819,7 +822,7 @@ Deno.serve(async (req) => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
             },
-            body: JSON.stringify({ startDate: warmupDate, endDate, maPeriod }),
+            body: JSON.stringify({ startDate: fedStartDate, endDate, maPeriod }),
           }
         )
         if (resp.ok) {

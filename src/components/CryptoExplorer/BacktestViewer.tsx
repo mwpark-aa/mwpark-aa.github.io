@@ -150,8 +150,8 @@ export default function BacktestViewer() {
         }) as any as BacktestTrade[],
       )
 
-      const startMs = new Date(params.startDate).getTime()
-      const endMs = new Date(params.endDate).getTime() + 15 * 3_600_000  // KST 23:59:59
+      const startMs = new Date(params.startDate).getTime() - 9 * 3_600_000  // KST 00:00
+      const endMs = new Date(params.endDate).getTime() + 15 * 3_600_000    // KST 23:59:59
       const KST_OFFSET_S = 9 * 3600
       const rawCandles = await fetchKlines(selectedSymbol, params.interval, startMs, endMs)
       const candleData: OHLCVCandle[] = rawCandles.map(c => ({

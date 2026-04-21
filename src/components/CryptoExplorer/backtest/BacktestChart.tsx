@@ -128,16 +128,28 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
   useEffect(() => {
     if (!seriesRef.current || trades.length === 0) return
 
+    // 마커 시각을 가장 가까운 캔들 open time에 스냅 (floor)
+    const candleTimes = candles.map(c => c.time as number).sort((a, b) => a - b)
+    const snapToCandle = (kstTs: number): UTCTimestamp => {
+      let lo = 0, hi = candleTimes.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if (candleTimes[mid] <= kstTs) lo = mid
+        else hi = mid - 1
+      }
+      return candleTimes[lo] as UTCTimestamp
+    }
+
     const allMarkers: SeriesMarker<Time>[] = []
     for (const t of trades) {
-      const exitTime = tsToKST(t.exit_ts)
+      const exitTime = snapToCandle(tsToKST(t.exit_ts) as number)
       const win = t.net_pnl > 0
       const isShort = t.direction === 'SHORT'
       const isSelected = t.id === selectedTradeId
 
       const entries = parseAddEntries(t)
       for (const e of entries) {
-        const eTime = tsToKST(e.ts)
+        const eTime = snapToCandle(tsToKST(e.ts) as number)
         const color = isSelected ? '#fbbf24' : (isShort ? '#ef4444' : '#3b82f6')
         allMarkers.push({
           time: eTime,
@@ -159,7 +171,7 @@ const BacktestChart = memo(function BacktestChart({ candles, trades, scrollToRef
 
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number))
     markersRef.current = createSeriesMarkers(seriesRef.current, allMarkers)
-  }, [selectedTradeId, trades])
+  }, [selectedTradeId, trades, candles])
 
   return (
     <Box ref={containerRef} sx={{ width: '100%', height: 400, borderRadius: 2, overflow: 'hidden' }} />
