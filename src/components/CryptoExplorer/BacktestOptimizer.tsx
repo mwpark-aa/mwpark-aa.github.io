@@ -270,8 +270,8 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
 
       setTotalSteps(combinations.length)
 
-      const startMs = new Date(startDate).getTime()
-      const endMs   = new Date(endDate).getTime() + 15 * 3_600_000
+      const startMs = new Date(startDate).getTime() - 9 * 3_600_000  // KST 00:00
+      const endMs   = new Date(endDate).getTime() + 15 * 3_600_000   // KST 23:59:59
 
       const needFed        = selectedInds.some(ind => ind.def.isFed)
       const needDailyTrend = selectedInds.some(ind => ind.def.isDailyTrend)

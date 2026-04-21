@@ -185,8 +185,8 @@ export function simulate(
   let peakEq  = capital
   let maxDD   = 0
 
-  // 사용자 지정 시작 시간 (워밍업 구간 이전 봉은 신호 탐색에서 제외)
-  const startMs    = new Date(p.startDate).getTime()
+  // 사용자 지정 시작 시간 (워밍업 구간 이전 봉은 신호 탐색에서 제외) — KST 00:00 기준
+  const startMs    = new Date(p.startDate).getTime() - 9 * 3_600_000
   const iso        = (ts: number) => new Date(ts).toISOString()
   // 캔들 종가 시각 = 시가 timestamp + 인터벌
   // Binance kline timestamp는 Open Time이므로, 종가 시각 = 다음 캔들 Open Time
