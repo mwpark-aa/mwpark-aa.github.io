@@ -984,7 +984,9 @@ Deno.serve(async (req) => {
         close: latestRow.close, rsi: latestRow.rsi14, adx: latestRow.adx14,
         macd: latestRow.macd_hist, rvol: latestRow.vol_rvol168,
         ma20: latestRow.ma20, ma60: latestRow.ma60, ma120: latestRow.ma120, atr: latestRow.atr14,
+        fed_state: latestRow.fed_state ?? null,
       }
+      debugInfo.fed_enabled = c.score_use_fed_liquidity
 
       if (signal) {
         const { type: signalType, score } = signal
