@@ -37,6 +37,10 @@ function getFormattedIndicatorValue(label: string, candle: Candle | null): strin
     }
   } else if (trimmed.startsWith('MACD')) {
     value = candle.macd_hist != null ? (candle.macd_hist >= 0 ? '양' : '음') : null
+  } else if (trimmed.startsWith('연준')) {
+    value = (candle as any).fed_state != null
+      ? ((candle as any).fed_state === 1 ? '확장' : (candle as any).fed_state === -1 ? '수축' : '혼재')
+      : null
   }
 
   return `${indicatorName}: ${value !== null ? value : '—'}`

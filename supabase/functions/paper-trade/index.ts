@@ -806,37 +806,21 @@ Deno.serve(async (req) => {
     computeIndicators(rows)
 
     // ── 4.5. 연준 유동성 데이터 부착 ─────────────────────────
+    // Supabase Publishable Key는 JWT가 아니므로 /fed-liquidity HTTP 호출 불가
+    // → FRED_API_KEY로 직접 호출 (fetchFredBars는 이미 이 파일 상단에 정의됨)
     let fedFetchError: string | null = null
     let fedHttpStatus: number | null = null
     if (c.score_use_fed_liquidity) {
-      // FRED 주간 데이터(WALCL)는 목요일 업데이트 → warmupDate(~2일 전)로 조회하면
-      // 최신 데이터가 startDate보다 이전이라 filtered 결과가 빈 배열이 됨.
-      // 최소 30일 전부터 조회해 항상 최근 주간 데이터가 포함되도록 함.
       const fedStartDate = new Date(lastCandleEnd - 30 * 86_400_000).toISOString().slice(0, 10)
       const endDate      = new Date(lastCandleEnd).toISOString().slice(0, 10)
-      const maPeriod    = c.fed_liquidity_ma_period ?? 13
+      const maPeriod     = c.fed_liquidity_ma_period ?? 13
       try {
-        const resp = await fetch(
-          new URL('/functions/v1/fed-liquidity', Deno.env.get('SUPABASE_URL') || '').toString(),
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
-            },
-            body: JSON.stringify({ startDate: fedStartDate, endDate, maPeriod }),
-          }
-        )
-        fedHttpStatus = resp.status
-        if (resp.ok) {
-          const { data } = await resp.json()
-          const fedBars = (data ?? []).map((bar: any) => ({
-            date: bar.date,
-            state: bar.state,
-          }))
+        const fedBars = await fetchFedBars(fedStartDate, endDate, maPeriod)
+        if (fedBars.length > 0) {
           attachFedData(rows, fedBars)
+          fedHttpStatus = 200
         } else {
-          fedFetchError = await resp.text()
+          fedFetchError = 'FRED_API_KEY not set or no data returned'
         }
       } catch (err) {
         fedFetchError = String(err)
@@ -862,11 +846,13 @@ Deno.serve(async (req) => {
     const iso       = (ts: number) => new Date(ts).toISOString()
 
     // ── 4.9. Fed 디버그 (항상 기록) ──────────────────────────
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const fedDebug = {
-      enabled:     c.score_use_fed_liquidity,
-      fed_state:   latestRow.fed_state ?? null,
-      http_status: fedHttpStatus,
-      error:       fedFetchError,
+      enabled:          c.score_use_fed_liquidity,
+      fed_state:        latestRow.fed_state ?? null,
+      http_status:      fedHttpStatus,
+      error:            fedFetchError,
+      anon_key_prefix:  anonKey ? anonKey.substring(0, 10) : 'EMPTY',
     }
 
     // ── 5. 자본 및 오픈 포지션 로드 ──────────────────────────
