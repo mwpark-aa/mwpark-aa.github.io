@@ -806,6 +806,8 @@ Deno.serve(async (req) => {
     computeIndicators(rows)
 
     // ── 4.5. 연준 유동성 데이터 부착 ─────────────────────────
+    let fedFetchError: string | null = null
+    let fedHttpStatus: number | null = null
     if (c.score_use_fed_liquidity) {
       // FRED 주간 데이터(WALCL)는 목요일 업데이트 → warmupDate(~2일 전)로 조회하면
       // 최신 데이터가 startDate보다 이전이라 filtered 결과가 빈 배열이 됨.
@@ -820,11 +822,12 @@ Deno.serve(async (req) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
             },
             body: JSON.stringify({ startDate: fedStartDate, endDate, maPeriod }),
           }
         )
+        fedHttpStatus = resp.status
         if (resp.ok) {
           const { data } = await resp.json()
           const fedBars = (data ?? []).map((bar: any) => ({
@@ -832,8 +835,11 @@ Deno.serve(async (req) => {
             state: bar.state,
           }))
           attachFedData(rows, fedBars)
+        } else {
+          fedFetchError = await resp.text()
         }
       } catch (err) {
+        fedFetchError = String(err)
         console.error('[paper-trade] Fed liquidity fetch error:', err)
       }
     }
@@ -854,6 +860,14 @@ Deno.serve(async (req) => {
     const n         = rows.length
     const latestRow = rows[n - 1]!
     const iso       = (ts: number) => new Date(ts).toISOString()
+
+    // ── 4.9. Fed 디버그 (항상 기록) ──────────────────────────
+    const fedDebug = {
+      enabled:     c.score_use_fed_liquidity,
+      fed_state:   latestRow.fed_state ?? null,
+      http_status: fedHttpStatus,
+      error:       fedFetchError,
+    }
 
     // ── 5. 자본 및 오픈 포지션 로드 ──────────────────────────
     let capital = account?.capital ?? 10000
@@ -1079,6 +1093,7 @@ Deno.serve(async (req) => {
       closed:      closedThisCycle.length,
       opened:      newPosition ? 1 : 0,
       capital:     Math.round(capital * 100) / 100,
+      fed:         fedDebug,
       debug:       debugInfo,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
