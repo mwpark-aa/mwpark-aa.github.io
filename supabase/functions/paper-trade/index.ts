@@ -796,7 +796,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 4. 캔들 데이터 fetch ──────────────────────────────────
-    const rows = await fetchKlines(c.symbol, c.interval, warmupStartTime, lastCandleEnd)
+    const rows = await fetchKlines(c.symbol, c.interval, warmupStartTime, lastCandleEnd - 1)
     if (rows.length < 50) {
       return new Response(JSON.stringify({ message: '캔들 데이터 부족', count: rows.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -879,6 +879,10 @@ Deno.serve(async (req) => {
     }
 
     for (const pos of positions) {
+      // 진입 캔들에서는 exit 체크 skip (백테스트와 동일)
+      // entry_time = iso(lastCandleEnd at entry) 이고 latestRow.timestamp = 진입 캔들 open time
+      if (new Date(pos.entry_time).getTime() === latestRow.timestamp) continue
+
       const isShort    = pos.direction === 'SHORT'
       const tp: number = pos.target_price
       const sl: number = pos.stop_loss
