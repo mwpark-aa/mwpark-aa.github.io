@@ -18,16 +18,27 @@ import HistoryPanel from './backtest/HistoryPanel'
 import ParamsPanel from './backtest/ParamsPanel'
 import SaveDialog from './backtest/SaveDialog'
 import BacktestOptimizer from './BacktestOptimizer'
+import DateTimePicker from './backtest/DateTimePicker'
 
 // ─────────────────────────────────────────────────────────────
 // Defaults
 // ─────────────────────────────────────────────────────────────
-const defaultEndDate = new Date().toISOString().split('T')[0]
+const _p2 = (n: number) => String(n).padStart(2, '0')
+const _localDT = (d: Date, time: string) =>
+  `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}T${time}`
+
+const defaultEndDate = _localDT(new Date(), '23:59')
 const defaultStartDate = (() => {
   const d = new Date()
   d.setMonth(d.getMonth() - 6)
-  return d.toISOString().split('T')[0]
+  return _localDT(d, '00:00')
 })()
+
+// YYYY-MM-DD (legacy) 또는 YYYY-MM-DDTHH:MM 포맷 모두 처리
+const toStartMs = (s: string) =>
+  s.includes('T') ? new Date(s).getTime() : new Date(s).getTime() - 9 * 3_600_000
+const toEndMs = (s: string) =>
+  s.includes('T') ? new Date(s).getTime() : new Date(s).getTime() + 15 * 3_600_000
 
 // ─────────────────────────────────────────────────────────────
 // Main
@@ -150,8 +161,8 @@ export default function BacktestViewer() {
         }) as any as BacktestTrade[],
       )
 
-      const startMs = new Date(params.startDate).getTime() - 9 * 3_600_000  // KST 00:00
-      const endMs = new Date(params.endDate).getTime() + 15 * 3_600_000    // KST 23:59:59
+      const startMs = toStartMs(params.startDate)
+      const endMs   = toEndMs(params.endDate)
       const KST_OFFSET_S = 9 * 3600
       const rawCandles = await fetchKlines(selectedSymbol, params.interval, startMs, endMs)
       const candleData: OHLCVCandle[] = rawCandles.map(c => ({
@@ -441,32 +452,18 @@ export default function BacktestViewer() {
 
           {/* Row 2: date + interval */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>시작일</Typography>
-              <input
-                type="date"
-                value={params.startDate}
-                onChange={e => setParams(p => ({ ...p, startDate: e.target.value }))}
-                style={{
-                  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
-                  color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none',
-                  colorScheme: 'dark',
-                }}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</Typography>
-              <input
-                type="date"
-                value={params.endDate}
-                onChange={e => setParams(p => ({ ...p, endDate: e.target.value }))}
-                style={{
-                  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
-                  color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none',
-                  colorScheme: 'dark',
-                }}
-              />
-            </Box>
+            <DateTimePicker
+              label="시작"
+              value={params.startDate}
+              onChange={v => setParams(p => ({ ...p, startDate: v }))}
+              align="left"
+            />
+            <DateTimePicker
+              label="종료"
+              value={params.endDate}
+              onChange={v => setParams(p => ({ ...p, endDate: v }))}
+              align="left"
+            />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>캔들</Typography>
               <select

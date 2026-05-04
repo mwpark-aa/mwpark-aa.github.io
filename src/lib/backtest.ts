@@ -10,16 +10,24 @@ import { computeIndicators } from './backtest/indicators'
 import { simulate } from './backtest/simulate'
 
 export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
-  // "YYYY-MM-DD" → UTC 자정 = KST 09:00 이므로 -9h 해야 KST 00:00 기준
-  const startMs = new Date(p.startDate).getTime() - 9 * 3_600_000
-  // 종료일 KST 23:59:59 = UTC 자정 + 15h
-  const endMs   = new Date(p.endDate).getTime() + 15 * 3_600_000
+  // YYYY-MM-DDTHH:MM (datetime-local) → 로컬 시각 그대로 사용
+  // YYYY-MM-DD (legacy) → UTC 자정 -9h = KST 00:00
+  const startMs = p.startDate.includes('T')
+    ? new Date(p.startDate).getTime()
+    : new Date(p.startDate).getTime() - 9 * 3_600_000
+  const endMs = p.endDate.includes('T')
+    ? new Date(p.endDate).getTime()
+    : new Date(p.endDate).getTime() + 15 * 3_600_000
 
   // RVOL168 계산용 워밍업 구간 추가
   const msPerCandle =
-    p.interval === '1d' ? 86400000 :
-    p.interval === '4h' ? 4 * 3600000 :
-                          3600000
+    p.interval === '1d'  ? 86400000 :
+    p.interval === '4h'  ? 4 * 3600000 :
+    p.interval === '1h'  ? 3600000 :
+    p.interval === '30m' ? 30 * 60000 :
+    p.interval === '15m' ? 15 * 60000 :
+    p.interval === '5m'  ? 5 * 60000 :
+                           3600000
   const warmupMs = WARMUP_CANDLES * msPerCandle
 
   const rows = await fetchKlines(p.symbol, p.interval, startMs - warmupMs, endMs)
