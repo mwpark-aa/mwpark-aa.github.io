@@ -3,6 +3,8 @@
 export interface ActiveConfig {
   id: string
   name?: string
+  user_id?: string | null
+  api_key_id?: string | null
   symbol: string
   interval: string
   leverage: number

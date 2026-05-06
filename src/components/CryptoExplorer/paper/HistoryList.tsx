@@ -12,8 +12,9 @@ interface Props {
   onDelete: (id: string) => void
   activeKey?: 'paper_trading_enabled' | 'live_trading_enabled'
   activateLabel?: string
-  activeColor?: string        // hex 또는 MUI 색상
+  activeColor?: string
   activeBgColor?: string
+  currentUserId?: string | null  // 소유자 체크용 (없으면 모든 버튼 표시)
 }
 
 export default function HistoryList({
@@ -22,6 +23,7 @@ export default function HistoryList({
   activateLabel = '이 설정으로 페이퍼 트레이딩 시작',
   activeColor   = '#4ade80',
   activeBgColor = '#16a34a',
+  currentUserId,
 }: Props) {
   return (
     <Box>
@@ -44,6 +46,9 @@ export default function HistoryList({
           const ret       = run.total_return_pct
           const retColor  = ret >= 0 ? '#10b981' : '#ef4444'
           const isLoading = activating === run.id
+          // currentUserId가 없으면 버튼 모두 표시 (페이퍼 탭)
+          // 있으면 run.user_id가 일치해야 버튼 표시 (live 탭: 소유자만)
+          const isOwner   = currentUserId == null || run.user_id === currentUserId
 
           const indicators = [
             run.score_use_rsi           && 'RSI',
@@ -59,28 +64,30 @@ export default function HistoryList({
           return (
             <Box
               key={run.id}
-              sx={{ display: 'grid', gridTemplateColumns: '20px 1fr 20px', gap: 1, alignItems: 'flex-start' }}
+              sx={{ display: 'grid', gridTemplateColumns: isOwner ? '20px 1fr 20px' : '1fr', gap: 1, alignItems: 'flex-start' }}
             >
-              {/* 활성화 토글 */}
-              <Tooltip title={isActive ? '비활성화' : activateLabel} placement="right">
-                <Box
-                  onClick={() => !isLoading && onActivate(run)}
-                  sx={{
-                    width: 20, height: 20, mt: '10px', borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: isActive ? activeBgColor : '#1f1f23',
-                    border: `1px solid ${isActive ? activeColor : '#3f3f46'}`,
-                    cursor: isLoading ? 'wait' : 'pointer',
-                    transition: 'all 0.15s',
-                    '&:hover': { background: isActive ? activeBgColor : '#27272a', borderColor: isActive ? activeColor : '#52525b' },
-                  }}
-                >
-                  {isLoading
-                    ? <CircularProgress size={8} sx={{ color: activeColor }} />
-                    : <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? activeColor : '#52525b' }} />
-                  }
-                </Box>
-              </Tooltip>
+              {/* 활성화 토글 — 소유자만 */}
+              {isOwner && (
+                <Tooltip title={isActive ? '비활성화' : activateLabel} placement="right">
+                  <Box
+                    onClick={() => !isLoading && onActivate(run)}
+                    sx={{
+                      width: 20, height: 20, mt: '10px', borderRadius: '50%', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: isActive ? activeBgColor : '#1f1f23',
+                      border: `1px solid ${isActive ? activeColor : '#3f3f46'}`,
+                      cursor: isLoading ? 'wait' : 'pointer',
+                      transition: 'all 0.15s',
+                      '&:hover': { background: isActive ? activeBgColor : '#27272a', borderColor: isActive ? activeColor : '#52525b' },
+                    }}
+                  >
+                    {isLoading
+                      ? <CircularProgress size={8} sx={{ color: activeColor }} />
+                      : <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? activeColor : '#52525b' }} />
+                    }
+                  </Box>
+                </Tooltip>
+              )}
 
               {/* 이력 카드 */}
               <Box sx={{
@@ -159,23 +166,25 @@ export default function HistoryList({
                 </Box>
               </Box>
 
-              {/* 삭제 버튼 */}
-              <Tooltip title="이력 삭제" placement="right">
-                <Box
-                  onClick={() => !isLoading && onDelete(run.id)}
-                  sx={{
-                    width: 20, height: 20, mt: '10px', borderRadius: 1, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#3f3f46', cursor: isLoading ? 'wait' : 'pointer',
-                    '&:hover': { color: '#ef4444', background: '#ef444415' },
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </Box>
-              </Tooltip>
+              {/* 삭제 버튼 — 소유자만 */}
+              {isOwner && (
+                <Tooltip title="이력 삭제" placement="right">
+                  <Box
+                    onClick={() => !isLoading && onDelete(run.id)}
+                    sx={{
+                      width: 20, height: 20, mt: '10px', borderRadius: 1, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#3f3f46', cursor: isLoading ? 'wait' : 'pointer',
+                      '&:hover': { color: '#ef4444', background: '#ef444415' },
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </Box>
+                </Tooltip>
+              )}
             </Box>
           )
         })}

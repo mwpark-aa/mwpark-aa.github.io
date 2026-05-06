@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard/Dashboard'
 import LocalExplorer from './components/LocalExplorer/LocalExplorer'
 import StockExplorer from './components/StockExplorer/StockExplorer'
 import CryptoExplorer from './components/CryptoExplorer/CryptoExplorer'
+import { AuthProvider } from './contexts/AuthContext'
 import type { Category, AppPage } from './types'
 
 export default function App() {
@@ -11,7 +12,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
 
   return (
-    <>
+    <AuthProvider>
       <Navigation
         activePage={activePage}
         onPageChange={setActivePage}
@@ -26,6 +27,6 @@ export default function App() {
             ? <CryptoExplorer />
             : <LocalExplorer />
       }
-    </>
+    </AuthProvider>
   )
 }
