@@ -24,6 +24,7 @@ export default function LiveDashboard() {
   const [openPos,           setOpenPos]           = useState<PaperPos[]>([])
   const [closedTrades,      setClosedTrades]      = useState<ClosedTrade[]>([])
   const [apiKeys,           setApiKeys]           = useState<ApiKey[]>([])
+  const apiKeysRef = useRef<ApiKey[]>([])           // loadConfigs 의존성 cycle 방지용
   const [pendingActivation, setPendingActivation] = useState<RunHistory | null>(null)
   const [prices,            setPrices]            = useState<Record<string, number>>({})
   const [loading,           setLoading]           = useState(true)
@@ -36,7 +37,7 @@ export default function LiveDashboard() {
 
   const loadConfigs = useCallback(async (keys?: ApiKey[]) => {
     if (!user) return
-    const keyIds = (keys ?? apiKeys).map(k => k.id)
+    const keyIds = (keys ?? apiKeysRef.current).map(k => k.id)
     if (keyIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
@@ -44,7 +45,7 @@ export default function LiveDashboard() {
       .eq('live_trading_enabled', true)
       .in('api_key_id', keyIds)
     setConfigs((data ?? []) as ActiveConfig[])
-  }, [user, apiKeys])
+  }, [user])
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -102,6 +103,7 @@ export default function LiveDashboard() {
       .select('id, label, is_testnet, created_at')
       .order('created_at', { ascending: true })
     const keys = (data ?? []) as ApiKey[]
+    apiKeysRef.current = keys
     setApiKeys(keys)
     return keys
   }, [user])
@@ -146,10 +148,10 @@ export default function LiveDashboard() {
     if (!user) return
     // 활성화: api_key_id가 없으면 키 선택 다이얼로그
     // 비활성화: 본인 api_key인지 확인
-    if (run.live_trading_enabled && run.api_key_id && !apiKeys.some(k => k.id === run.api_key_id)) return
+    if (run.live_trading_enabled && run.api_key_id && !apiKeysRef.current.some(k => k.id === run.api_key_id)) return
     if (!run.api_key_id) { setPendingActivation(run); return }
     await doActivateLive(run)
-  }, [user, apiKeys, doActivateLive])
+  }, [user, doActivateLive])
 
   const confirmActivateWithKey = useCallback(async (keyId: string) => {
     if (!pendingActivation || !user) return
