@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
@@ -13,9 +13,15 @@ export interface ApiKey {
   created_at: string
 }
 
+interface BalanceState {
+  loading: boolean
+  balance?: number
+  error?: string
+}
+
 interface Props {
   apiKeys: ApiKey[]
-  onRefresh: () => void
+  onRefresh: () => Promise<unknown> | void
 }
 
 const inputSx = {
@@ -39,11 +45,41 @@ export default function ApiKeyManager({ apiKeys, onRefresh }: Props) {
   const [submitting,  setSubmitting]  = useState(false)
   const [deleting,    setDeleting]    = useState<string | null>(null)
   const [error,       setError]       = useState<string | null>(null)
+  const [balances,    setBalances]    = useState<Record<string, BalanceState>>({})
 
   const resetForm = () => {
     setLabel(''); setApiKey(''); setApiSecret('')
     setIsTestnet(false); setError(null); setShowForm(false)
   }
+
+  const checkBalance = useCallback(async (id: string) => {
+    setBalances(prev => ({ ...prev, [id]: { loading: true } }))
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) {
+      setBalances(prev => ({ ...prev, [id]: { loading: false, error: '로그인 필요' } }))
+      return
+    }
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-balance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ api_key_id: id }),
+      })
+      const json = await resp.json() as { balance?: number; error?: string }
+      if (json.error) {
+        setBalances(prev => ({ ...prev, [id]: { loading: false, error: json.error } }))
+      } else {
+        setBalances(prev => ({ ...prev, [id]: { loading: false, balance: json.balance } }))
+      }
+    } catch (e) {
+      setBalances(prev => ({ ...prev, [id]: { loading: false, error: e instanceof Error ? e.message : '오류' } }))
+    }
+  }, [])
 
   const handleAdd = async () => {
     if (!label.trim() || !apiKey.trim() || !apiSecret.trim()) {
@@ -52,7 +88,7 @@ export default function ApiKeyManager({ apiKeys, onRefresh }: Props) {
     }
     setSubmitting(true)
     setError(null)
-    const { error: rpcErr } = await supabase.rpc('upsert_api_key', {
+    const { data: newId, error: rpcErr } = await supabase.rpc('upsert_api_key', {
       p_label:      label.trim(),
       p_api_key:    apiKey.trim(),
       p_api_secret: apiSecret.trim(),
@@ -60,16 +96,20 @@ export default function ApiKeyManager({ apiKeys, onRefresh }: Props) {
     })
     if (rpcErr) {
       setError(rpcErr.message)
-    } else {
-      resetForm()
-      onRefresh()
+      setSubmitting(false)
+      return
     }
+    resetForm()
+    await onRefresh()
+    // 저장 직후 자동 잔고 체크
+    if (newId) checkBalance(newId as string)
     setSubmitting(false)
   }
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
     await supabase.from('user_api_keys').delete().eq('id', id)
+    setBalances(prev => { const n = { ...prev }; delete n[id]; return n })
     onRefresh()
     setDeleting(null)
   }
@@ -107,47 +147,93 @@ export default function ApiKeyManager({ apiKeys, onRefresh }: Props) {
         </Typography>
       )}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: showForm ? 1.5 : 0 }}>
-        {apiKeys.map(k => (
-          <Box
-            key={k.id}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 1,
-              px: 1.5, py: 1, borderRadius: 1.5,
-              background: '#0a0a0b', border: '1px solid #1f1f23',
-            }}
-          >
-            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#e4e4e7', flex: 1 }}>
-              {k.label}
-            </Typography>
-            {k.is_testnet && (
-              <Chip label="테스트넷" size="small" sx={{
-                height: 14, fontSize: 8, fontWeight: 700,
-                bgcolor: '#1d4ed820', color: '#60a5fa',
-                '& .MuiChip-label': { px: 0.5 },
-              }} />
-            )}
-            <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
-              {new Date(k.created_at).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
-            </Typography>
-            <Tooltip title="키 삭제" placement="right">
-              <Box
-                onClick={() => deleting !== k.id && handleDelete(k.id)}
-                sx={{
-                  width: 18, height: 18, borderRadius: 1, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#3f3f46', cursor: deleting === k.id ? 'wait' : 'pointer',
-                  '&:hover': { color: '#ef4444', background: '#ef444415' },
-                  transition: 'all 0.15s',
-                }}
-              >
-                {deleting === k.id
-                  ? <CircularProgress size={8} sx={{ color: '#ef4444' }} />
-                  : <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                }
+        {apiKeys.map(k => {
+          const bs = balances[k.id]
+          return (
+            <Box
+              key={k.id}
+              sx={{
+                display: 'flex', flexDirection: 'column',
+                px: 1.5, py: 1, borderRadius: 1.5,
+                background: '#0a0a0b',
+                border: `1px solid ${bs?.error ? '#ef444430' : bs?.balance !== undefined ? '#16a34a30' : '#1f1f23'}`,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#e4e4e7', flex: 1 }}>
+                  {k.label}
+                </Typography>
+                {k.is_testnet && (
+                  <Chip label="테스트넷" size="small" sx={{
+                    height: 14, fontSize: 8, fontWeight: 700,
+                    bgcolor: '#1d4ed820', color: '#60a5fa',
+                    '& .MuiChip-label': { px: 0.5 },
+                  }} />
+                )}
+                <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+                  {new Date(k.created_at).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                </Typography>
+                {/* 잔고 새로고침 버튼 */}
+                <Tooltip title="잔고 확인" placement="top">
+                  <Box
+                    onClick={() => !bs?.loading && checkBalance(k.id)}
+                    sx={{
+                      width: 18, height: 18, borderRadius: 1, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#52525b', cursor: bs?.loading ? 'wait' : 'pointer',
+                      '&:hover': { color: '#fbbf24', background: '#fbbf2415' },
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {bs?.loading
+                      ? <CircularProgress size={8} sx={{ color: '#fbbf24' }} />
+                      : <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                          <path d="M10 6A4 4 0 1 1 6 2M6 2l2 2M6 2l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    }
+                  </Box>
+                </Tooltip>
+                {/* 삭제 버튼 */}
+                <Tooltip title="키 삭제" placement="right">
+                  <Box
+                    onClick={() => deleting !== k.id && handleDelete(k.id)}
+                    sx={{
+                      width: 18, height: 18, borderRadius: 1, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#3f3f46', cursor: deleting === k.id ? 'wait' : 'pointer',
+                      '&:hover': { color: '#ef4444', background: '#ef444415' },
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {deleting === k.id
+                      ? <CircularProgress size={8} sx={{ color: '#ef4444' }} />
+                      : <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    }
+                  </Box>
+                </Tooltip>
               </Box>
-            </Tooltip>
-          </Box>
-        ))}
+              {/* 잔고 / 에러 표시 */}
+              {bs && !bs.loading && (
+                <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {bs.error
+                    ? <>
+                        <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 9, color: '#ef4444', fontFamily: 'monospace' }}>
+                          키 오류: {bs.error}
+                        </Typography>
+                      </>
+                    : <>
+                        <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 9, color: '#4ade80', fontFamily: 'monospace' }}>
+                          USDT {bs.balance?.toFixed(2)} (Futures 잔고)
+                        </Typography>
+                      </>
+                  }
+                </Box>
+              )}
+            </Box>
+          )
+        })}
       </Box>
 
       {/* 추가 폼 */}
