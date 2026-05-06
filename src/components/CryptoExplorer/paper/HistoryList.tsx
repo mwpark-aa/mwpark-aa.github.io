@@ -14,7 +14,8 @@ interface Props {
   activateLabel?: string
   activeColor?: string
   activeBgColor?: string
-  currentUserId?: string | null  // 소유자 체크용 (없으면 모든 버튼 표시)
+  currentUserId?: string | null   // 로그인 여부 판단용
+  userApiKeyIds?: string[]        // 활성 run deactivate 소유권 판단용
 }
 
 export default function HistoryList({
@@ -24,6 +25,7 @@ export default function HistoryList({
   activeColor   = '#4ade80',
   activeBgColor = '#16a34a',
   currentUserId,
+  userApiKeyIds,
 }: Props) {
   return (
     <Box>
@@ -46,9 +48,13 @@ export default function HistoryList({
           const ret       = run.total_return_pct
           const retColor  = ret >= 0 ? '#10b981' : '#ef4444'
           const isLoading = activating === run.id
-          // currentUserId가 없으면 버튼 모두 표시 (페이퍼 탭)
-          // 있으면 run.user_id가 일치해야 버튼 표시 (live 탭: 소유자만)
-          const isOwner   = currentUserId == null || run.user_id === currentUserId
+          // currentUserId가 없으면 (페이퍼 탭) → 모두 버튼 표시
+          // 있으면 (live 탭): 비활성 run → 누구나 activate 가능, 활성 run → 본인 api_key만 deactivate 가능
+          const isOwner = currentUserId == null
+            ? true
+            : !isActive
+              ? true
+              : Boolean(run.api_key_id && userApiKeyIds?.includes(run.api_key_id))
 
           const indicators = [
             run.score_use_rsi           && 'RSI',

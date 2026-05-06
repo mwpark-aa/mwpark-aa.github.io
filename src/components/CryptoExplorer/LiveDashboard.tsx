@@ -34,15 +34,17 @@ export default function LiveDashboard() {
 
   // ── 데이터 로드 ──────────────────────────────────────────────
 
-  const loadConfigs = useCallback(async () => {
+  const loadConfigs = useCallback(async (keys?: ApiKey[]) => {
     if (!user) return
+    const keyIds = (keys ?? apiKeys).map(k => k.id)
+    if (keyIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, api_key_id, user_id')
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, api_key_id')
       .eq('live_trading_enabled', true)
-      .eq('user_id', user.id)
+      .in('api_key_id', keyIds)
     setConfigs((data ?? []) as ActiveConfig[])
-  }, [user])
+  }, [user, apiKeys])
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -94,12 +96,14 @@ export default function LiveDashboard() {
   }, [])
 
   const loadApiKeys = useCallback(async () => {
-    if (!user) return
+    if (!user) return []
     const { data } = await supabase
       .from('user_api_keys')
       .select('id, label, is_testnet, created_at')
       .order('created_at', { ascending: true })
-    if (data) setApiKeys(data as ApiKey[])
+    const keys = (data ?? []) as ApiKey[]
+    setApiKeys(keys)
+    return keys
   }, [user])
 
   // ── 실거래 활성화 ─────────────────────────────────────────────
@@ -139,10 +143,13 @@ export default function LiveDashboard() {
   }, [user, loadConfigs, loadHistory])
 
   const activateLive = useCallback(async (run: RunHistory) => {
-    if (!user || run.user_id !== user.id) return
+    if (!user) return
+    // 활성화: api_key_id가 없으면 키 선택 다이얼로그
+    // 비활성화: 본인 api_key인지 확인
+    if (run.live_trading_enabled && run.api_key_id && !apiKeys.some(k => k.id === run.api_key_id)) return
     if (!run.api_key_id) { setPendingActivation(run); return }
     await doActivateLive(run)
-  }, [user, doActivateLive])
+  }, [user, apiKeys, doActivateLive])
 
   const confirmActivateWithKey = useCallback(async (keyId: string) => {
     if (!pendingActivation || !user) return
@@ -152,11 +159,10 @@ export default function LiveDashboard() {
   }, [pendingActivation, user, doActivateLive])
 
   const deleteHistory = useCallback(async (id: string) => {
-    const run = history.find(r => r.id === id)
-    if (!user || (run?.user_id && run.user_id !== user.id)) return
+    if (!user) return
     await supabase.from('backtest_runs').delete().eq('id', id)
     await Promise.all([loadConfigs(), loadHistory()])
-  }, [user, history, loadConfigs, loadHistory])
+  }, [user, loadConfigs, loadHistory])
 
   // ── 현재가 폴링 ──────────────────────────────────────────────
 
@@ -175,7 +181,9 @@ export default function LiveDashboard() {
     let mounted = true
     const init = async () => {
       setLoading(true)
-      await Promise.all([loadConfigs(), loadHistory(), loadApiKeys(), loadOpenPos(), loadClosedTrades()])
+      // loadConfigs는 apiKeys에 의존하므로 loadApiKeys 반환값을 직접 전달
+      const [keys] = await Promise.all([loadApiKeys(), loadHistory(), loadOpenPos(), loadClosedTrades()])
+      await loadConfigs(keys ?? [])
       setLoading(false)
     }
     init()
@@ -229,6 +237,7 @@ export default function LiveDashboard() {
     activeColor:   '#fbbf24',
     activeBgColor: '#92400e',
     currentUserId: user?.id,
+    userApiKeyIds: apiKeys.map(k => k.id),
   }
 
   // ── 키 선택 다이얼로그 ────────────────────────────────────────
