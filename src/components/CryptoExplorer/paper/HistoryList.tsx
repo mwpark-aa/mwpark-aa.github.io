@@ -14,8 +14,7 @@ interface Props {
   activateLabel?: string
   activeColor?: string
   activeBgColor?: string
-  currentUserId?: string | null   // 로그인 여부 판단용
-  userApiKeyIds?: string[]        // 활성 run deactivate 소유권 판단용
+  userApiKeyIds?: string[]        // live 탭: 내 키로 활성화된 run만 active로 표시
 }
 
 export default function HistoryList({
@@ -24,7 +23,6 @@ export default function HistoryList({
   activateLabel = '이 설정으로 페이퍼 트레이딩 시작',
   activeColor   = '#4ade80',
   activeBgColor = '#16a34a',
-  currentUserId,
   userApiKeyIds,
 }: Props) {
   return (
@@ -44,19 +42,16 @@ export default function HistoryList({
           </Typography>
         )}
         {history.map((run) => {
-          const isActive  = run[activeKey] === true
+          // userApiKeyIds가 있으면(live 탭) → 내 키로 활성화된 경우만 active
+          const isActive  = userApiKeyIds !== undefined
+            ? run[activeKey] === true && Boolean(run.api_key_id && userApiKeyIds.includes(run.api_key_id))
+            : run[activeKey] === true
           const ret       = run.total_return_pct
           const retColor  = ret >= 0 ? '#10b981' : '#ef4444'
           const isLoading = activating === run.id
           // currentUserId가 없으면 (페이퍼 탭) → 모두 버튼 표시
           // 있으면 (live 탭): 비활성 run → 누구나 activate 가능, 활성 run → 본인 api_key만 deactivate 가능
-          const isOwner = currentUserId == null
-            ? true
-            : !isActive
-              ? true
-              : !run.api_key_id
-                ? true
-                : Boolean(userApiKeyIds?.includes(run.api_key_id))
+          const isOwner = true
 
           const indicators = [
             run.score_use_rsi           && 'RSI',

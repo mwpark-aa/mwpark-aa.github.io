@@ -110,10 +110,9 @@ export default function LiveDashboard() {
 
   // ── 실거래 활성화 ─────────────────────────────────────────────
 
-  const doActivateLive = useCallback(async (run: RunHistory) => {
+  const doActivateLive = useCallback(async (run: RunHistory, willActivate: boolean) => {
     if (!user) return
     setActivating(run.id)
-    const willActivate = !run.live_trading_enabled
 
     if (willActivate) {
       await supabase.from('live_positions').delete().eq('backtest_run_id', run.id)
@@ -126,16 +125,15 @@ export default function LiveDashboard() {
           updated_at:        new Date().toISOString(),
           last_processed_ts: null,
         }, { onConflict: 'api_key_id' })
+        // 같은 키로 활성화된 다른 run 비활성화
+        await supabase.from('backtest_runs')
+          .update({ live_trading_enabled: false })
+          .eq('api_key_id', run.api_key_id)
+          .eq('live_trading_enabled', true)
+          .neq('id', run.id)
       }
     }
 
-    // 같은 api_key_id 를 쓰는 run만 비활성화 (다른 키는 유지)
-    if (run.api_key_id) {
-      await supabase.from('backtest_runs')
-        .update({ live_trading_enabled: false })
-        .eq('api_key_id', run.api_key_id)
-        .eq('live_trading_enabled', true)
-    }
     await supabase.from('backtest_runs')
       .update({ live_trading_enabled: willActivate })
       .eq('id', run.id)
@@ -146,18 +144,29 @@ export default function LiveDashboard() {
 
   const activateLive = useCallback(async (run: RunHistory) => {
     if (!user) return
-    // 활성화: api_key_id가 없으면 키 선택 다이얼로그
-    // 비활성화: 본인 api_key인지 확인
-    if (run.live_trading_enabled && run.api_key_id && !apiKeysRef.current.some(k => k.id === run.api_key_id)) return
-    if (!run.live_trading_enabled && !run.api_key_id) { setPendingActivation(run); return }
-    await doActivateLive(run)
+    // 내 키로 활성화된 상태인지 확인
+    const isMyActive = run.live_trading_enabled === true &&
+      Boolean(run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id))
+
+    if (isMyActive) {
+      // 내 키로 활성화 중 → 비활성화
+      await doActivateLive(run, false)
+    } else {
+      // 비활성 or 남의 키로 활성 → 내 키로 활성화
+      if (run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id)) {
+        await doActivateLive(run, true)
+      } else {
+        // 키 선택 다이얼로그
+        setPendingActivation(run)
+      }
+    }
   }, [user, doActivateLive])
 
   const confirmActivateWithKey = useCallback(async (keyId: string) => {
     if (!pendingActivation || !user) return
     await supabase.from('backtest_runs').update({ api_key_id: keyId }).eq('id', pendingActivation.id)
     setPendingActivation(null)
-    await doActivateLive({ ...pendingActivation, api_key_id: keyId })
+    await doActivateLive({ ...pendingActivation, api_key_id: keyId }, true)
   }, [pendingActivation, user, doActivateLive])
 
   const deleteHistory = useCallback(async (id: string) => {
@@ -238,7 +247,6 @@ export default function LiveDashboard() {
     activateLabel: '이 설정으로 실제 거래 시작',
     activeColor:   '#fbbf24',
     activeBgColor: '#92400e',
-    currentUserId: user?.id,
     userApiKeyIds: apiKeys.map(k => k.id),
   }
 
