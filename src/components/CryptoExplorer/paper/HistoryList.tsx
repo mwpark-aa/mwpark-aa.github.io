@@ -54,7 +54,9 @@ export default function HistoryList({
             ? true
             : !isActive
               ? true
-              : Boolean(run.api_key_id && userApiKeyIds?.includes(run.api_key_id))
+              : !run.api_key_id
+                ? true
+                : Boolean(userApiKeyIds?.includes(run.api_key_id))
 
           const indicators = [
             run.score_use_rsi           && 'RSI',

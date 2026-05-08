@@ -149,7 +149,7 @@ export default function LiveDashboard() {
     // 활성화: api_key_id가 없으면 키 선택 다이얼로그
     // 비활성화: 본인 api_key인지 확인
     if (run.live_trading_enabled && run.api_key_id && !apiKeysRef.current.some(k => k.id === run.api_key_id)) return
-    if (!run.api_key_id) { setPendingActivation(run); return }
+    if (!run.live_trading_enabled && !run.api_key_id) { setPendingActivation(run); return }
     await doActivateLive(run)
   }, [user, doActivateLive])
 
