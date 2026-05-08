@@ -146,9 +146,20 @@ export default function LiveDashboard() {
       }
     }
 
-    await supabase.from('backtest_runs')
-      .update({ live_trading_enabled: willActivate })
-      .eq('id', run.id)
+    if (willActivate) {
+      await supabase.from('backtest_runs')
+        .update({ live_trading_enabled: true })
+        .eq('id', run.id)
+    } else {
+      // 비활성화: 키 연결 해제 + 오픈 포지션 정리
+      await supabase.from('live_positions')
+        .delete()
+        .eq('backtest_run_id', run.id)
+        .eq('status', 'OPEN')
+      await supabase.from('backtest_runs')
+        .update({ live_trading_enabled: false, api_key_id: null })
+        .eq('id', run.id)
+    }
 
     await Promise.all([loadConfigs(), loadHistory()])
     setActivating(null)
