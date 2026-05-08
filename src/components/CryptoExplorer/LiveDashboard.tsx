@@ -16,7 +16,7 @@ import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/
 import type { Candle } from '../../lib/backtest/types'
 
 export default function LiveDashboard() {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
 
   const [configs,           setConfigs]           = useState<ActiveConfig[]>([])
   const [history,           setHistory]           = useState<RunHistory[]>([])
@@ -26,6 +26,8 @@ export default function LiveDashboard() {
   const [apiKeys,           setApiKeys]           = useState<ApiKey[]>([])
   const apiKeysRef = useRef<ApiKey[]>([])           // loadConfigs 의존성 cycle 방지용
   const [pendingActivation, setPendingActivation] = useState<RunHistory | null>(null)
+  const [keyValidating,     setKeyValidating]     = useState(false)
+  const [keyError,          setKeyError]          = useState<string | null>(null)
   const [prices,            setPrices]            = useState<Record<string, number>>({})
   const [loading,           setLoading]           = useState(true)
   const [activating,        setActivating]        = useState<string | null>(null)
@@ -117,11 +119,21 @@ export default function LiveDashboard() {
     if (willActivate) {
       await supabase.from('live_positions').delete().eq('backtest_run_id', run.id)
       if (run.api_key_id) {
+        // 실제 Binance 잔액 조회
+        let initialBalance = 0
+        try {
+          const { data } = await supabase.functions.invoke('check-balance', {
+            body: { api_key_id: run.api_key_id },
+            headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+          })
+          if (data?.balance != null) initialBalance = data.balance as number
+        } catch { /* fallback to 0 */ }
+
         await supabase.from('live_accounts').upsert({
           user_id:           user.id,
           api_key_id:        run.api_key_id,
-          balance:           0,
-          initial_balance:   0,
+          balance:           initialBalance,
+          initial_balance:   initialBalance,
           updated_at:        new Date().toISOString(),
           last_processed_ts: null,
         }, { onConflict: 'api_key_id' })
@@ -142,32 +154,55 @@ export default function LiveDashboard() {
     setActivating(null)
   }, [user, loadConfigs, loadHistory])
 
+  const validateBinanceKey = useCallback(async (keyId: string): Promise<string | null> => {
+    setKeyValidating(true)
+    setKeyError(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('check-balance', {
+        body: { api_key_id: keyId },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+      })
+      if (error) return error.message ?? '연결 실패'
+      if (data?.error) return data.error as string
+      return null
+    } catch (e) {
+      return String(e)
+    } finally {
+      setKeyValidating(false)
+    }
+  }, [session])
+
   const activateLive = useCallback(async (run: RunHistory) => {
     if (!user) return
-    // 내 키로 활성화된 상태인지 확인
     const isMyActive = run.live_trading_enabled === true &&
       Boolean(run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id))
 
     if (isMyActive) {
-      // 내 키로 활성화 중 → 비활성화
       await doActivateLive(run, false)
     } else {
-      // 비활성 or 남의 키로 활성 → 내 키로 활성화
+      // 이미 내 키가 연결된 경우 → 검증 후 활성화
       if (run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id)) {
+        setPendingActivation(run)
+        const err = await validateBinanceKey(run.api_key_id)
+        if (err) { setKeyError(err); return }
+        setPendingActivation(null)
         await doActivateLive(run, true)
       } else {
-        // 키 선택 다이얼로그
+        setKeyError(null)
         setPendingActivation(run)
       }
     }
-  }, [user, doActivateLive])
+  }, [user, doActivateLive, validateBinanceKey])
 
   const confirmActivateWithKey = useCallback(async (keyId: string) => {
     if (!pendingActivation || !user) return
+    const err = await validateBinanceKey(keyId)
+    if (err) { setKeyError(err); return }
     await supabase.from('backtest_runs').update({ api_key_id: keyId }).eq('id', pendingActivation.id)
     setPendingActivation(null)
+    setKeyError(null)
     await doActivateLive({ ...pendingActivation, api_key_id: keyId }, true)
-  }, [pendingActivation, user, doActivateLive])
+  }, [pendingActivation, user, validateBinanceKey, doActivateLive])
 
   const deleteHistory = useCallback(async (id: string) => {
     if (!user) return
@@ -192,10 +227,11 @@ export default function LiveDashboard() {
     let mounted = true
     const init = async () => {
       setLoading(true)
-      // loadConfigs는 apiKeys에 의존하므로 loadApiKeys 반환값을 직접 전달
-      const [keys] = await Promise.all([loadApiKeys(), loadHistory(), loadOpenPos(), loadClosedTrades()])
+      const [keys] = await Promise.all([loadApiKeys(), loadHistory()])
       await loadConfigs(keys ?? [])
       setLoading(false)
+      // 포지션/거래 이력은 화면 표시 후 로드 (로딩 시간 단축)
+      await Promise.all([loadOpenPos(), loadClosedTrades()])
     }
     init()
 
@@ -266,17 +302,30 @@ export default function LiveDashboard() {
           </Typography>
         </Box>
         <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {keyError && (
+            <Typography sx={{ fontSize: 11, color: '#f87171', mb: 0.5, wordBreak: 'break-all' }}>
+              ✕ {keyError}
+            </Typography>
+          )}
+          {keyValidating && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <CircularProgress size={10} sx={{ color: '#fbbf24' }} />
+              <Typography sx={{ fontSize: 11, color: '#71717a' }}>Binance 연결 확인 중...</Typography>
+            </Box>
+          )}
           {apiKeys.length === 0
             ? <Typography sx={{ fontSize: 11, color: '#52525b', textAlign: 'center', py: 2 }}>
                 등록된 API 키가 없습니다. 먼저 키를 추가해주세요.
               </Typography>
             : apiKeys.map(k => (
-              <Box key={k.id} onClick={() => confirmActivateWithKey(k.id)} sx={{
-                px: 1.5, py: 1, borderRadius: 1.5, cursor: 'pointer',
+              <Box key={k.id} onClick={() => !keyValidating && confirmActivateWithKey(k.id)} sx={{
+                px: 1.5, py: 1, borderRadius: 1.5,
+                cursor: keyValidating ? 'wait' : 'pointer',
                 background: '#0a0a0b', border: '1px solid #1f1f23',
                 display: 'flex', alignItems: 'center', gap: 1,
-                '&:hover': { borderColor: '#fbbf2466', background: '#fbbf2408' },
+                '&:hover': !keyValidating ? { borderColor: '#fbbf2466', background: '#fbbf2408' } : {},
                 transition: 'all 0.15s',
+                opacity: keyValidating ? 0.5 : 1,
               }}>
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#e4e4e7', flex: 1 }}>{k.label}</Typography>
                 {k.is_testnet && <Typography sx={{ fontSize: 9, color: '#60a5fa', fontWeight: 700 }}>테스트넷</Typography>}
@@ -285,7 +334,7 @@ export default function LiveDashboard() {
           }
         </Box>
         <Box sx={{ px: 2, py: 1, borderTop: '1px solid #18181b', display: 'flex', justifyContent: 'flex-end' }}>
-          <Box onClick={() => setPendingActivation(null)}
+          <Box onClick={() => { setPendingActivation(null); setKeyError(null) }}
             sx={{ px: 1.5, py: 0.5, borderRadius: 1, cursor: 'pointer', '&:hover': { background: '#27272a' } }}>
             <Typography sx={{ fontSize: 11, color: '#71717a' }}>취소</Typography>
           </Box>
