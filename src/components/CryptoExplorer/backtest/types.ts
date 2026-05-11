@@ -69,7 +69,6 @@ export interface RunHistory {
   id: string
   created_at: string
   name?: string
-  user_id?: string | null
   paper_trading_enabled?: boolean
   symbol: string
   interval: string
