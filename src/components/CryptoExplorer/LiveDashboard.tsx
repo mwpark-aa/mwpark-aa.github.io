@@ -146,14 +146,17 @@ export default function LiveDashboard() {
         .update({ active_run_id: run.id })
         .eq('id', keyId)
     } else {
-      // 비활성화: 오픈 포지션 정리 + 키에서 active_run_id 해제
-      await supabase.from('live_positions')
-        .delete()
-        .eq('backtest_run_id', run.id)
-        .eq('status', 'OPEN')
-      await supabase.from('user_api_keys')
-        .update({ active_run_id: null })
-        .eq('active_run_id', run.id)
+      // 비활성화: Binance 포지션 청산 + active_run_id 해제 (keyId는 activateLive에서 넘어옴)
+      if (keyId) {
+        await supabase.functions.invoke('stop-live-trade', {
+          body: { api_key_id: keyId, run_id: run.id },
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        })
+      } else {
+        await supabase.from('user_api_keys')
+          .update({ active_run_id: null })
+          .eq('active_run_id', run.id)
+      }
     }
 
     const newKeys = await loadApiKeys()
@@ -181,10 +184,10 @@ export default function LiveDashboard() {
 
   const activateLive = useCallback(async (run: RunHistory) => {
     if (!user) return
-    const isMyActive = apiKeysRef.current.some(k => k.active_run_id === run.id)
+    const activeKey = apiKeysRef.current.find(k => k.active_run_id === run.id)
 
-    if (isMyActive) {
-      await doActivateLive(run, null, false)
+    if (activeKey) {
+      await doActivateLive(run, activeKey.id, false)
     } else {
       setKeyError(null)
       setPendingActivation(run)
