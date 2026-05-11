@@ -148,10 +148,11 @@ export default function LiveDashboard() {
     } else {
       // 비활성화: Binance 포지션 청산 + active_run_id 해제 (keyId는 activateLive에서 넘어옴)
       if (keyId) {
-        await supabase.functions.invoke('stop-live-trade', {
+        const { data: stopData, error: stopErr } = await supabase.functions.invoke('stop-live-trade', {
           body: { api_key_id: keyId, run_id: run.id },
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
+        console.log('[stop-live-trade] data:', stopData, 'error:', stopErr)
       } else {
         await supabase.from('user_api_keys')
           .update({ active_run_id: null })
