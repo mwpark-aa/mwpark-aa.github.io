@@ -290,7 +290,7 @@ export default function LiveDashboard() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#00000088',
     }}>
-      <Box sx={{ width: 320, borderRadius: 2, overflow: 'hidden', background: '#09090b', border: '1px solid #27272a' }}>
+      <Box sx={{ width: { xs: 'calc(100vw - 32px)', sm: 320 }, maxWidth: 360, borderRadius: 2, overflow: 'hidden', background: '#09090b', border: '1px solid #27272a' }}>
         <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #18181b' }}>
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>사용할 Binance API 키 선택</Typography>
           <Typography sx={{ fontSize: 11, color: '#71717a', mt: 0.3 }}>
@@ -315,7 +315,7 @@ export default function LiveDashboard() {
               </Typography>
             : apiKeys.map(k => (
               <Box key={k.id} onClick={() => !keyValidating && confirmActivateWithKey(k.id)} sx={{
-                px: 1.5, py: 1, borderRadius: 1.5,
+                px: 1.5, py: { xs: 1.5, sm: 1 }, borderRadius: 1.5,
                 cursor: keyValidating ? 'wait' : 'pointer',
                 background: '#0a0a0b', border: '1px solid #1f1f23',
                 display: 'flex', alignItems: 'center', gap: 1,

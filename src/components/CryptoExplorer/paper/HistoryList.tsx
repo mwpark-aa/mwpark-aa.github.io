@@ -109,17 +109,17 @@ export default function HistoryList({
                   }}>
                     {run.name ?? `RSI ${run.rsi_oversold}/${run.rsi_overbought} · ${run.leverage}x · 점수${run.min_score}+`}
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', flexShrink: 0 }}>
+                  <Box sx={{ display: 'flex', gap: { xs: 1, sm: 1.5 }, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     <Typography sx={{ fontSize: 11, fontWeight: 800, color: retColor, fontFamily: 'monospace' }}>
                       {ret >= 0 ? '+' : ''}{ret?.toFixed(1)}%
                     </Typography>
                     <Typography sx={{ fontSize: 9, color: '#71717a', fontFamily: 'monospace' }}>
-                      승{run.win_rate?.toFixed(0)}%
+                      승률 {run.win_rate?.toFixed(0)}%
                     </Typography>
-                    <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+                    <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace', display: { xs: 'none', sm: 'inline' } }}>
                       MDD {run.max_drawdown_pct?.toFixed(1)}%
                     </Typography>
-                    <Typography sx={{ fontSize: 9, color: '#3f3f46', fontFamily: 'monospace' }}>
+                    <Typography sx={{ fontSize: 9, color: '#3f3f46', fontFamily: 'monospace', display: { xs: 'none', sm: 'inline' } }}>
                       {run.total_trades}건
                     </Typography>
                   </Box>

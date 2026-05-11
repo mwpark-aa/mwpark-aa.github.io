@@ -62,141 +62,112 @@ function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; c
     : null
 
   return (
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: {xs: '1fr', sm: '120px 140px 1fr 1fr 120px 140px'},
-        gap: 1.5, px: 2, py: 1.5,
-        borderRadius: 2, background: '#111113',
-        borderLeft: `3px solid ${isShort ? '#f97316' : '#3b82f6'}`,
-        border: `1px solid ${isShort ? '#f9731622' : '#3b82f622'}`,
-        alignItems: 'center',
-      }}>
-        {/* 심볼 + 방향 */}
-        <Box>
-          <Box sx={{display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.5}}>
-            <Typography sx={{fontSize: 14, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace'}}>
-              {pos.symbol}
-            </Typography>
-            <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
-              height: 16, fontSize: 9, fontWeight: 800,
-              bgcolor: isShort ? '#f9731620' : '#3b82f620',
-              color: isShort ? '#f97316' : '#3b82f6',
-              border: `1px solid ${isShort ? '#f9731640' : '#3b82f640'}`,
-              '& .MuiChip-label': {px: 0.75},
-            }}/>
-          </Box>
-          <Typography sx={{fontSize: 9, color: '#52525b'}}>{fmtTime(pos.entry_time)}</Typography>
-          {pos.score != null && (
-              <Typography sx={{fontSize: 9, color: '#52525b'}}>점수 {pos.score}</Typography>
-          )}
-        </Box>
-
-        {/* 진입가 */}
-        <Box>
-          <Typography sx={{fontSize: 9, color: '#52525b', mb: 0.25}}>진입가</Typography>
-          <Typography sx={{fontSize: 13, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace'}}>
-            ${fmtPrice(pos.entry_price)}
+    <Box sx={{
+      display: 'grid',
+      gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: '120px 140px 1fr 1fr 120px 140px' },
+      gap: 1.5, px: { xs: 1.5, sm: 2 }, py: 1.5,
+      borderRadius: 2, background: '#111113',
+      borderLeft: `3px solid ${isShort ? '#f97316' : '#3b82f6'}`,
+      border: `1px solid ${isShort ? '#f9731622' : '#3b82f622'}`,
+      alignItems: 'center',
+    }}>
+      {/* 심볼 + 방향 — mobile: 좌상단, desktop: col1 */}
+      <Box sx={{ order: { xs: 1, sm: 1 } }}>
+        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.5 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace' }}>
+            {pos.symbol}
           </Typography>
+          <Chip label={isShort ? '숏' : '롱'} size="small" sx={{
+            height: 16, fontSize: 9, fontWeight: 800,
+            bgcolor: isShort ? '#f9731620' : '#3b82f620',
+            color: isShort ? '#f97316' : '#3b82f6',
+            border: `1px solid ${isShort ? '#f9731640' : '#3b82f640'}`,
+            '& .MuiChip-label': { px: 0.75 },
+          }} />
         </Box>
-
-        {/* 지표 (진입시 | 현재) */}
-        {pos.signal_details && (
-            <Box>
-              <Box>
-                <Typography sx={{fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600}}>진입시</Typography>
-                <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.25}}>
-                  {parseSignalDetails(pos.signal_details).map((item, i, arr) => {
-                    const scored = item.scored
-                    return (
-                        <Typography key={`entry-${i}`} sx={{
-                          fontSize: 10, fontFamily: 'monospace',
-                          color: scored ? (isShort ? '#f97316' : '#10b981') : '#3f3f46',
-                          fontWeight: scored ? 700 : 400,
-                        }}>
-                          {item.label}{i < arr.length - 1 ? ' |' : ''}
-                        </Typography>
-                    )
-                  })}
-                </Box>
-              </Box>
-            </Box>
+        <Typography sx={{ fontSize: 9, color: '#52525b' }}>{fmtTime(pos.entry_time)}</Typography>
+        {pos.score != null && (
+          <Typography sx={{ fontSize: 9, color: '#52525b' }}>점수 {pos.score}</Typography>
         )}
-
-        {pos.signal_details && (
-            <Box>
-              {latestCandle && (
-                  <Box>
-                    <Typography sx={{fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600}}>현재</Typography>
-                    <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.25}}>
-                      {parseSignalDetails(pos.signal_details).map((item, i, arr) => {
-                        const formattedValue = getFormattedIndicatorValue(item.label, latestCandle)
-                        return (
-                            <Typography key={`current-${i}`} sx={{
-                              fontSize: 10, fontFamily: 'monospace',
-                              color: '#e4e4e7',
-                              fontWeight: 600,
-                            }}>
-                              {formattedValue}{i < arr.length - 1 ? ' |' : ''}
-                            </Typography>
-                        )
-                      })}
-                    </Box>
-                  </Box>
-              )}
-            </Box>
-        )}
-
-        {/* 미실현 손익 */}
-        <Box>
-          <Typography sx={{fontSize: 9, color: '#52525b', mb: 0.25}}>미실현 손익</Typography>
-          <Typography sx={{fontSize: 15, fontWeight: 800, color: pnlColor, fontFamily: 'monospace'}}>
-            {currentPrice ? fmtPct(unrealPct) : '—'}
-          </Typography>
-          {currentPrice && (
-              <Typography sx={{fontSize: 9, color: '#52525b', fontFamily: 'monospace'}}>
-                ${fmtPrice(currentPrice)}
-              </Typography>
-          )}
-        </Box>
-
-        {/* TP / SL + 프로그레스 */}
-        <Box sx={{textAlign: 'right'}}>
-          <Box sx={{display: 'flex', gap: 1.5, justifyContent: 'flex-end', mb: 0.5}}>
-            {pos.target_price != null && (
-                <Typography sx={{fontSize: 9, color: '#10b98188', fontFamily: 'monospace'}}>
-                  TP ${fmtPrice(pos.target_price)}
-                </Typography>
-            )}
-            {pos.stop_loss != null && (
-                <Typography sx={{fontSize: 9, color: '#ef444488', fontFamily: 'monospace'}}>
-                  SL ${fmtPrice(pos.stop_loss)}
-                </Typography>
-            )}
-          </Box>
-          {progressPct != null && (
-              <Box sx={{
-                width: 100,
-                height: 3,
-                bgcolor: '#27272a',
-                borderRadius: 99,
-                overflow: 'hidden',
-                ml: 'auto',
-                mb: 0.5
-              }}>
-                <Box sx={{
-                  width: `${progressPct}%`,
-                  height: '100%',
-                  bgcolor: pnlColor,
-                  borderRadius: 99,
-                  transition: 'width 0.4s'
-                }}/>
-              </Box>
-          )}
-          <Typography sx={{fontSize: 9, color: '#52525b'}}>
-            ${pos.capital_used.toLocaleString('en', {maximumFractionDigits: 0})} 투입
-          </Typography>
-        </Box>
       </Box>
+
+      {/* 미실현 손익 — mobile: 우상단, desktop: col5 */}
+      <Box sx={{ order: { xs: 2, sm: 5 }, textAlign: { xs: 'right', sm: 'left' } }}>
+        <Typography sx={{ fontSize: 9, color: '#52525b', mb: 0.25 }}>미실현 손익</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 800, color: pnlColor, fontFamily: 'monospace' }}>
+          {currentPrice ? fmtPct(unrealPct) : '—'}
+        </Typography>
+        {currentPrice && (
+          <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+            ${fmtPrice(currentPrice)}
+          </Typography>
+        )}
+      </Box>
+
+      {/* 진입가 — mobile: 좌하단, desktop: col2 */}
+      <Box sx={{ order: { xs: 3, sm: 2 } }}>
+        <Typography sx={{ fontSize: 9, color: '#52525b', mb: 0.25 }}>진입가</Typography>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace' }}>
+          ${fmtPrice(pos.entry_price)}
+        </Typography>
+      </Box>
+
+      {/* TP/SL — mobile: 우하단, desktop: col6 */}
+      <Box sx={{ order: { xs: 4, sm: 6 }, textAlign: 'right' }}>
+        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', mb: 0.5 }}>
+          {pos.target_price != null && (
+            <Typography sx={{ fontSize: 9, color: '#10b98188', fontFamily: 'monospace' }}>
+              TP ${fmtPrice(pos.target_price)}
+            </Typography>
+          )}
+          {pos.stop_loss != null && (
+            <Typography sx={{ fontSize: 9, color: '#ef444488', fontFamily: 'monospace' }}>
+              SL ${fmtPrice(pos.stop_loss)}
+            </Typography>
+          )}
+        </Box>
+        {progressPct != null && (
+          <Box sx={{ width: { xs: '100%', sm: 100 }, height: 3, bgcolor: '#27272a', borderRadius: 99, overflow: 'hidden', ml: 'auto', mb: 0.5 }}>
+            <Box sx={{ width: `${progressPct}%`, height: '100%', bgcolor: pnlColor, borderRadius: 99, transition: 'width 0.4s' }} />
+          </Box>
+        )}
+        <Typography sx={{ fontSize: 9, color: '#52525b' }}>
+          ${pos.capital_used.toLocaleString('en', { maximumFractionDigits: 0 })} 투입
+        </Typography>
+      </Box>
+
+      {/* 지표 진입시 — mobile: 전체 폭, desktop: col3 */}
+      {pos.signal_details && (
+        <Box sx={{ order: { xs: 5, sm: 3 }, gridColumn: { xs: 'span 2', sm: 'auto' } }}>
+          <Typography sx={{ fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600 }}>진입시</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
+            {parseSignalDetails(pos.signal_details).map((item, i, arr) => (
+              <Typography key={`entry-${i}`} sx={{
+                fontSize: 10, fontFamily: 'monospace',
+                color: item.scored ? (isShort ? '#f97316' : '#10b981') : '#3f3f46',
+                fontWeight: item.scored ? 700 : 400,
+              }}>
+                {item.label}{i < arr.length - 1 ? ' |' : ''}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* 지표 현재 — mobile: 숨김, desktop: col4 */}
+      {pos.signal_details && latestCandle && (
+        <Box sx={{ order: { xs: 6, sm: 4 }, display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontSize: 7, color: '#52525b', mb: 0.25, fontWeight: 600 }}>현재</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
+            {parseSignalDetails(pos.signal_details).map((item, i, arr) => (
+              <Typography key={`current-${i}`} sx={{ fontSize: 10, fontFamily: 'monospace', color: '#e4e4e7', fontWeight: 600 }}>
+                {getFormattedIndicatorValue(item.label, latestCandle)}{i < arr.length - 1 ? ' |' : ''}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
 }
 
