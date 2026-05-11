@@ -403,8 +403,9 @@ export default function LiveDashboard() {
             const acct           = cfg.api_key_id ? (accounts[cfg.api_key_id] ?? null) : null
             const price          = cfg.symbol ? (prices[cfg.symbol] ?? null) : null
             const unrealizedPnl  = cfgOpenPos.reduce((sum, pos) => {
-              const p = price ?? pos.entry_price
-              return sum + (pos.direction === 'SHORT' ? pos.entry_price - p : p - pos.entry_price) * pos.quantity
+              const p          = price ?? pos.entry_price
+              const priceChg   = (pos.direction === 'SHORT' ? pos.entry_price - p : p - pos.entry_price) * pos.quantity
+              return sum + (pos.capital_used ?? 0) + priceChg
             }, 0)
             const effectiveCap   = acct ? acct.capital + unrealizedPnl : null
             const totalReturn    = acct && acct.initial_capital > 0
