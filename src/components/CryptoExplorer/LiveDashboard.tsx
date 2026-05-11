@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import type { RunHistory } from './backtest/types'
 import PaperChart, { type PaperChartHandle } from './PaperChart'
-import ConfigBanner from './paper/ConfigBanner'
 import HistoryList from './paper/HistoryList'
 import AccountSummary from './paper/AccountSummary'
 import OpenPositions from './paper/OpenPositions'
@@ -31,6 +30,7 @@ export default function LiveDashboard() {
   const [prices,            setPrices]            = useState<Record<string, number>>({})
   const [loading,           setLoading]           = useState(true)
   const [activating,        setActivating]        = useState<string | null>(null)
+  const [stopError,         setStopError]         = useState<string | null>(null)
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const chartRef   = useRef<PaperChartHandle>(null)
   const [latestCandle, setLatestCandle] = useState<Candle | null>(null)
@@ -56,7 +56,7 @@ export default function LiveDashboard() {
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
       .from('backtest_runs')
-      .select('*')
+      .select('id,name,created_at,symbol,interval,leverage,min_score,rsi_oversold,rsi_overbought,score_use_rsi,score_use_adx,score_use_macd,score_use_rvol,score_use_bb,score_use_golden_cross,score_use_ichi,score_use_fed_liquidity,adx_threshold,rvol_threshold,rvol_skip,fixed_tp,fixed_sl,score_exit_threshold,cci_max_entry,total_return_pct,win_rate,max_drawdown_pct,sharpe_ratio,total_trades,paper_trading_enabled')
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) setHistory(data as RunHistory[])
@@ -148,11 +148,13 @@ export default function LiveDashboard() {
     } else {
       // 비활성화: Binance 포지션 청산 + active_run_id 해제 (keyId는 activateLive에서 넘어옴)
       if (keyId) {
-        const { data: stopData, error: stopErr } = await supabase.functions.invoke('stop-live-trade', {
+        const { data, error } = await supabase.functions.invoke('stop-live-trade', {
           body: { api_key_id: keyId, run_id: run.id },
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
-        console.log('[stop-live-trade] data:', stopData, 'error:', stopErr)
+        if (error) setStopError(`종료 실패: ${error.message ?? String(error)}`)
+        else if (data?.errors?.length) setStopError(`청산 일부 실패: ${data.errors[0]}`)
+        else setStopError(null)
       } else {
         await supabase.from('user_api_keys')
           .update({ active_run_id: null })
@@ -262,16 +264,10 @@ export default function LiveDashboard() {
     if (priceTimer.current) clearInterval(priceTimer.current)
     if (symbols.length === 0) return
     symbols.forEach(s => fetchPrice(s))
-    priceTimer.current = setInterval(() => symbols.forEach(s => fetchPrice(s)), 10_000)
+    priceTimer.current = setInterval(() => symbols.forEach(s => fetchPrice(s)), 5_000)
     return () => { if (priceTimer.current) clearInterval(priceTimer.current) }
   }, [configs, loadAccounts, fetchPrice])
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (chartRef.current?.latestCandle) setLatestCandle(chartRef.current.latestCandle)
-    }, 500)
-    return () => clearInterval(timer)
-  }, [])
 
   // ── 렌더 헬퍼 ────────────────────────────────────────────────
 
@@ -361,22 +357,16 @@ export default function LiveDashboard() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {KeySelectDialog}
 
-      {/* 실거래 경고 */}
-      <Box sx={{
-        px: 2, py: 1, borderRadius: 2, background: '#431407', border: '1px solid #c2410c55',
-        display: 'flex', alignItems: 'center', gap: 1,
-      }}>
-        {configs.length > 0
-          ? <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316', flexShrink: 0,
-              animation: 'pulse 2s infinite', '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.4 } } }} />
-          : null}
-        <Typography sx={{ fontSize: 11, color: '#fb923c', fontWeight: 700 }}>
-          {configs.length > 0
-            ? `실제 거래 진행 중 (${configs.length}개 전략) — 바이낸스 선물 계정의 실제 자금이 사용됩니다`
-            : '실제 거래 모드 — 활성화된 전략이 없습니다'}
-        </Typography>
-      </Box>
-
+      {/* 종료 에러 */}
+      {stopError && (
+        <Box onClick={() => setStopError(null)} sx={{
+          px: 2, py: 1, borderRadius: 2, background: '#450a0a', border: '1px solid #ef444455',
+          display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer',
+        }}>
+          <Typography sx={{ fontSize: 11, color: '#f87171', flex: 1 }}>{stopError}</Typography>
+          <Typography sx={{ fontSize: 10, color: '#52525b' }}>✕</Typography>
+        </Box>
+      )}
       {/* API 키 관리 */}
       <Box sx={{ px: 1.5, py: 1.5, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
         <ApiKeyManager apiKeys={apiKeys} onRefresh={loadApiKeys} />
@@ -395,8 +385,6 @@ export default function LiveDashboard() {
       {/* 활성 전략별 섹션 */}
       {configs.length > 0 && (
         <>
-          <ConfigBanner configs={configs} account={accounts[firstConfig?.api_key_id ?? ''] ?? null} />
-
           {configs.map(cfg => {
             const cfgOpenPos     = openPos.filter(p => p.backtest_run_id === cfg.id)
             const cfgClosed      = closedTrades.filter(t => t.backtest_run_id === cfg.id)
@@ -447,30 +435,33 @@ export default function LiveDashboard() {
           })}
 
           {/* 차트: 첫 번째 활성 전략 기준 */}
-          {firstConfig && (
-            <PaperChart
-              ref={chartRef}
-              symbol={firstConfig.symbol}
-              interval={firstConfig.interval}
-              chartConfig={{
-                showMA:        firstConfig.score_use_golden_cross ?? true,
-                showBB:        firstConfig.score_use_bb           ?? false,
-                showRSI:       firstConfig.score_use_rsi          ?? true,
-                showMACD:      firstConfig.score_use_macd         ?? true,
-                showADX:       firstConfig.score_use_adx          ?? false,
-                rsiOversold:   firstConfig.rsi_oversold,
-                rsiOverbought: firstConfig.rsi_overbought,
-                adxThreshold:  firstConfig.adx_threshold ?? 20,
-              }}
-              position={openPos.filter(p => p.backtest_run_id === firstConfig.id)[0]
-                ? {
-                  entry_price:  openPos.filter(p => p.backtest_run_id === firstConfig.id)[0].entry_price,
-                  target_price: openPos.filter(p => p.backtest_run_id === firstConfig.id)[0].target_price,
-                  stop_loss:    openPos.filter(p => p.backtest_run_id === firstConfig.id)[0].stop_loss,
-                  direction:    openPos.filter(p => p.backtest_run_id === firstConfig.id)[0].direction,
+          {firstConfig && (() => {
+            const firstPos = openPos.find(p => p.backtest_run_id === firstConfig.id) ?? null
+            return (
+              <PaperChart
+                ref={chartRef}
+                symbol={firstConfig.symbol}
+                interval={firstConfig.interval}
+                onLatestCandle={(c) => setLatestCandle(c)}
+                chartConfig={{
+                  showMA:        firstConfig.score_use_golden_cross ?? true,
+                  showBB:        firstConfig.score_use_bb           ?? false,
+                  showRSI:       false,
+                  showMACD:      false,
+                  showADX:       false,
+                  rsiOversold:   firstConfig.rsi_oversold,
+                  rsiOverbought: firstConfig.rsi_overbought,
+                  adxThreshold:  firstConfig.adx_threshold ?? 20,
+                }}
+                position={firstPos ? {
+                  entry_price:  firstPos.entry_price,
+                  target_price: firstPos.target_price,
+                  stop_loss:    firstPos.stop_loss,
+                  direction:    firstPos.direction,
                 } : null}
-            />
-          )}
+              />
+            )
+          })()}
         </>
       )}
     </Box>

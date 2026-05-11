@@ -38,10 +38,11 @@ export interface ChartConfig {
 }
 
 interface Props {
-  symbol:      string
-  interval:    string
-  position:    OpenPos | null
-  chartConfig: ChartConfig
+  symbol:           string
+  interval:         string
+  position:         OpenPos | null
+  chartConfig:      ChartConfig
+  onLatestCandle?:  (candle: Candle) => void
 }
 
 export interface PaperChartHandle {
@@ -73,7 +74,7 @@ const toT = (ms: number) => (Math.floor(ms / 1000) + KST_OFFSET_S) as UTCTimesta
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 
-const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart({ symbol, interval, position, chartConfig }, ref) {
+const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart({ symbol, interval, position, chartConfig, onLatestCandle }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
   const wsRef        = useRef<WebSocket | null>(null)
@@ -185,6 +186,7 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
     if (chartConfig.showADX   && c.adx14     != null) adxSeriesRef.current?.update({ time: t, value: c.adx14 })
 
     latestCandleRef.current = c
+    onLatestCandle?.(c)
   }
 
   // ── 차트 초기화 + WebSocket (symbol / interval 변경 시) ───
