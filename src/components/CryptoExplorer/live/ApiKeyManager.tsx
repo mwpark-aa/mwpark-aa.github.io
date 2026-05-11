@@ -11,6 +11,7 @@ export interface ApiKey {
   label: string
   is_testnet: boolean
   created_at: string
+  active_run_id?: string | null
 }
 
 interface BalanceState {

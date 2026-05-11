@@ -39,14 +39,18 @@ export default function LiveDashboard() {
 
   const loadConfigs = useCallback(async (keys?: ApiKey[]) => {
     if (!user) return
-    const keyIds = (keys ?? apiKeysRef.current).map(k => k.id)
-    if (keyIds.length === 0) { setConfigs([]); return }
+    const myKeys = keys ?? apiKeysRef.current
+    const activeRunIds = myKeys.filter(k => k.active_run_id).map(k => k.active_run_id as string)
+    if (activeRunIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, api_key_id')
-      .eq('live_trading_enabled', true)
-      .in('api_key_id', keyIds)
-    setConfigs((data ?? []) as ActiveConfig[])
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross')
+      .in('id', activeRunIds)
+    const cfgs = (data ?? []).map(run => ({
+      ...run,
+      api_key_id: myKeys.find(k => k.active_run_id === run.id)?.id ?? null,
+    }))
+    setConfigs(cfgs as ActiveConfig[])
   }, [user])
 
   const loadHistory = useCallback(async () => {
@@ -102,7 +106,7 @@ export default function LiveDashboard() {
     if (!user) return []
     const { data } = await supabase
       .from('user_api_keys')
-      .select('id, label, is_testnet, created_at')
+      .select('id, label, is_testnet, created_at, active_run_id')
       .order('created_at', { ascending: true })
     const keys = (data ?? []) as ApiKey[]
     apiKeysRef.current = keys
@@ -112,58 +116,50 @@ export default function LiveDashboard() {
 
   // ── 실거래 활성화 ─────────────────────────────────────────────
 
-  const doActivateLive = useCallback(async (run: RunHistory, willActivate: boolean) => {
+  const doActivateLive = useCallback(async (run: RunHistory, keyId: string | null, willActivate: boolean) => {
     if (!user) return
     setActivating(run.id)
 
-    if (willActivate) {
+    if (willActivate && keyId) {
       await supabase.from('live_positions').delete().eq('backtest_run_id', run.id)
-      if (run.api_key_id) {
-        // 실제 Binance 잔액 조회
-        let initialBalance = 0
-        try {
-          const { data } = await supabase.functions.invoke('check-balance', {
-            body: { api_key_id: run.api_key_id },
-            headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
-          })
-          if (data?.balance != null) initialBalance = data.balance as number
-        } catch { /* fallback to 0 */ }
 
-        await supabase.from('live_accounts').upsert({
-          user_id:           user.id,
-          api_key_id:        run.api_key_id,
-          balance:           initialBalance,
-          initial_balance:   initialBalance,
-          updated_at:        new Date().toISOString(),
-          last_processed_ts: null,
-        }, { onConflict: 'api_key_id' })
-        // 같은 키로 활성화된 다른 run 비활성화
-        await supabase.from('backtest_runs')
-          .update({ live_trading_enabled: false })
-          .eq('api_key_id', run.api_key_id)
-          .eq('live_trading_enabled', true)
-          .neq('id', run.id)
-      }
-    }
+      let initialBalance = 0
+      try {
+        const { data } = await supabase.functions.invoke('check-balance', {
+          body: { api_key_id: keyId },
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        })
+        if (data?.balance != null) initialBalance = data.balance as number
+      } catch { /* fallback to 0 */ }
 
-    if (willActivate) {
-      await supabase.from('backtest_runs')
-        .update({ live_trading_enabled: true })
-        .eq('id', run.id)
+      await supabase.from('live_accounts').upsert({
+        user_id:           user.id,
+        api_key_id:        keyId,
+        balance:           initialBalance,
+        initial_balance:   initialBalance,
+        updated_at:        new Date().toISOString(),
+        last_processed_ts: null,
+      }, { onConflict: 'api_key_id' })
+
+      // 키에 active_run_id 설정 (같은 키의 이전 run은 자동으로 끊김)
+      await supabase.from('user_api_keys')
+        .update({ active_run_id: run.id })
+        .eq('id', keyId)
     } else {
-      // 비활성화: 키 연결 해제 + 오픈 포지션 정리
+      // 비활성화: 오픈 포지션 정리 + 키에서 active_run_id 해제
       await supabase.from('live_positions')
         .delete()
         .eq('backtest_run_id', run.id)
         .eq('status', 'OPEN')
-      await supabase.from('backtest_runs')
-        .update({ live_trading_enabled: false, api_key_id: null })
-        .eq('id', run.id)
+      await supabase.from('user_api_keys')
+        .update({ active_run_id: null })
+        .eq('active_run_id', run.id)
     }
 
-    await Promise.all([loadConfigs(), loadHistory()])
+    const newKeys = await loadApiKeys()
+    await Promise.all([loadConfigs(newKeys ?? []), loadHistory()])
     setActivating(null)
-  }, [user, loadConfigs, loadHistory])
+  }, [user, session, loadApiKeys, loadConfigs, loadHistory])
 
   const validateBinanceKey = useCallback(async (keyId: string): Promise<string | null> => {
     setKeyValidating(true)
@@ -185,34 +181,23 @@ export default function LiveDashboard() {
 
   const activateLive = useCallback(async (run: RunHistory) => {
     if (!user) return
-    const isMyActive = run.live_trading_enabled === true &&
-      Boolean(run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id))
+    const isMyActive = apiKeysRef.current.some(k => k.active_run_id === run.id)
 
     if (isMyActive) {
-      await doActivateLive(run, false)
+      await doActivateLive(run, null, false)
     } else {
-      // 이미 내 키가 연결된 경우 → 검증 후 활성화
-      if (run.api_key_id && apiKeysRef.current.some(k => k.id === run.api_key_id)) {
-        setPendingActivation(run)
-        const err = await validateBinanceKey(run.api_key_id)
-        if (err) { setKeyError(err); return }
-        setPendingActivation(null)
-        await doActivateLive(run, true)
-      } else {
-        setKeyError(null)
-        setPendingActivation(run)
-      }
+      setKeyError(null)
+      setPendingActivation(run)
     }
-  }, [user, doActivateLive, validateBinanceKey])
+  }, [user, doActivateLive])
 
   const confirmActivateWithKey = useCallback(async (keyId: string) => {
     if (!pendingActivation || !user) return
     const err = await validateBinanceKey(keyId)
     if (err) { setKeyError(err); return }
-    await supabase.from('backtest_runs').update({ api_key_id: keyId }).eq('id', pendingActivation.id)
     setPendingActivation(null)
     setKeyError(null)
-    await doActivateLive({ ...pendingActivation, api_key_id: keyId }, true)
+    await doActivateLive(pendingActivation, keyId, true)
   }, [pendingActivation, user, validateBinanceKey, doActivateLive])
 
   const deleteHistory = useCallback(async (id: string) => {
@@ -290,11 +275,10 @@ export default function LiveDashboard() {
     activating,
     onActivate:    activateLive,
     onDelete:      deleteHistory,
-    activeKey:     'live_trading_enabled' as const,
     activateLabel: '이 설정으로 실제 거래 시작',
     activeColor:   '#fbbf24',
     activeBgColor: '#92400e',
-    userApiKeyIds: apiKeys.map(k => k.id),
+    activeRunIds:  apiKeys.filter(k => k.active_run_id).map(k => k.active_run_id as string),
   }
 
   // ── 키 선택 다이얼로그 ────────────────────────────────────────

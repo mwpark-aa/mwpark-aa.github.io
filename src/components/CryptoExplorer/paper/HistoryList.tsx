@@ -10,11 +10,11 @@ interface Props {
   activating: string | null
   onActivate: (run: RunHistory) => void
   onDelete: (id: string) => void
-  activeKey?: 'paper_trading_enabled' | 'live_trading_enabled'
+  activeKey?: 'paper_trading_enabled'
   activateLabel?: string
   activeColor?: string
   activeBgColor?: string
-  userApiKeyIds?: string[]        // live 탭: 내 키로 활성화된 run만 active로 표시
+  activeRunIds?: string[]         // live 탭: 내 키에 active_run_id로 연결된 run ID 목록
 }
 
 export default function HistoryList({
@@ -23,7 +23,7 @@ export default function HistoryList({
   activateLabel = '이 설정으로 페이퍼 트레이딩 시작',
   activeColor   = '#4ade80',
   activeBgColor = '#16a34a',
-  userApiKeyIds,
+  activeRunIds,
 }: Props) {
   return (
     <Box>
@@ -42,9 +42,9 @@ export default function HistoryList({
           </Typography>
         )}
         {history.map((run) => {
-          // userApiKeyIds가 있으면(live 탭) → 내 키로 활성화된 경우만 active
-          const isActive  = userApiKeyIds !== undefined
-            ? run[activeKey] === true && Boolean(run.api_key_id && userApiKeyIds.includes(run.api_key_id))
+          // activeRunIds가 있으면(live 탭) → 해당 ID 목록에 있는 run만 active
+          const isActive  = activeRunIds !== undefined
+            ? activeRunIds.includes(run.id)
             : run[activeKey] === true
           const ret       = run.total_return_pct
           const retColor  = ret >= 0 ? '#10b981' : '#ef4444'
