@@ -16,13 +16,15 @@ function parseAddEntries(trade: CommonTrade) {
 }
 
 const EXIT_REASON_MAP: Record<string, string> = {
-  'TP': '목표가 달성',
-  'SL': '손절가 달성',
-  'TRAIL': '추적손절',
-  'BELOW_TP1': '부분익절',
-  'TIMEOUT': '최대 보유기간 종료',
+  'TP':         '목표가 달성',
+  'SL':         '손절가 달성',
+  'TRAIL':      '추적손절',
+  'BELOW_TP1':  '부분익절',
+  'TIMEOUT':    '최대 보유기간 종료',
   'LIQUIDATED': '청산',
-  'DATA_END': '데이터 종료',
+  'DATA_END':   '데이터 종료',
+  'SCORE_EXIT': '점수 하락 청산',
+  'MANUAL':     '수동 종료',
 }
 
 interface Props {
@@ -153,7 +155,7 @@ const CommonTradeRow = memo(function CommonTradeRow({
         {/* 청산 이유 + 청산 상세 */}
         <Box sx={{ mb: 0.4 }}>
           <Typography sx={{ fontSize: 9, color: '#71717a', mb: 0.2 }}>
-            {EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason}
+            {trade.exit_reason ? (EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason) : '—'}
           </Typography>
           {trade.exit_details && (
             <Typography sx={{ fontSize: 9, fontFamily: 'monospace', lineHeight: 1.4, color: '#fafafa' }}>
