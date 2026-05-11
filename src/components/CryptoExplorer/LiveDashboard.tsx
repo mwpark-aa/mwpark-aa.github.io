@@ -237,13 +237,14 @@ export default function LiveDashboard() {
         if (!mounted) return
         loadOpenPos(); loadClosedTrades()
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_accounts' }, () => {
-        if (mounted) loadConfigs().then(async () => {
-          setConfigs(prev => { loadAccounts(prev); return prev })
-        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'user_api_keys' }, async () => {
+        if (!mounted) return
+        const newKeys = await loadApiKeys()
+        await loadConfigs(newKeys ?? [])
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'backtest_runs' }, () => {
-        if (mounted) { loadConfigs(); loadHistory() }
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_accounts' }, async () => {
+        if (!mounted) return
+        setConfigs(prev => { loadAccounts(prev); return prev })
       })
       .subscribe()
 
