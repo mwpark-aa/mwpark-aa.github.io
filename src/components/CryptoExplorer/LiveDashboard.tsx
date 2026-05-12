@@ -382,6 +382,36 @@ export default function LiveDashboard() {
         </Typography>
       )}
 
+      {/* 고아 포지션: active config 없는 OPEN 포지션 — 바이낸스에 여전히 살아있을 수 있음 */}
+      {(() => {
+        const orphaned = openPos.filter(p => !configs.some(cfg => cfg.id === p.backtest_run_id))
+        if (orphaned.length === 0) return null
+        return (
+          <Box sx={{ borderRadius: 2, border: '1px solid #f9731644', background: '#431407', px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316', flexShrink: 0,
+                animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#f97316' }}>
+                미연결 OPEN 포지션 {orphaned.length}건 — 바이낸스 직접 확인 필요
+              </Typography>
+            </Box>
+            {orphaned.map(pos => (
+              <Box key={pos.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1, py: 0.75, borderRadius: 1.5, background: '#0a0a0b', border: '1px solid #f9731622' }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace', flex: 1 }}>
+                  {pos.symbol} {pos.direction} @ ${pos.entry_price}
+                </Typography>
+                <Typography sx={{ fontSize: 9, color: '#f97316', fontFamily: 'monospace' }}>
+                  {pos.target_price == null ? 'TP 없음' : `TP $${pos.target_price}`}
+                </Typography>
+                <Typography sx={{ fontSize: 9, color: '#ef4444', fontFamily: 'monospace' }}>
+                  {pos.stop_loss == null ? 'SL 없음' : `SL $${pos.stop_loss}`}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )
+      })()}
+
       {/* 활성 전략별 섹션 */}
       {configs.length > 0 && (
         <>
