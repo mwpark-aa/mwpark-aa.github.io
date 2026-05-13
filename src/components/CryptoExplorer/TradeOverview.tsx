@@ -15,13 +15,13 @@ interface RawPosition {
   entry_time: string
   net_pnl: number | null
   status: 'OPEN' | 'CLOSED'
-  is_testnet: boolean
 }
 
 interface RawAccount {
   user_id: string
   balance: number | null
   initial_balance: number | null
+  is_testnet: boolean
 }
 
 interface TraderStat {
@@ -92,26 +92,27 @@ export default function TradeOverview() {
     const [posRes, accRes] = await Promise.all([
       supabase
         .from('live_positions')
-        .select('id, user_id, symbol, direction, entry_price, quantity, capital_used, entry_time, net_pnl, status, is_testnet')
+        .select('id, user_id, symbol, direction, entry_price, quantity, capital_used, entry_time, net_pnl, status')
         .in('status', ['OPEN', 'CLOSED'])
         .order('entry_time', { ascending: false })
         .limit(500),
       supabase
         .from('live_accounts')
-        .select('user_id, balance, initial_balance'),
+        .select('user_id, balance, initial_balance, is_testnet'),
     ])
 
     const rows    = (posRes.data ?? []) as RawPosition[]
     const accounts = (accRes.data ?? []) as RawAccount[]
 
-    // user_id별 잔액 (여러 api_key → 합산)
-    const balanceMap = new Map<string, { balance: number; initialBalance: number }>()
+    // user_id별 잔액 합산 (여러 api_key → sum), is_testnet은 하나라도 true면 true
+    const balanceMap = new Map<string, { balance: number; initialBalance: number; isTestnet: boolean }>()
     for (const a of accounts) {
       if (!a.user_id) continue
-      const prev = balanceMap.get(a.user_id) ?? { balance: 0, initialBalance: 0 }
+      const prev = balanceMap.get(a.user_id) ?? { balance: 0, initialBalance: 0, isTestnet: false }
       balanceMap.set(a.user_id, {
         balance:        prev.balance        + (a.balance        ?? 0),
         initialBalance: prev.initialBalance + (a.initial_balance ?? 0),
+        isTestnet:      prev.isTestnet || a.is_testnet,
       })
     }
 
@@ -127,9 +128,7 @@ export default function TradeOverview() {
         const realizedPnl  = closed.reduce((s, t) => s + (t.net_pnl ?? 0), 0)
         const closedCapital = closed.reduce((s, t) => s + (t.capital_used ?? 0), 0)
         const wins          = closed.filter(t => (t.net_pnl ?? 0) > 0).length
-        const acc       = balanceMap.get(userId)
-        const allPos    = [...open, ...closed]
-        const isTestnet = allPos.some(p => p.is_testnet)
+        const acc = balanceMap.get(userId)
         return {
           userId, idx: idx + 1,
           openPositions: open,
@@ -139,7 +138,7 @@ export default function TradeOverview() {
           closedCapital,
           balance:        acc?.balance        ?? null,
           initialBalance: acc?.initialBalance ?? null,
-          isTestnet,
+          isTestnet:      acc?.isTestnet      ?? false,
         }
       })
       .filter(s => s.closedCount > 0 || s.openPositions.length > 0)
