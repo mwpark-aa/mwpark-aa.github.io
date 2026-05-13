@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 interface RawPosition {
   id: string
   user_id: string
+  api_key_id: string | null
   symbol: string
   direction: 'LONG' | 'SHORT'
   entry_price: number
@@ -18,6 +19,7 @@ interface RawPosition {
 }
 
 interface RawAccount {
+  api_key_id: string | null
   user_id: string
   balance: number | null
   initial_balance: number | null
@@ -34,7 +36,6 @@ interface TraderStat {
   closedCapital: number
   balance: number | null
   initialBalance: number | null
-  isTestnet: boolean
 }
 
 function StatBox({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
@@ -84,35 +85,42 @@ function fmtUsd(v: number) {
 }
 
 export default function TradeOverview() {
-  const [traders, setTraders] = useState<TraderStat[]>([])
-  const [prices,  setPrices]  = useState<Record<string, number>>({})
-  const [loading, setLoading] = useState(true)
+  const [traders,     setTraders]     = useState<TraderStat[]>([])
+  const [prices,      setPrices]      = useState<Record<string, number>>({})
+  const [testnetKeys, setTestnetKeys] = useState<Record<string, boolean>>({})
+  const [loading,     setLoading]     = useState(true)
 
   const loadData = useCallback(async () => {
     const [posRes, accRes] = await Promise.all([
       supabase
         .from('live_positions')
-        .select('id, user_id, symbol, direction, entry_price, quantity, capital_used, entry_time, net_pnl, status')
+        .select('id, user_id, api_key_id, symbol, direction, entry_price, quantity, capital_used, entry_time, net_pnl, status')
         .in('status', ['OPEN', 'CLOSED'])
         .order('entry_time', { ascending: false })
         .limit(500),
       supabase
         .from('live_accounts')
-        .select('user_id, balance, initial_balance, is_testnet'),
+        .select('api_key_id, user_id, balance, initial_balance, is_testnet'),
     ])
 
     const rows    = (posRes.data ?? []) as RawPosition[]
     const accounts = (accRes.data ?? []) as RawAccount[]
 
-    // user_id별 잔액 합산 (여러 api_key → sum), is_testnet은 하나라도 true면 true
-    const balanceMap = new Map<string, { balance: number; initialBalance: number; isTestnet: boolean }>()
+    // api_key_id → is_testnet (포지션 행에서 직접 조회용)
+    const keyTestnet: Record<string, boolean> = {}
+    for (const a of accounts) {
+      if (a.api_key_id) keyTestnet[a.api_key_id] = a.is_testnet
+    }
+    setTestnetKeys(keyTestnet)
+
+    // user_id별 잔액 합산 (여러 api_key → sum)
+    const balanceMap = new Map<string, { balance: number; initialBalance: number }>()
     for (const a of accounts) {
       if (!a.user_id) continue
-      const prev = balanceMap.get(a.user_id) ?? { balance: 0, initialBalance: 0, isTestnet: false }
+      const prev = balanceMap.get(a.user_id) ?? { balance: 0, initialBalance: 0 }
       balanceMap.set(a.user_id, {
         balance:        prev.balance        + (a.balance        ?? 0),
         initialBalance: prev.initialBalance + (a.initial_balance ?? 0),
-        isTestnet:      prev.isTestnet || a.is_testnet,
       })
     }
 
@@ -138,7 +146,6 @@ export default function TradeOverview() {
           closedCapital,
           balance:        acc?.balance        ?? null,
           initialBalance: acc?.initialBalance ?? null,
-          isTestnet:      acc?.isTestnet      ?? false,
         }
       })
       .filter(s => s.closedCount > 0 || s.openPositions.length > 0)
@@ -213,15 +220,16 @@ export default function TradeOverview() {
           return sum + diff * pos.quantity
         }, 0)
         const openCapital = trader.openPositions.reduce((s, p) => s + p.capital_used, 0)
-        const unrealizedPct = openCapital > 0 ? (unrealizedPnl / openCapital) * 100 : null
 
-        // 전체 손익 (실현 + 미실현)
-        const totalPnl = trader.realizedPnl + unrealizedPnl
-        const initBal  = trader.initialBalance
-        const curBal   = trader.balance
-        const totalPct = initBal && initBal > 0 && curBal !== null
-          ? (curBal - initBal) / initBal * 100
-          : null
+        // 모든 % 는 동일한 기준(초기 잔액 → 없으면 총 투입 자금)으로 통일
+        const initBal = trader.initialBalance
+        const curBal  = trader.balance
+        const pctBase = (initBal && initBal > 0) ? initBal : (trader.closedCapital + openCapital) || null
+
+        const totalPnl      = trader.realizedPnl + unrealizedPnl
+        const totalPct      = pctBase ? (totalPnl      / pctBase) * 100 : null
+        const realizedPct   = pctBase ? (trader.realizedPnl / pctBase) * 100 : null
+        const unrealizedPct = pctBase ? (unrealizedPnl / pctBase) * 100 : null
 
         const winRate = trader.closedCount > 0
           ? (trader.wins / trader.closedCount) * 100 : null
@@ -247,16 +255,6 @@ export default function TradeOverview() {
                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#e4e4e7' }}>
                   거래자 {trader.idx}
                 </Typography>
-                {trader.isTestnet && (
-                  <Box sx={{
-                    px: 0.75, py: 0.2, borderRadius: 0.75,
-                    background: '#7c3aed15', border: '1px solid #7c3aed44',
-                  }}>
-                    <Typography sx={{ fontSize: 9, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.05em' }}>
-                      TESTNET
-                    </Typography>
-                  </Box>
-                )}
                 {isLive && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.5 }}>
                     <Box sx={{
@@ -291,27 +289,27 @@ export default function TradeOverview() {
                   color={curBal != null ? '#e4e4e7' : '#3f3f46'}
                 />
 
-                {/* 총 손익 */}
-                {totalPct !== null ? (
-                  <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
-                    <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>총 손익</Typography>
-                    <PnlChip value={totalPnl} pct={totalPct} />
-                  </Box>
-                ) : trader.realizedPnl !== 0 ? (
+                {/* 실현 손익 */}
+                {realizedPct !== null && trader.realizedPnl !== 0 && (
                   <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
                     <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>실현 손익</Typography>
-                    <PnlChip
-                      value={trader.realizedPnl}
-                      pct={trader.closedCapital > 0 ? (trader.realizedPnl / trader.closedCapital) * 100 : 0}
-                    />
+                    <PnlChip value={trader.realizedPnl} pct={realizedPct} />
                   </Box>
-                ) : null}
+                )}
 
-                {/* 미실현 (별도 표시) */}
+                {/* 미실현 손익 */}
                 {unrealizedPct !== null && openCapital > 0 && (
                   <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
                     <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>미실현</Typography>
                     <PnlChip value={unrealizedPnl} pct={unrealizedPct} />
+                  </Box>
+                )}
+
+                {/* 총 손익 = 실현 + 미실현 */}
+                {totalPct !== null && (trader.realizedPnl !== 0 || openCapital > 0) && (
+                  <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
+                    <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>총 손익</Typography>
+                    <PnlChip value={totalPnl} pct={totalPct} />
                   </Box>
                 )}
               </Box>
@@ -321,13 +319,15 @@ export default function TradeOverview() {
             {trader.openPositions.length > 0 && (
               <Box sx={{ px: 2, py: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {trader.openPositions.map(pos => {
-                  const cur = prices[pos.symbol]
-                  const isShort = pos.direction === 'SHORT'
-                  const unrealPct = cur
-                    ? ((isShort ? pos.entry_price - cur : cur - pos.entry_price) / pos.entry_price) * 100
-                    : null
+                  const cur       = prices[pos.symbol]
+                  const isShort   = pos.direction === 'SHORT'
+                  const isTestnet = pos.api_key_id ? (testnetKeys[pos.api_key_id] ?? false) : false
                   const unrealAbs = cur
                     ? (isShort ? pos.entry_price - cur : cur - pos.entry_price) * pos.quantity
+                    : null
+                  // % 는 증거금(capital_used) 대비 — 레버리지 반영한 실제 수익률
+                  const unrealPct = (unrealAbs != null && pos.capital_used > 0)
+                    ? (unrealAbs / pos.capital_used) * 100
                     : null
                   const posColor = isShort ? '#f87171' : '#4ade80'
 
@@ -337,7 +337,7 @@ export default function TradeOverview() {
                       px: 1.5, py: 0.75, borderRadius: 1.5,
                       background: '#09090b', border: '1px solid #18181b',
                     }}>
-                      {/* 심볼 + 방향 */}
+                      {/* 심볼 + 방향 + TESTNET */}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 110 }}>
                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace' }}>
                           {pos.symbol}
@@ -347,6 +347,13 @@ export default function TradeOverview() {
                             {pos.direction}
                           </Typography>
                         </Box>
+                        {isTestnet && (
+                          <Box sx={{ px: 0.6, py: 0.1, borderRadius: 0.5, background: '#7c3aed15', border: '1px solid #7c3aed44' }}>
+                            <Typography sx={{ fontSize: 8, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.05em' }}>
+                              TEST
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
 
                       {/* 진입가 → 현재가 */}
