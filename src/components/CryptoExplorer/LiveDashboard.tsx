@@ -386,6 +386,11 @@ export default function LiveDashboard() {
         </Typography>
       )}
 
+      {/* 청산 내역: 활성 전략 유무와 무관하게 항상 표시 */}
+      {closedTrades.length > 0 && (
+        <ClosedTradeList trades={closedTrades} configs={configs} />
+      )}
+
       {/* 고아 포지션: active config 없는 OPEN 포지션 — 바이낸스에 여전히 살아있을 수 있음 */}
       {(() => {
         const myKeyIds = new Set(apiKeys.map(k => k.id))
@@ -470,9 +475,6 @@ export default function LiveDashboard() {
               </Box>
             )
           })}
-
-          {/* 청산 내역: 모든 전략 통합 */}
-          <ClosedTradeList trades={closedTrades} configs={configs} />
 
           {/* 차트: 첫 번째 활성 전략 기준 */}
           {firstConfig && (() => {
