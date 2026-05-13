@@ -278,18 +278,18 @@ export default function TradeOverview() {
               {/* 자금 & 수익 stats */}
               <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 {/* 초기 자금 */}
-                {initBal !== null && initBal > 0 && (
-                  <StatBox label="초기 자금" value={fmtUsd(initBal)} />
-                )}
+                <StatBox
+                  label="초기 자금"
+                  value={initBal != null && initBal > 0 ? fmtUsd(initBal) : '—'}
+                  color={initBal != null && initBal > 0 ? undefined : '#3f3f46'}
+                />
 
                 {/* 현재 잔액 */}
-                {curBal !== null && (
-                  <StatBox
-                    label="현재 잔액"
-                    value={fmtUsd(curBal)}
-                    color="#e4e4e7"
-                  />
-                )}
+                <StatBox
+                  label="현재 잔액"
+                  value={curBal != null ? fmtUsd(curBal) : '—'}
+                  color={curBal != null ? '#e4e4e7' : '#3f3f46'}
+                />
 
                 {/* 총 손익 */}
                 {totalPct !== null ? (
