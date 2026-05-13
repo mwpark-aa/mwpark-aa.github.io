@@ -80,6 +80,7 @@ export default function TradeOverview() {
   const [traders,     setTraders]     = useState<TraderStat[]>([])
   const [prices,      setPrices]      = useState<Record<string, number>>({})
   const [testnetKeys, setTestnetKeys] = useState<Record<string, boolean>>({})
+  const [emails,      setEmails]      = useState<Record<string, string>>({})
   const [loading,     setLoading]     = useState(true)
 
   const loadData = useCallback(async () => {
@@ -152,6 +153,18 @@ export default function TradeOverview() {
       .map((s, i) => ({ ...s, idx: i + 1 }))
 
     setTraders(stats)
+
+    // 이메일 조회
+    const userIds = stats.map(s => s.userId)
+    if (userIds.length > 0) {
+      const { data: emailData } = await supabase.rpc('get_user_emails', { user_ids: userIds })
+      const emailMap: Record<string, string> = {}
+      for (const row of (emailData ?? [])) {
+        emailMap[row.id] = row.email
+      }
+      setEmails(emailMap)
+    }
+
     setLoading(false)
   }, [])
 
@@ -235,8 +248,8 @@ export default function TradeOverview() {
                 }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>{trader.idx}</Typography>
                 </Box>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#e4e4e7' }}>
-                  거래자 {trader.idx}
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#e4e4e7', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {emails[trader.userId] ?? `거래자 ${trader.idx}`}
                 </Typography>
                 {isLive && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.5 }}>
