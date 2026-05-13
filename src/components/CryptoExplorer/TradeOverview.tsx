@@ -187,17 +187,8 @@ export default function TradeOverview() {
     </Box>
   )
 
-  const totalOpen = traders.reduce((s, t) => s + t.openPositions.length, 0)
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-      {/* 요약 헤더 */}
-      <Box sx={{ display: 'flex', gap: 1.5 }}>
-        <StatBox label="거래자" value={String(traders.length)} valueColor="#38bdf8" />
-        <StatBox label="OPEN 포지션" value={String(totalOpen)} valueColor="#4ade80" />
-      </Box>
-
       {/* 거래자별 카드 */}
       {traders.length === 0 ? (
         <Typography sx={{ fontSize: 11, color: '#3f3f46', textAlign: 'center', py: 6 }}>
