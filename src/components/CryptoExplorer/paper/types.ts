@@ -34,6 +34,7 @@ export interface PaperAccount {
 export interface PaperPos {
   id: string
   backtest_run_id: string
+  api_key_id?: string | null
   symbol: string
   direction: 'LONG' | 'SHORT'
   entry_price: number
