@@ -41,7 +41,8 @@ export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
     // FRED 주간 데이터(WALCL)는 목요일 업데이트 → startDate가 월요일이면 직전 목요일 데이터가
     // fed-liquidity 필터에서 제외됨. 14일 여유를 두어 항상 최근 데이터가 포함되도록 함.
     const fedStartStr = new Date(startMs - 14 * 86_400_000).toISOString().slice(0, 10)
-    const fedBars = await fetchFedLiquidity(fedStartStr, p.endDate, p.fedLiquidityMAPeriod)
+    const fedEndStr   = p.endDate.slice(0, 10)
+    const fedBars = await fetchFedLiquidity(fedStartStr, fedEndStr, p.fedLiquidityMAPeriod)
     attachFedData(rows, fedBars)
     const lastWithFed = [...rows].reverse().find(r => r.fed_net_liquidity != null)
     fedLatest = lastWithFed?.fed_net_liquidity ?? null

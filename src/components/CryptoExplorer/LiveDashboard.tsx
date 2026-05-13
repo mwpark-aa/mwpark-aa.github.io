@@ -84,23 +84,27 @@ export default function LiveDashboard() {
   }, [])
 
   const loadOpenPos = useCallback(async () => {
+    if (!user) return
     const { data } = await supabase
       .from('live_positions')
-      .select('id, backtest_run_id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status')
+      .select('id, backtest_run_id, api_key_id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status')
       .eq('status', 'OPEN')
+      .eq('user_id', user.id)
       .order('entry_time', { ascending: false })
     if (data) setOpenPos(data as PaperPos[])
-  }, [])
+  }, [user])
 
   const loadClosedTrades = useCallback(async () => {
+    if (!user) return
     const { data } = await supabase
       .from('live_positions')
       .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score, signal_details, exit_details, capital_used')
       .eq('status', 'CLOSED')
+      .eq('user_id', user.id)
       .order('exit_time', { ascending: false })
       .limit(200)
     if (data) setClosedTrades(data as ClosedTrade[])
-  }, [])
+  }, [user])
 
   const loadApiKeys = useCallback(async () => {
     if (!user) return []
@@ -384,7 +388,11 @@ export default function LiveDashboard() {
 
       {/* 고아 포지션: active config 없는 OPEN 포지션 — 바이낸스에 여전히 살아있을 수 있음 */}
       {(() => {
-        const orphaned = openPos.filter(p => !configs.some(cfg => cfg.id === p.backtest_run_id))
+        const myKeyIds = new Set(apiKeys.map(k => k.id))
+        const orphaned = openPos.filter(p =>
+          (p as any).api_key_id && myKeyIds.has((p as any).api_key_id) &&
+          !configs.some(cfg => cfg.id === p.backtest_run_id)
+        )
         if (orphaned.length === 0) return null
         return (
           <Box sx={{ borderRadius: 2, border: '1px solid #f9731644', background: '#431407', px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
