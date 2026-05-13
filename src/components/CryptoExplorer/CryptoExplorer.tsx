@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import BacktestViewer from './BacktestViewer'
 import PaperDashboard from './PaperDashboard'
 import LiveDashboard from './LiveDashboard'
+import TradeOverview from './TradeOverview'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,10 +10,11 @@ import { useAuth } from '../../contexts/AuthContext'
 // ─────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────
-type DashTab = 'paper' | 'live' | 'backtest'
+type DashTab = 'overview' | 'paper' | 'live' | 'backtest'
 type AuthMode = 'signin' | 'signup'
 
 const TAB_STYLES: Record<DashTab, { active: string; bg: string }> = {
+  overview: { active: '#38bdf8', bg: '#0c4a6e' },
   paper:    { active: '#4ade80', bg: '#16a34a' },
   live:     { active: '#fbbf24', bg: '#92400e' },
   backtest: { active: '#3b82f6', bg: '#1d4ed8' },
@@ -34,7 +36,7 @@ const inputSx = (error?: boolean) => ({
 export default function CryptoExplorer() {
   const { user, loading, signIn, signUp, signOut } = useAuth()
 
-  const [tab,       setTab]       = useState<DashTab>('paper')
+  const [tab,       setTab]       = useState<DashTab>('overview')
   const [showModal, setShowModal] = useState(false)
   const [mode,      setMode]      = useState<AuthMode>('signin')
   const [email,     setEmail]     = useState('')
@@ -47,7 +49,7 @@ export default function CryptoExplorer() {
     if (showModal) setTimeout(() => emailRef.current?.focus(), 50)
   }, [showModal])
 
-  // 로그인 성공 후 live 탭으로 이동
+  // 로그인 성공 후 나의 거래 탭으로 이동
   useEffect(() => {
     if (user && showModal) {
       setShowModal(false)
@@ -56,8 +58,8 @@ export default function CryptoExplorer() {
   }, [user, showModal])
 
   function handleTabClick(key: DashTab) {
-    if (key !== 'live') { setTab(key); return }
-    if (user) { setTab('live'); return }
+    if (key !== 'live' && key !== 'paper') { setTab(key); return }
+    if (user) { setTab(key); return }
     setShowModal(true)
     setEmail(''); setPassword(''); setError(null); setMode('signin')
   }
@@ -126,12 +128,13 @@ export default function CryptoExplorer() {
       </Box>
 
       {/* ── Tab bar ── */}
-      <Box sx={{ display: 'flex', gap: 0.5, mb: 2.5 }}>
+      <Box sx={{ display: 'flex', gap: 0.5, mb: 2.5, flexWrap: 'wrap' }}>
         {([
-          { key: 'paper',    label: '페이퍼 트레이딩' },
-          { key: 'live',     label: '실제 거래'        },
-          { key: 'backtest', label: '백테스트 뷰어'   },
-        ] as { key: DashTab; label: string }[]).map(({ key, label }) => {
+          { key: 'overview', label: '거래 현황',      dot: false },
+          { key: 'live',     label: '나의 거래',      dot: true  },
+          { key: 'paper',    label: '페이퍼 트레이딩', dot: false },
+          { key: 'backtest', label: '백테스트 뷰어',  dot: false },
+        ] as { key: DashTab; label: string; dot: boolean }[]).map(({ key, label, dot }) => {
           const isActive = tab === key
           const style    = TAB_STYLES[key]
           return (
@@ -149,7 +152,7 @@ export default function CryptoExplorer() {
               }}
             >
               {label}
-              {key === 'live' && (
+              {dot && (
                 <Box component="span" sx={{
                   ml: 0.75, display: 'inline-block',
                   width: 5, height: 5, borderRadius: '50%',
@@ -170,8 +173,10 @@ export default function CryptoExplorer() {
         <BacktestViewer />
       ) : tab === 'live' ? (
         <LiveDashboard />
-      ) : (
+      ) : tab === 'paper' ? (
         <PaperDashboard />
+      ) : (
+        <TradeOverview />
       )}
 
       {/* ── 로그인/회원가입 모달 ── */}
