@@ -429,9 +429,9 @@ export default function LiveDashboard() {
             const acct           = cfg.api_key_id ? (accounts[cfg.api_key_id] ?? null) : null
             const price          = cfg.symbol ? (prices[cfg.symbol] ?? null) : null
             const unrealizedPnl  = cfgOpenPos.reduce((sum, pos) => {
-              const p          = price ?? pos.entry_price
-              const priceChg   = (pos.direction === 'SHORT' ? pos.entry_price - p : p - pos.entry_price) * pos.quantity
-              return sum + (pos.capital_used ?? 0) + priceChg
+              const p        = price ?? pos.entry_price
+              const priceChg = (pos.direction === 'SHORT' ? pos.entry_price - p : p - pos.entry_price) * pos.quantity
+              return sum + priceChg
             }, 0)
             const effectiveCap   = acct ? acct.capital + unrealizedPnl : null
             const totalReturn    = acct && acct.initial_capital > 0
@@ -467,10 +467,12 @@ export default function LiveDashboard() {
                   currentPrice={price}
                 />
                 <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} />
-                <ClosedTradeList trades={cfgClosed} configs={[cfg]} />
               </Box>
             )
           })}
+
+          {/* 청산 내역: 모든 전략 통합 */}
+          <ClosedTradeList trades={closedTrades} configs={configs} />
 
           {/* 차트: 첫 번째 활성 전략 기준 */}
           {firstConfig && (() => {
