@@ -38,36 +38,28 @@ interface TraderStat {
   initialBalance: number | null
 }
 
-function StatBox({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+function StatBox({ label, value, sub, valueColor }: {
+  label: string; value: string; sub?: string; valueColor?: string
+}) {
   return (
-    <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23', minWidth: 100 }}>
-      <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.25 }}>{label}</Typography>
-      <Typography sx={{ fontSize: 18, fontWeight: 800, color: color ?? '#e4e4e7', fontFamily: 'monospace', lineHeight: 1.2 }}>
+    <Box sx={{ px: 1.5, py: 1, borderRadius: 1.5, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
+      <Typography sx={{ fontSize: 9, color: '#52525b', mb: 0.3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 15, fontWeight: 800, color: valueColor ?? '#e4e4e7', fontFamily: 'monospace', lineHeight: 1.2 }}>
         {value}
       </Typography>
-      {sub && <Typography sx={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace', mt: 0.25 }}>{sub}</Typography>}
+      {sub && (
+        <Typography sx={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace', mt: 0.2 }}>{sub}</Typography>
+      )}
     </Box>
   )
 }
 
-function PnlChip({ value, pct }: { value: number; pct: number }) {
-  const pos = pct >= 0
-  const col = pos ? '#4ade80' : '#f87171'
-  return (
-    <Box sx={{
-      px: 1.25, py: 0.4, borderRadius: 1.5,
-      background: pos ? '#14532d20' : '#450a0a20',
-      border: `1px solid ${pos ? '#16a34a33' : '#ef444433'}`,
-      display: 'inline-flex', alignItems: 'baseline', gap: 0.75,
-    }}>
-      <Typography sx={{ fontSize: 13, fontWeight: 800, fontFamily: 'monospace', color: col }}>
-        {pos ? '+' : ''}{pct.toFixed(2)}%
-      </Typography>
-      <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: `${col}99` }}>
-        {pos ? '+' : ''}${value.toFixed(1)}
-      </Typography>
-    </Box>
-  )
+function pnlColor(pct: number) { return pct >= 0 ? '#4ade80' : '#f87171' }
+function pnlFmt(pct: number, abs: number) {
+  const sign = pct >= 0 ? '+' : ''
+  return { pctStr: `${sign}${pct.toFixed(2)}%`, absStr: `${sign}$${Math.abs(abs).toFixed(1)}` }
 }
 
 function elapsed(entryTime: string) {
@@ -202,8 +194,8 @@ export default function TradeOverview() {
 
       {/* 요약 헤더 */}
       <Box sx={{ display: 'flex', gap: 1.5 }}>
-        <StatBox label="거래자" value={String(traders.length)} color="#38bdf8" />
-        <StatBox label="OPEN 포지션" value={String(totalOpen)} color="#4ade80" />
+        <StatBox label="거래자" value={String(traders.length)} valueColor="#38bdf8" />
+        <StatBox label="OPEN 포지션" value={String(totalOpen)} valueColor="#4ade80" />
       </Box>
 
       {/* 거래자별 카드 */}
@@ -273,51 +265,36 @@ export default function TradeOverview() {
                 )}
               </Box>
 
-              {/* 자금 & 수익 stats */}
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                {/* 초기 자금 */}
+              {/* 자금 & 수익 stats — 균등 그리드 */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 1 }}>
                 <StatBox
                   label="초기 자금"
                   value={initBal != null && initBal > 0 ? fmtUsd(initBal) : '—'}
-                  color={initBal != null && initBal > 0 ? undefined : '#3f3f46'}
+                  valueColor={initBal != null && initBal > 0 ? '#a1a1aa' : '#3f3f46'}
                 />
-
-                {/* 현재 잔액 */}
                 <StatBox
                   label="현재 잔액"
                   value={curBal != null ? fmtUsd(curBal) : '—'}
-                  color={curBal != null ? '#e4e4e7' : '#3f3f46'}
+                  valueColor={curBal != null ? '#e4e4e7' : '#3f3f46'}
                 />
-
-                {/* 실현 손익 */}
-                {realizedPct !== null && trader.realizedPnl !== 0 && (
-                  <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
-                    <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>실현 손익</Typography>
-                    <PnlChip value={trader.realizedPnl} pct={realizedPct} />
-                  </Box>
-                )}
-
-                {/* 미실현 손익 */}
-                {unrealizedPct !== null && openCapital > 0 && (
-                  <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
-                    <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>미실현</Typography>
-                    <PnlChip value={unrealizedPnl} pct={unrealizedPct} />
-                  </Box>
-                )}
-
-                {/* 총 손익 = 실현 + 미실현 */}
-                {totalPct !== null && (trader.realizedPnl !== 0 || openCapital > 0) && (
-                  <Box sx={{ px: 2, py: 1.25, borderRadius: 2, background: '#0a0a0b', border: '1px solid #1f1f23' }}>
-                    <Typography sx={{ fontSize: 10, color: '#52525b', mb: 0.5 }}>총 손익</Typography>
-                    <PnlChip value={totalPnl} pct={totalPct} />
-                  </Box>
-                )}
+                {realizedPct !== null && trader.realizedPnl !== 0 && (() => {
+                  const { pctStr, absStr } = pnlFmt(realizedPct, trader.realizedPnl)
+                  return <StatBox label="실현 손익" value={pctStr} sub={absStr} valueColor={pnlColor(realizedPct)} />
+                })()}
+                {unrealizedPct !== null && openCapital > 0 && (() => {
+                  const { pctStr, absStr } = pnlFmt(unrealizedPct, unrealizedPnl)
+                  return <StatBox label="미실현" value={pctStr} sub={absStr} valueColor={pnlColor(unrealizedPct)} />
+                })()}
+                {totalPct !== null && (trader.realizedPnl !== 0 || openCapital > 0) && (() => {
+                  const { pctStr, absStr } = pnlFmt(totalPct, totalPnl)
+                  return <StatBox label="총 손익" value={pctStr} sub={absStr} valueColor={pnlColor(totalPct)} />
+                })()}
               </Box>
             </Box>
 
             {/* OPEN 포지션 목록 */}
             {trader.openPositions.length > 0 && (
-              <Box sx={{ px: 2, py: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ px: { xs: 1, sm: 2 }, py: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {trader.openPositions.map(pos => {
                   const cur       = prices[pos.symbol]
                   const isShort   = pos.direction === 'SHORT'
@@ -325,7 +302,6 @@ export default function TradeOverview() {
                   const unrealAbs = cur
                     ? (isShort ? pos.entry_price - cur : cur - pos.entry_price) * pos.quantity
                     : null
-                  // % 는 증거금(capital_used) 대비 — 레버리지 반영한 실제 수익률
                   const unrealPct = (unrealAbs != null && pos.capital_used > 0)
                     ? (unrealAbs / pos.capital_used) * 100
                     : null
@@ -333,47 +309,46 @@ export default function TradeOverview() {
 
                   return (
                     <Box key={pos.id} sx={{
-                      display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
                       px: 1.5, py: 0.75, borderRadius: 1.5,
                       background: '#09090b', border: '1px solid #18181b',
                     }}>
-                      {/* 심볼 + 방향 + TESTNET */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 110 }}>
+                      {/* 상단: 심볼 + 방향 + 손익 + 경과 */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap' }}>
                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#fafafa', fontFamily: 'monospace' }}>
                           {pos.symbol}
                         </Typography>
-                        <Box sx={{ px: 0.75, py: 0.15, borderRadius: 0.75, background: `${posColor}15`, border: `1px solid ${posColor}44` }}>
-                          <Typography sx={{ fontSize: 10, fontWeight: 800, color: posColor }}>
-                            {pos.direction}
-                          </Typography>
+                        <Box sx={{ px: 0.6, py: 0.1, borderRadius: 0.75, background: `${posColor}15`, border: `1px solid ${posColor}44`, flexShrink: 0 }}>
+                          <Typography sx={{ fontSize: 9, fontWeight: 800, color: posColor }}>{pos.direction}</Typography>
                         </Box>
                         {isTestnet && (
-                          <Box sx={{ px: 0.6, py: 0.1, borderRadius: 0.5, background: '#7c3aed15', border: '1px solid #7c3aed44' }}>
-                            <Typography sx={{ fontSize: 8, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.05em' }}>
-                              TEST
-                            </Typography>
+                          <Box sx={{ px: 0.5, py: 0.1, borderRadius: 0.5, background: '#7c3aed15', border: '1px solid #7c3aed33', flexShrink: 0 }}>
+                            <Typography sx={{ fontSize: 8, fontWeight: 700, color: '#a78bfa' }}>TEST</Typography>
                           </Box>
                         )}
-                      </Box>
-
-                      {/* 진입가 → 현재가 */}
-                      <Typography sx={{ fontSize: 11, color: '#71717a', fontFamily: 'monospace', flex: 1 }}>
-                        ${pos.entry_price.toLocaleString()}
-                        {cur && (
-                          <> → <Box component="span" sx={{ color: '#a1a1aa' }}>${cur.toLocaleString()}</Box></>
+                        <Box sx={{ flex: 1 }} />
+                        {unrealPct !== null && unrealAbs !== null ? (
+                          <Typography sx={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: pnlColor(unrealPct) }}>
+                            {pnlFmt(unrealPct, unrealAbs).pctStr}
+                          </Typography>
+                        ) : (
+                          <Typography sx={{ fontSize: 11, color: '#3f3f46' }}>—</Typography>
                         )}
-                      </Typography>
-
-                      {/* 미실현 손익 */}
-                      {unrealPct !== null && unrealAbs !== null
-                        ? <PnlChip value={unrealAbs} pct={unrealPct} />
-                        : <Typography sx={{ fontSize: 11, color: '#3f3f46' }}>—</Typography>
-                      }
-
-                      {/* 경과 */}
-                      <Typography sx={{ fontSize: 10, color: '#3f3f46', fontFamily: 'monospace' }}>
-                        {elapsed(pos.entry_time)}
-                      </Typography>
+                        <Typography sx={{ fontSize: 10, color: '#3f3f46', fontFamily: 'monospace', ml: 1, flexShrink: 0 }}>
+                          {elapsed(pos.entry_time)}
+                        </Typography>
+                      </Box>
+                      {/* 하단: 진입가 → 현재가 + 손익 절대값 */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
+                        <Typography sx={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace' }}>
+                          ${pos.entry_price.toLocaleString()}
+                          {cur && <> → <Box component="span" sx={{ color: '#71717a' }}>${cur.toLocaleString()}</Box></>}
+                        </Typography>
+                        {unrealAbs !== null && (
+                          <Typography sx={{ fontSize: 10, color: `${pnlColor(unrealAbs)}99`, fontFamily: 'monospace', ml: 'auto' }}>
+                            {pnlFmt(0, unrealAbs).absStr}
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
                   )
                 })}
