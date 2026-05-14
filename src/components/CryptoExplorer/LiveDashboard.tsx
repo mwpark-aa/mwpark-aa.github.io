@@ -12,6 +12,7 @@ import OpenPositions from './paper/OpenPositions'
 import ClosedTradeList from './paper/ClosedTradeList'
 import ApiKeyManager, { type ApiKey } from './live/ApiKeyManager'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
+import IndicatorPanel from './paper/IndicatorPanel'
 import type { Candle } from '../../lib/backtest/types'
 
 export default function LiveDashboard() {
@@ -472,6 +473,9 @@ export default function LiveDashboard() {
                   currentPrice={price}
                 />
                 <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} />
+                {cfgOpenPos.length === 0 && latestCandle && (
+                  <IndicatorPanel candle={latestCandle} config={cfg} />
+                )}
               </Box>
             )
           })}
