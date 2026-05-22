@@ -1,256 +1,341 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
-import Chip from '@mui/material/Chip'
-import Switch from '@mui/material/Switch'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import CircularProgress from '@mui/material/CircularProgress'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import InputLabel from '@mui/material/InputLabel'
-import FormControl from '@mui/material/FormControl'
-import { runStockBacktest, STOCK_SYMBOLS, STOCK_INTERVALS } from '../../lib/stock'
+import type { UTCTimestamp } from 'lightweight-charts'
+import { runStockBacktest, STOCK_SYMBOLS } from '../../lib/stock'
+import type { BacktestParams, BacktestResult, BacktestTrade, OHLCVCandle } from '../CryptoExplorer/backtest/types'
 import BacktestChart from '../CryptoExplorer/backtest/BacktestChart'
-import ResultSummary from '../CryptoExplorer/backtest/ResultSummary'
 import TradeList from '../CryptoExplorer/backtest/TradeList'
-import type { BacktestResult, BacktestTrade, OHLCVCandle } from '../CryptoExplorer/backtest/types'
-import type { BacktestParams } from '../../lib/backtest/types'
+import ResultSummary from '../CryptoExplorer/backtest/ResultSummary'
+import ParamsPanel from '../CryptoExplorer/backtest/ParamsPanel'
 
 const today = new Date().toISOString().slice(0, 10)
 const oneYearAgo = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10)
 
-const DEFAULT_PARAMS: BacktestParams = {
-  symbol: 'AAPL',
-  startDate: oneYearAgo,
-  endDate: today,
-  interval: '1d',
-  leverage: 1,
-  initialCapital: 10000,
-  minScore: 3,
-  rsiOversold: 35,
-  rsiOverbought: 65,
-  scoreUseRSI: true,
-  scoreUseMACD: true,
-  scoreUseBB: false,
-  scoreUseADX: true,
-  scoreUseRVOL: false,
-  scoreUseGoldenCross: true,
-  scoreUseIchi: false,
-  scoreUseFedLiquidity: false,
-  scoreUseCCI: false,
-  scoreUseVWMA: false,
-  adxThreshold: 20,
-  rvolThreshold: 1.5,
-  rvolSkip: 0.4,
-  fedLiquidityMAPeriod: 13,
-  cciOversold: -100,
-  cciOverbought: 100,
-  cciMaxEntry: 0,
-  fixedTP: 10,
-  fixedSL: 5,
-  tpslMode: 'fixed',
-  useDailyTrend: false,
-  scoreExitThreshold: 1,
-}
+const INTERVALS = ['15m', '1h', '1d', '1wk']
 
-function NumField({ label, value, onChange, min, max, step = 1 }: {
-  label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number
-}) {
-  return (
-    <TextField
-      label={label}
-      type="number"
-      size="small"
-      value={value}
-      onChange={e => onChange(Number(e.target.value))}
-      inputProps={{ min, max, step }}
-      sx={{ width: 110, '& .MuiInputBase-input': { fontSize: 13 } }}
-    />
-  )
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <FormControlLabel
-      control={<Switch checked={checked} onChange={e => onChange(e.target.checked)} size="small" />}
-      label={<Typography sx={{ fontSize: 12, color: '#a1a1aa' }}>{label}</Typography>}
-      sx={{ m: 0 }}
-    />
-  )
+const dateInputStyle: React.CSSProperties = {
+  background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
+  color: '#e4e4e7', fontSize: 12, padding: '4px 8px', outline: 'none', colorScheme: 'dark',
 }
 
 export default function StockBacktest() {
-  const [params, setParams] = useState<BacktestParams>(DEFAULT_PARAMS)
+  const [symbol, setSymbol] = useState('AAPL')
+  const [symbolInput, setSymbolInput] = useState('AAPL')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [trades, setTrades] = useState<BacktestTrade[]>([])
   const [candles, setCandles] = useState<OHLCVCandle[]>([])
+  const [showParams, setShowParams] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null)
   const scrollToRef = useRef<((ts: string) => void) | null>(null)
 
-  const set = (key: keyof BacktestParams, value: unknown) =>
-    setParams(p => ({ ...p, [key]: value }))
+  const [params, setParams] = useState<BacktestParams>({
+    startDate: oneYearAgo,
+    endDate: today,
+    interval: '1d',
+    leverage: 2,
+    minScore: 3,
+    initialCapital: 10000,
+    rsiOversold: 35,
+    rsiOverbought: 65,
+    scoreUseADX: true,
+    scoreUseRSI: true,
+    scoreUseMACD: true,
+    scoreUseRVOL: false,
+    scoreUseBB: false,
+    adxThreshold: 30,
+    rvolThreshold: 1.5,
+    rvolSkip: 0.4,
+    scoreUseIchi: false,
+    scoreUseGoldenCross: true,
+    scoreUseFedLiquidity: true,
+    scoreUseCCI: false,
+    scoreUseVWMA: false,
+    fedLiquidityMAPeriod: 13,
+    cciOversold: -100,
+    cciOverbought: 100,
+    cciMaxEntry: 0,
+    fixedTP: 5,
+    fixedSL: 3,
+    tpslMode: 'fixed',
+    useDailyTrend: false,
+    scoreExitThreshold: 1,
+  })
 
-  async function handleRun() {
+  const [draft, setDraft] = useState<Record<string, string>>({
+    leverage: '1',
+    minScore: '3',
+    rsiOversold: '35', rsiOverbought: '65',
+    adxThreshold: '20',
+    rvolThreshold: '1.5', rvolSkip: '0.4',
+    fixedTP: '10', fixedSL: '5',
+    scoreExitThreshold: '1',
+    cciOversold: '-100', cciOverbought: '100', cciMaxEntry: '0',
+  })
+
+  const handleScrollTo = useCallback((ts: string) => {
+    scrollToRef.current?.(ts)
+  }, [])
+
+  const runBacktest = useCallback(async () => {
+    const ticker = symbolInput.trim().toUpperCase()
+    if (!ticker) return
+    setSymbol(ticker)
+
+    const committed = {
+      leverage: 1,
+      rsiOversold:        parseFloat(draft.rsiOversold)        || params.rsiOversold,
+      rsiOverbought:      parseFloat(draft.rsiOverbought)       || params.rsiOverbought,
+      minScore:           isNaN(parseFloat(draft.minScore)) ? params.minScore : parseFloat(draft.minScore),
+      initialCapital:     10000,
+      adxThreshold:       parseFloat(draft.adxThreshold)        || params.adxThreshold,
+      rvolThreshold:      parseFloat(draft.rvolThreshold)       || params.rvolThreshold,
+      rvolSkip:           parseFloat(draft.rvolSkip)            || params.rvolSkip,
+      fedLiquidityMAPeriod: params.fedLiquidityMAPeriod,
+      fixedTP:            parseFloat(draft.fixedTP)             || 0,
+      fixedSL:            parseFloat(draft.fixedSL)             || 0,
+      scoreExitThreshold: parseFloat(draft.scoreExitThreshold)  || 0,
+      cciOversold:        parseFloat(draft.cciOversold)         || -100,
+      cciOverbought:      parseFloat(draft.cciOverbought)       || 100,
+      cciMaxEntry:        parseFloat(draft.cciMaxEntry)         || 0,
+      tpslMode:           params.tpslMode,
+      useDailyTrend:      params.useDailyTrend,
+    }
+    setParams(p => ({ ...p, ...committed }))
     setLoading(true)
     setError(null)
     setResult(null)
     setTrades([])
     setCandles([])
+
     try {
-      const { result: res, rows, startMs } = await runStockBacktest(params)
+      const { result: res, rows, startMs } = await runStockBacktest({
+        ...params, ...committed, symbol: ticker,
+      } as any)
+
       setResult(res)
+      setTrades(
+        (res.trade_log as any[]).map((t, idx) => ({
+          id: String(idx),
+          avg_entry_price: t.entry_price,
+          gross_pnl: null,
+          commission: t.commission ?? null,
+          entry_count: 1,
+          add_count: 0,
+          add_entries: [],
+          ...t,
+        }))
+      )
 
-      // simulate의 BacktestTrade → UI BacktestTrade 변환 (누락 필드 기본값 채움)
-      const uiTrades: BacktestTrade[] = (res.trade_log as any[]).map((t, idx) => ({
-        id: String(idx),
-        avg_entry_price: t.entry_price,
-        gross_pnl: null,
-        commission: (t as any).commission ?? null,
-        entry_count: 1,
-        add_count: 0,
-        add_entries: [],
-        ...t,
-      }))
-      setTrades(uiTrades)
-
-      // 워밍업 제외한 실제 백테스트 기간 캔들만 차트에 표시
       const KST_OFFSET_S = 9 * 3600
       const chartCandles: OHLCVCandle[] = rows
         .filter(r => r.timestamp >= startMs)
         .map(r => ({
-          time: (Math.floor(r.timestamp / 1000) + KST_OFFSET_S) as import('lightweight-charts').UTCTimestamp,
-          open:  r.open,
-          high:  r.high,
-          low:   r.low,
-          close: r.close,
+          time: (Math.floor(r.timestamp / 1000) + KST_OFFSET_S) as UTCTimestamp,
+          open: r.open, high: r.high, low: r.low, close: r.close,
         }))
       setCandles(chartCandles)
-    } catch (err) {
-      setError(String(err))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '알 수 없는 오류')
     } finally {
       setLoading(false)
     }
-  }
+  }, [symbolInput, params, draft])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* ── 파라미터 패널 ── */}
-      <Card sx={{ background: '#141417', border: '1px solid #27272a' }}>
-        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Symbol */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <TextField
-              label="Symbol"
-              size="small"
-              value={params.symbol}
-              onChange={e => set('symbol', e.target.value.toUpperCase())}
-              sx={{ width: 110 }}
-              inputProps={{ style: { textTransform: 'uppercase', fontFamily: 'monospace' } }}
-            />
-            {STOCK_SYMBOLS.map(s => (
-              <Chip
-                key={s}
-                label={s}
-                size="small"
-                onClick={() => set('symbol', s)}
-                variant={params.symbol === s ? 'filled' : 'outlined'}
-                sx={{ fontSize: 11, cursor: 'pointer', borderColor: '#3f3f46' }}
-              />
-            ))}
-          </Box>
 
-          {/* Interval + Dates */}
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <FormControl size="small" sx={{ width: 100 }}>
-              <InputLabel>Interval</InputLabel>
-              <Select
-                label="Interval"
-                value={params.interval}
-                onChange={e => set('interval', e.target.value)}
-              >
-                {STOCK_INTERVALS.map(i => <MenuItem key={i} value={i}>{i}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <TextField label="Start" type="date" size="small" value={params.startDate}
-              onChange={e => set('startDate', e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 150 }} />
-            <TextField label="End" type="date" size="small" value={params.endDate}
-              onChange={e => set('endDate', e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 150 }} />
-            <NumField label="Capital ($)" value={params.initialCapital} onChange={v => set('initialCapital', v)} min={100} step={1000} />
-          </Box>
+      <Card sx={{ background: '#111113', border: '1px solid #27272a', borderRadius: 3 }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
 
-          {/* 지표 토글 */}
-          <Box>
-            <Typography sx={{ fontSize: 11, color: '#52525b', mb: 1, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Indicators
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <Toggle label="RSI" checked={params.scoreUseRSI} onChange={v => set('scoreUseRSI', v)} />
-              <Toggle label="MACD" checked={params.scoreUseMACD} onChange={v => set('scoreUseMACD', v)} />
-              <Toggle label="BB" checked={params.scoreUseBB} onChange={v => set('scoreUseBB', v)} />
-              <Toggle label="ADX" checked={params.scoreUseADX} onChange={v => set('scoreUseADX', v)} />
-              <Toggle label="Golden Cross" checked={params.scoreUseGoldenCross} onChange={v => set('scoreUseGoldenCross', v)} />
-              <Toggle label="RVOL" checked={params.scoreUseRVOL} onChange={v => set('scoreUseRVOL', v)} />
+            {/* Row 1: ticker + 추천 종목 + buttons */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              {/* 티커 입력 */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography sx={{ fontSize: 12, color: '#71717a', fontWeight: 600 }}>티커</Typography>
+                <input
+                  value={symbolInput}
+                  onChange={e => setSymbolInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && runBacktest()}
+                  placeholder="AAPL"
+                  style={{
+                    background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6,
+                    color: '#e4e4e7', fontSize: 13, padding: '4px 10px', outline: 'none',
+                    width: 90, fontFamily: 'monospace', fontWeight: 700,
+                  }}
+                />
+              </Box>
+
+              {/* 추천 종목 칩 */}
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                {STOCK_SYMBOLS.map(s => (
+                  <Box
+                    key={s}
+                    component="button"
+                    onClick={() => { setSymbolInput(s); setSymbol(s) }}
+                    sx={{
+                      px: 1.25, py: 0.4, borderRadius: 1.5, border: '1px solid',
+                      borderColor: symbol === s ? '#3b82f6' : '#27272a',
+                      background: symbol === s ? '#3b82f620' : 'transparent',
+                      color: symbol === s ? '#3b82f6' : '#52525b',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                      '&:hover': { borderColor: '#3b82f655', color: '#a1a1aa' },
+                    }}
+                  >{s}</Box>
+                ))}
+              </Box>
+
+              <Box sx={{ ml: { xs: 0, sm: 'auto' }, display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Box
+                  component="button"
+                  onClick={() => setShowParams(v => !v)}
+                  sx={{
+                    px: 2, py: 0.75, borderRadius: 2, border: '1px solid #27272a',
+                    background: showParams ? '#27272a' : 'transparent',
+                    color: '#71717a', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    '&:hover': { borderColor: '#52525b', color: '#a1a1aa' },
+                  }}
+                >
+                  파라미터 {showParams ? '접기' : '설정'}
+                </Box>
+                <Box
+                  component="button"
+                  onClick={runBacktest}
+                  disabled={loading}
+                  sx={{
+                    px: 2, py: 0.75, borderRadius: 2,
+                    border: '1px solid #3b82f6aa',
+                    background: loading ? '#3b82f610' : '#3b82f620',
+                    color: loading ? '#52525b' : '#3b82f6',
+                    fontSize: 11, fontWeight: 700,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 0.75, transition: 'all 0.15s',
+                    '&:hover:not(:disabled)': { background: '#3b82f630', borderColor: '#3b82f6' },
+                  }}
+                >
+                  {loading && <CircularProgress size={10} sx={{ color: '#3b82f6' }} />}
+                  {loading ? '실행 중...' : '백테스트 실행'}
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Row 2: date + interval */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600 }}>시작</Typography>
+                <input
+                  type="date"
+                  value={params.startDate}
+                  onChange={e => setParams(p => ({ ...p, startDate: e.target.value }))}
+                  style={dateInputStyle}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600 }}>종료</Typography>
+                <input
+                  type="date"
+                  value={params.endDate}
+                  onChange={e => setParams(p => ({ ...p, endDate: e.target.value }))}
+                  style={dateInputStyle}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography sx={{ fontSize: 11, color: '#71717a', fontWeight: 600, whiteSpace: 'nowrap' }}>캔들</Typography>
+                <select
+                  value={params.interval}
+                  onChange={e => {
+                    const iv = e.target.value
+                    if (iv === '15m') {
+                      const end = new Date().toISOString().slice(0, 10)
+                      const start = new Date(Date.now() - 59 * 86_400_000).toISOString().slice(0, 10)
+                      setParams(p => ({ ...p, interval: iv, startDate: start, endDate: end }))
+                    } else {
+                      setParams(p => ({ ...p, interval: iv }))
+                    }
+                  }}
+                  style={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 6, color: '#e4e4e7', fontSize: 11, padding: '4px 8px', outline: 'none', cursor: 'pointer' }}
+                >
+                  {INTERVALS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </Box>
             </Box>
           </Box>
 
-          {/* 수치 파라미터 */}
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <NumField label="Min Score" value={params.minScore} onChange={v => set('minScore', v)} min={1} max={8} />
-            {params.scoreUseRSI && <>
-              <NumField label="RSI OS" value={params.rsiOversold} onChange={v => set('rsiOversold', v)} min={10} max={50} />
-              <NumField label="RSI OB" value={params.rsiOverbought} onChange={v => set('rsiOverbought', v)} min={50} max={90} />
-            </>}
-            {params.scoreUseADX &&
-              <NumField label="ADX Thresh" value={params.adxThreshold} onChange={v => set('adxThreshold', v)} min={10} max={40} />
-            }
-            <NumField label="TP %" value={params.fixedTP} onChange={v => set('fixedTP', v)} min={1} max={50} step={0.5} />
-            <NumField label="SL %" value={params.fixedSL} onChange={v => set('fixedSL', v)} min={0.5} max={30} step={0.5} />
-          </Box>
-
-          <Button
-            variant="contained"
-            onClick={handleRun}
-            disabled={loading}
-            sx={{ alignSelf: 'flex-start', minWidth: 120, background: '#3b82f6', '&:hover': { background: '#2563eb' } }}
-          >
-            {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Run Backtest'}
-          </Button>
+          {showParams && (
+            <ParamsPanel
+              params={params}
+              setParams={setParams}
+              draft={draft}
+              setDraft={setDraft}
+              result={result}
+            />
+          )}
         </CardContent>
       </Card>
 
       {error && (
-        <Card sx={{ background: '#1c0f0f', border: '1px solid #7f1d1d' }}>
-          <CardContent>
-            <Typography sx={{ color: '#f87171', fontSize: 13 }}>{error}</Typography>
-          </CardContent>
-        </Card>
+        <Box sx={{ px: 2, py: 1.5, borderRadius: 2, background: '#ef444412', border: '1px solid #ef444433' }}>
+          <Typography sx={{ fontSize: 12, color: '#ef4444' }}>{error}</Typography>
+        </Box>
       )}
 
-      {result && (
-        <>
-          <ResultSummary result={result} trades={trades} />
-          {candles.length > 0 && (
+      {result && <ResultSummary result={result} trades={trades} />}
+
+      {candles.length > 0 && (
+        <Card sx={{ background: '#111113', border: '1px solid #27272a', borderRadius: 3 }}>
+          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#fafafa' }}>백테스트 차트</Typography>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                {[
+                  { color: '#3b82f6', label: '롱 진입' },
+                  { color: '#ef4444', label: '숏 진입' },
+                  { color: '#10b981', label: '익절' },
+                  { color: '#ec4899', label: '손절' },
+                ].map(({ color, label }) => (
+                  <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
+                    <Typography sx={{ fontSize: 10, color: '#71717a' }}>{label}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
             <BacktestChart
               candles={candles}
               trades={trades}
               scrollToRef={scrollToRef}
               selectedTradeId={selectedTradeId}
             />
-          )}
-          <TradeList
-            trades={trades}
-            loading={false}
-            selectedTradeId={selectedTradeId}
-            onScrollTo={ts => scrollToRef.current?.(ts)}
-            onSelectTrade={id => setSelectedTradeId(id === selectedTradeId ? null : id)}
-          />
-        </>
+          </CardContent>
+        </Card>
+      )}
+
+      {trades && (
+        <TradeList
+          trades={trades}
+          loading={loading}
+          selectedTradeId={selectedTradeId}
+          onScrollTo={handleScrollTo}
+          onSelectTrade={setSelectedTradeId}
+        />
+      )}
+
+      {!loading && !error && !result && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, gap: 1.5 }}>
+          <Typography sx={{ fontSize: 32 }}>📈</Typography>
+          <Typography sx={{ fontSize: 14, color: '#52525b', fontWeight: 600 }}>
+            티커를 입력하고 백테스트를 실행하세요
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#3f3f46', textAlign: 'center' }}>
+            예: AAPL, TSLA, NVDA, SPY 등 — Enter 또는 <strong style={{ color: '#3b82f6' }}>백테스트 실행</strong>
+          </Typography>
+        </Box>
       )}
     </Box>
   )
