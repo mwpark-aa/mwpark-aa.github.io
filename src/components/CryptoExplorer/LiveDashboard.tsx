@@ -88,7 +88,7 @@ export default function LiveDashboard() {
     if (!user) return
     const { data } = await supabase
       .from('live_positions')
-      .select('id, backtest_run_id, api_key_id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status')
+      .select('id, backtest_run_id, api_key_id, symbol, direction, entry_price, target_price, stop_loss, quantity, capital_used, entry_time, signal_details, score, status, timing_ms')
       .eq('status', 'OPEN')
       .eq('user_id', user.id)
       .order('entry_time', { ascending: false })
@@ -99,7 +99,7 @@ export default function LiveDashboard() {
     if (!user) return
     const { data } = await supabase
       .from('live_positions')
-      .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score, signal_details, exit_details, capital_used')
+      .select('id, backtest_run_id, symbol, direction, entry_price, exit_price, net_pnl, pnl_pct, exit_reason, entry_time, exit_time, score, signal_details, exit_details, capital_used, timing_ms')
       .eq('status', 'CLOSED')
       .eq('user_id', user.id)
       .order('exit_time', { ascending: false })
