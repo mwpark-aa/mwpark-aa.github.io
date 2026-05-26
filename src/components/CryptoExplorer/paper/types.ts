@@ -22,6 +22,7 @@ export interface ActiveConfig {
   score_use_bb: boolean
   score_use_golden_cross: boolean
   score_use_fed_liquidity: boolean
+  use_daily_trend?: boolean | null
 }
 
 export interface PaperAccount {

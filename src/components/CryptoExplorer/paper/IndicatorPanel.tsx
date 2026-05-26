@@ -86,7 +86,7 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
   return rows
 }
 
-function buildFilterRows(c: Candle, dailyClose: number | null, dailyMa120: number | null): FilterRow[] {
+function buildFilterRows(c: Candle, cfg: ActiveConfig, dailyClose: number | null, dailyMa120: number | null): FilterRow[] {
   const rows: FilterRow[] = []
 
   if (c.ma120 != null) {
@@ -98,12 +98,14 @@ function buildFilterRows(c: Candle, dailyClose: number | null, dailyMa120: numbe
     })
   }
 
-  rows.push({
-    label: 'MA120 (일봉)',
-    value: dailyMa120 != null ? dailyMa120.toFixed(1) : '—',
-    longPass:  dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null,
-    shortPass: dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null,
-  })
+  if (cfg.use_daily_trend) {
+    rows.push({
+      label: 'MA120 (일봉)',
+      value: dailyMa120 != null ? dailyMa120.toFixed(1) : '—',
+      longPass:  dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null,
+      shortPass: dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null,
+    })
+  }
 
   return rows
 }
@@ -139,7 +141,7 @@ export default function IndicatorPanel({ candle, config, fedState, symbol }: Pro
   }, [symbol])
 
   const rows       = buildRows(candle, config, fedState)
-  const filterRows = buildFilterRows(candle, dailyData?.close ?? null, dailyData?.ma120 ?? null)
+  const filterRows = buildFilterRows(candle, config, dailyData?.close ?? null, dailyData?.ma120 ?? null)
   const longScore  = computeScore(rows, 'long')
   const shortScore = computeScore(rows, 'short')
   const minScore   = config.min_score
