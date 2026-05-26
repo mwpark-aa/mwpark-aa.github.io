@@ -9,6 +9,8 @@ interface Props {
   config: ActiveConfig
   fedState?: number | null
   symbol?: string
+  lastLongEntryMs?: number | null
+  lastShortEntryMs?: number | null
 }
 
 interface IndicatorRow {
@@ -86,9 +88,19 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
   return rows
 }
 
-function buildFilterRows(c: Candle, cfg: ActiveConfig, dailyClose: number | null, dailyMa120: number | null): FilterRow[] {
+const SIGNAL_COOLDOWN = 4
+
+function buildFilterRows(
+  c: Candle,
+  cfg: ActiveConfig,
+  dailyClose: number | null,
+  dailyMa120: number | null,
+  lastLongMs: number | null,
+  lastShortMs: number | null,
+): FilterRow[] {
   const rows: FilterRow[] = []
 
+  // ① MA120 (15m) — 항상
   if (c.ma120 != null) {
     rows.push({
       label: 'MA120 (15m)',
@@ -98,12 +110,52 @@ function buildFilterRows(c: Candle, cfg: ActiveConfig, dailyClose: number | null
     })
   }
 
+  // ② MA120 (일봉) — use_daily_trend 시
   if (cfg.use_daily_trend) {
     rows.push({
       label: 'MA120 (일봉)',
       value: dailyMa120 != null ? dailyMa120.toFixed(1) : '—',
       longPass:  dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null,
       shortPass: dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null,
+    })
+  }
+
+  // ③ 쿨다운 — 항상 (4캔들)
+  const intervalMsMap: Record<string, number> = {
+    '1m': 60_000, '3m': 180_000, '5m': 300_000, '15m': 900_000,
+    '30m': 1_800_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000,
+  }
+  const intervalMs   = intervalMsMap[cfg.interval] ?? 900_000
+  const cooldownMs   = SIGNAL_COOLDOWN * intervalMs
+  const nowMs        = c.timestamp + intervalMs
+  const longCoolOk   = lastLongMs  == null || (nowMs - lastLongMs)  >= cooldownMs
+  const shortCoolOk  = lastShortMs == null || (nowMs - lastShortMs) >= cooldownMs
+  const longRemain   = lastLongMs  != null && !longCoolOk  ? Math.ceil((cooldownMs - (nowMs - lastLongMs))  / 60_000) : 0
+  const shortRemain  = lastShortMs != null && !shortCoolOk ? Math.ceil((cooldownMs - (nowMs - lastShortMs)) / 60_000) : 0
+  rows.push({
+    label: `쿨다운 (${SIGNAL_COOLDOWN}캔들)`,
+    value: !longCoolOk ? `롱 ${longRemain}분 남음` : !shortCoolOk ? `숏 ${shortRemain}분 남음` : '통과',
+    longPass:  longCoolOk,
+    shortPass: shortCoolOk,
+  })
+
+  // ④ CCI 캡 — cci_max_entry > 0 시
+  if ((cfg.cci_max_entry ?? 0) > 0 && c.cci20 != null) {
+    rows.push({
+      label: `CCI 캡 (±${cfg.cci_max_entry})`,
+      value: c.cci20.toFixed(1),
+      longPass:  c.cci20 >= -(cfg.cci_max_entry!),
+      shortPass: c.cci20 <=  (cfg.cci_max_entry!),
+    })
+  }
+
+  // ⑤ RVOL 스킵 — score_use_rvol 시
+  if (cfg.score_use_rvol && (cfg.rvol_skip ?? 0) > 0 && c.vol_rvol168 != null) {
+    rows.push({
+      label: `RVOL 스킵 < ${cfg.rvol_skip}`,
+      value: c.vol_rvol168.toFixed(2),
+      longPass:  c.vol_rvol168 >= cfg.rvol_skip!,
+      shortPass: c.vol_rvol168 >= cfg.rvol_skip!,
     })
   }
 
@@ -130,7 +182,7 @@ async function fetchDailyMA120(symbol: string): Promise<{ close: number; ma120: 
   }
 }
 
-export default function IndicatorPanel({ candle, config, fedState, symbol }: Props) {
+export default function IndicatorPanel({ candle, config, fedState, symbol, lastLongEntryMs, lastShortEntryMs }: Props) {
   const [dailyData, setDailyData] = useState<{ close: number; ma120: number } | null>(null)
 
   useEffect(() => {
@@ -141,7 +193,11 @@ export default function IndicatorPanel({ candle, config, fedState, symbol }: Pro
   }, [symbol])
 
   const rows       = buildRows(candle, config, fedState)
-  const filterRows = buildFilterRows(candle, config, dailyData?.close ?? null, dailyData?.ma120 ?? null)
+  const filterRows = buildFilterRows(
+    candle, config,
+    dailyData?.close ?? null, dailyData?.ma120 ?? null,
+    lastLongEntryMs ?? null, lastShortEntryMs ?? null,
+  )
   const longScore  = computeScore(rows, 'long')
   const shortScore = computeScore(rows, 'short')
   const minScore   = config.min_score

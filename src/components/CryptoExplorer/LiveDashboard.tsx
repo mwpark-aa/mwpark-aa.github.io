@@ -31,6 +31,7 @@ export default function LiveDashboard() {
   const [keyValidating,     setKeyValidating]     = useState(false)
   const [keyError,          setKeyError]          = useState<string | null>(null)
   const [prices,            setPrices]            = useState<Record<string, number>>({})
+  const [lastEntries,       setLastEntries]       = useState<Record<string, { long: number | null; short: number | null }>>({})
   const [loading,           setLoading]           = useState(true)
   const [activating,        setActivating]        = useState<string | null>(null)
   const [stopError,         setStopError]         = useState<string | null>(null)
@@ -48,7 +49,7 @@ export default function LiveDashboard() {
     if (activeRunIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, use_daily_trend')
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, use_daily_trend, cci_max_entry, score_use_rvol, rvol_skip')
       .in('id', activeRunIds)
     const cfgs = (data ?? []).map(run => ({
       ...run,
@@ -108,6 +109,19 @@ export default function LiveDashboard() {
       .order('exit_time', { ascending: false })
       .limit(200)
     if (data) setClosedTrades(data as ClosedTrade[])
+  }, [user])
+
+  const loadLastEntries = useCallback(async (cfgIds: string[]) => {
+    if (!user || cfgIds.length === 0) return
+    const [{ data: longs }, { data: shorts }] = await Promise.all([
+      supabase.from('live_positions').select('backtest_run_id, entry_time').eq('user_id', user.id).eq('direction', 'LONG').in('backtest_run_id', cfgIds).order('entry_time', { ascending: false }).limit(cfgIds.length),
+      supabase.from('live_positions').select('backtest_run_id, entry_time').eq('user_id', user.id).eq('direction', 'SHORT').in('backtest_run_id', cfgIds).order('entry_time', { ascending: false }).limit(cfgIds.length),
+    ])
+    const map: Record<string, { long: number | null; short: number | null }> = {}
+    cfgIds.forEach(id => { map[id] = { long: null, short: null } })
+    longs?.forEach(r => { if (map[r.backtest_run_id] && map[r.backtest_run_id]!.long == null) map[r.backtest_run_id]!.long = new Date(r.entry_time).getTime() })
+    shorts?.forEach(r => { if (map[r.backtest_run_id] && map[r.backtest_run_id]!.short == null) map[r.backtest_run_id]!.short = new Date(r.entry_time).getTime() })
+    setLastEntries(map)
   }, [user])
 
   const loadApiKeys = useCallback(async () => {
@@ -276,6 +290,9 @@ export default function LiveDashboard() {
     return () => { if (priceTimer.current) clearInterval(priceTimer.current) }
   }, [configs, loadAccounts, fetchPrice])
 
+  useEffect(() => {
+    if (configs.length > 0) loadLastEntries(configs.map(c => c.id))
+  }, [configs, loadLastEntries])
 
   // ── 렌더 헬퍼 ────────────────────────────────────────────────
 
@@ -477,7 +494,7 @@ export default function LiveDashboard() {
                 />
                 <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} />
                 {cfgOpenPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
-                  <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={fedState} symbol={cfg.symbol} />
+                  <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={fedState} symbol={cfg.symbol} lastLongEntryMs={lastEntries[cfg.id]?.long ?? null} lastShortEntryMs={lastEntries[cfg.id]?.short ?? null} />
                 )}
               </Box>
             )
