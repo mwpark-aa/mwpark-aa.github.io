@@ -41,12 +41,14 @@ interface Props {
   symbol:           string
   interval:         string
   position:         OpenPos | null
-  chartConfig:      ChartConfig
-  onLatestCandle?:  (candle: Candle) => void
+  chartConfig:          ChartConfig
+  onLatestCandle?:      (candle: Candle) => void
+  onLastClosedCandle?:  (candle: Candle) => void
 }
 
 export interface PaperChartHandle {
   latestCandle: Candle | null
+  lastClosedCandle: Candle | null
 }
 
 // ── Binance REST fetch ────────────────────────────────────────
@@ -74,20 +76,21 @@ const toT = (ms: number) => (Math.floor(ms / 1000) + KST_OFFSET_S) as UTCTimesta
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 
-const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart({ symbol, interval, position, chartConfig, onLatestCandle }, ref) {
+const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart({ symbol, interval, position, chartConfig, onLatestCandle, onLastClosedCandle }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
   const wsRef        = useRef<WebSocket | null>(null)
   const candlesRef   = useRef<Candle[]>([])
-  const latestCandleRef = useRef<Candle | null>(null)
+  const latestCandleRef      = useRef<Candle | null>(null)
+  const lastClosedCandleRef  = useRef<Candle | null>(null)
 
   // ref 노출
   useEffect(() => {
     const updateRef = () => {
       if (typeof ref === 'function') {
-        ref({ latestCandle: latestCandleRef.current })
+        ref({ latestCandle: latestCandleRef.current, lastClosedCandle: lastClosedCandleRef.current })
       } else if (ref) {
-        ref.current = { latestCandle: latestCandleRef.current }
+        ref.current = { latestCandle: latestCandleRef.current, lastClosedCandle: lastClosedCandleRef.current }
       }
     }
     updateRef()
@@ -156,6 +159,7 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
 
     if (n > 0) {
       latestCandleRef.current = candles[n - 1]
+      if (n >= 2) lastClosedCandleRef.current = candles[n - 2]
       chartRef.current?.timeScale().scrollToRealTime()
     }
   }
@@ -185,6 +189,11 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
     if (chartConfig.showMACD  && c.macd_hist != null) macdSeriesRef.current?.update({ time: t, value: c.macd_hist, color: c.macd_hist >= 0 ? '#10b981aa' : '#ef4444aa' })
     if (chartConfig.showADX   && c.adx14     != null) adxSeriesRef.current?.update({ time: t, value: c.adx14 })
 
+    // 새 캔들 시작 = 이전 캔들 확정
+    if (latestCandleRef.current && c.timestamp !== latestCandleRef.current.timestamp) {
+      lastClosedCandleRef.current = latestCandleRef.current
+      onLastClosedCandle?.(latestCandleRef.current)
+    }
     latestCandleRef.current = c
     onLatestCandle?.(c)
   }

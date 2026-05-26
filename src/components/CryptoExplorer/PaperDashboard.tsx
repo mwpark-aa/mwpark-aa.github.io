@@ -28,7 +28,8 @@ export default function PaperDashboard() {
   const [activating,   setActivating]   = useState<string | null>(null)
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const chartRef = useRef<PaperChartHandle>(null)
-  const [latestCandle, setLatestCandle] = useState<Candle | null>(null)
+  const [latestCandle,      setLatestCandle]      = useState<Candle | null>(null)
+  const [lastClosedCandle,  setLastClosedCandle]  = useState<Candle | null>(null)
   const fedState = useFedState()
 
   // ── 데이터 로드 ──────────────────────────────────────────────
@@ -171,6 +172,9 @@ export default function PaperDashboard() {
       if (chartRef.current?.latestCandle) {
         setLatestCandle(chartRef.current.latestCandle)
       }
+      if (chartRef.current?.lastClosedCandle) {
+        setLastClosedCandle(chartRef.current.lastClosedCandle)
+      }
     }, 500)
     return () => clearInterval(timer)
   }, [])
@@ -265,8 +269,8 @@ export default function PaperDashboard() {
         } : null}
       />
       <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} latestCandle={latestCandle} fedState={fedState} />
-      {openPos.length === 0 && latestCandle && (
-        <IndicatorPanel candle={latestCandle} config={config} fedState={fedState} />
+      {openPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
+        <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={config} fedState={fedState} />
       )}
       <ClosedTradeList trades={closedTrades} configs={[config]} />
     </Box>

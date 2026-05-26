@@ -36,7 +36,8 @@ export default function LiveDashboard() {
   const [stopError,         setStopError]         = useState<string | null>(null)
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const chartRef   = useRef<PaperChartHandle>(null)
-  const [latestCandle, setLatestCandle] = useState<Candle | null>(null)
+  const [latestCandle,     setLatestCandle]     = useState<Candle | null>(null)
+  const [lastClosedCandle, setLastClosedCandle] = useState<Candle | null>(null)
 
   // ── 데이터 로드 ──────────────────────────────────────────────
 
@@ -475,8 +476,8 @@ export default function LiveDashboard() {
                   currentPrice={price}
                 />
                 <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} />
-                {cfgOpenPos.length === 0 && latestCandle && (
-                  <IndicatorPanel candle={latestCandle} config={cfg} fedState={fedState} />
+                {cfgOpenPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
+                  <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={fedState} />
                 )}
               </Box>
             )
@@ -491,6 +492,7 @@ export default function LiveDashboard() {
                 symbol={firstConfig.symbol}
                 interval={firstConfig.interval}
                 onLatestCandle={(c) => setLatestCandle(c)}
+                onLastClosedCandle={(c) => setLastClosedCandle(c)}
                 chartConfig={{
                   showMA:        firstConfig.score_use_golden_cross ?? true,
                   showBB:        firstConfig.score_use_bb           ?? false,
