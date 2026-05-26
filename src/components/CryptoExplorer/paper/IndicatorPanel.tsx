@@ -6,6 +6,7 @@ import type { ActiveConfig } from './types'
 interface Props {
   candle: Candle
   config: ActiveConfig
+  fedState?: number | null
 }
 
 interface IndicatorRow {
@@ -16,7 +17,7 @@ interface IndicatorRow {
   enabled: boolean
 }
 
-function buildRows(c: Candle, cfg: ActiveConfig): IndicatorRow[] {
+function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): IndicatorRow[] {
   const rows: IndicatorRow[] = []
 
   if (cfg.score_use_rsi && c.rsi14 != null) {
@@ -70,10 +71,10 @@ function buildRows(c: Candle, cfg: ActiveConfig): IndicatorRow[] {
   }
 
   if (cfg.score_use_fed_liquidity) {
-    const state = c.fed_state
+    const state = fedState ?? (c as any).fed_state ?? null
     rows.push({
       label: 'Fed 유동성',
-      value: state === 1 ? '확장' : state === -1 ? '수축' : '혼재',
+      value: state === 1 ? '확장' : state === -1 ? '수축' : state === 0 ? '혼재' : '—',
       longFiring:  state === 1,
       shortFiring: state === -1,
       enabled: true,
@@ -87,8 +88,8 @@ function computeScore(rows: IndicatorRow[], side: 'long' | 'short'): number {
   return rows.filter(r => side === 'long' ? r.longFiring : r.shortFiring).length
 }
 
-export default function IndicatorPanel({ candle, config }: Props) {
-  const rows      = buildRows(candle, config)
+export default function IndicatorPanel({ candle, config, fedState }: Props) {
+  const rows      = buildRows(candle, config, fedState)
   const longScore  = computeScore(rows, 'long')
   const shortScore = computeScore(rows, 'short')
   const minScore   = config.min_score
