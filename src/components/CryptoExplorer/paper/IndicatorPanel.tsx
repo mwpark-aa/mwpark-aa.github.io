@@ -23,8 +23,7 @@ interface IndicatorRow {
 interface FilterRow {
   label: string
   value: string
-  longPass: boolean | null
-  shortPass: boolean | null
+  pass: boolean | null
 }
 
 function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): IndicatorRow[] {
@@ -100,27 +99,27 @@ function buildFilterRows(
 ): FilterRow[] {
   const rows: FilterRow[] = []
 
-  // ① MA120 (15m) — 항상
+  // ① MA120 (15m) — 항상: 위에 있으면 통과
   if (c.ma120 != null) {
+    const pass = c.close >= c.ma120
     rows.push({
       label: 'MA120 (15m)',
-      value: c.ma120.toFixed(1),
-      longPass:  c.close >= c.ma120,
-      shortPass: c.close <= c.ma120,
+      value: `${c.close.toFixed(1)} / MA ${c.ma120.toFixed(1)}`,
+      pass,
     })
   }
 
   // ② MA120 (일봉) — use_daily_trend 시
   if (cfg.use_daily_trend) {
+    const pass = dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null
     rows.push({
       label: 'MA120 (일봉)',
-      value: dailyMa120 != null ? dailyMa120.toFixed(1) : '—',
-      longPass:  dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null,
-      shortPass: dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null,
+      value: dailyMa120 != null && dailyClose != null ? `${dailyClose.toFixed(1)} / MA ${dailyMa120.toFixed(1)}` : '—',
+      pass,
     })
   }
 
-  // ③ 쿨다운 — 롱/숏 각각 표시
+  // ③ 쿨다운 — 롱숏 중 하나라도 막히면 빨강
   const intervalMsMap: Record<string, number> = {
     '1m': 60_000, '3m': 180_000, '5m': 300_000, '15m': 900_000,
     '30m': 1_800_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000,
@@ -130,38 +129,33 @@ function buildFilterRows(
   const nowMs       = c.timestamp + intervalMs
   const longCoolOk  = lastLongMs  == null || (nowMs - lastLongMs)  >= cooldownMs
   const shortCoolOk = lastShortMs == null || (nowMs - lastShortMs) >= cooldownMs
-  const longRemain  = lastLongMs  != null && !longCoolOk  ? Math.ceil((cooldownMs - (nowMs - lastLongMs))  / 60_000) : 0
-  const shortRemain = lastShortMs != null && !shortCoolOk ? Math.ceil((cooldownMs - (nowMs - lastShortMs)) / 60_000) : 0
+  const longRemain  = !longCoolOk  && lastLongMs  != null ? Math.ceil((cooldownMs - (nowMs - lastLongMs))  / 60_000) : 0
+  const shortRemain = !shortCoolOk && lastShortMs != null ? Math.ceil((cooldownMs - (nowMs - lastShortMs)) / 60_000) : 0
+  const coolParts: string[] = []
+  if (!longCoolOk)  coolParts.push(`롱 ${longRemain}분`)
+  if (!shortCoolOk) coolParts.push(`숏 ${shortRemain}분`)
   rows.push({
-    label: '쿨다운 롱',
-    value: longCoolOk ? '통과' : `${longRemain}분 남음`,
-    longPass:  longCoolOk,
-    shortPass: null,
-  })
-  rows.push({
-    label: '쿨다운 숏',
-    value: shortCoolOk ? '통과' : `${shortRemain}분 남음`,
-    longPass:  null,
-    shortPass: shortCoolOk,
+    label: `쿨다운 (${SIGNAL_COOLDOWN}캔들)`,
+    value: coolParts.length > 0 ? coolParts.join(' / ') + ' 남음' : '통과',
+    pass: longCoolOk && shortCoolOk,
   })
 
   // ④ CCI 캡 — cci_max_entry > 0 시
   if ((cfg.cci_max_entry ?? 0) > 0 && c.cci20 != null) {
+    const cap = cfg.cci_max_entry!
     rows.push({
-      label: `CCI 캡 (±${cfg.cci_max_entry})`,
+      label: `CCI 캡 (±${cap})`,
       value: c.cci20.toFixed(1),
-      longPass:  c.cci20 >= -(cfg.cci_max_entry!),
-      shortPass: c.cci20 <=  (cfg.cci_max_entry!),
+      pass: c.cci20 >= -cap && c.cci20 <= cap,
     })
   }
 
   // ⑤ RVOL 스킵 — score_use_rvol 시
   if (cfg.score_use_rvol && (cfg.rvol_skip ?? 0) > 0 && c.vol_rvol168 != null) {
     rows.push({
-      label: `RVOL 스킵 < ${cfg.rvol_skip}`,
+      label: `RVOL ≥ ${cfg.rvol_skip}`,
       value: c.vol_rvol168.toFixed(2),
-      longPass:  c.vol_rvol168 >= cfg.rvol_skip!,
-      shortPass: c.vol_rvol168 >= cfg.rvol_skip!,
+      pass: c.vol_rvol168 >= cfg.rvol_skip!,
     })
   }
 
@@ -212,8 +206,8 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
 
   const longReady   = longScore  >= minScore
   const shortReady  = shortScore >= minScore
-  const longBlocked = filterRows.some(r => r.longPass === false)
-  const shortBlocked = filterRows.some(r => r.shortPass === false)
+  const longBlocked  = filterRows.some(r => r.pass === false)
+  const shortBlocked = filterRows.some(r => r.pass === false)
 
   return (
     <Box sx={{ borderRadius: 2, border: '1px solid #1f1f23', background: '#0a0a0b', overflow: 'hidden' }}>
@@ -236,7 +230,7 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
       <Box sx={{ px: 1.5, py: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {rows.map(row => (
           <Box key={row.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontSize: 10, color: '#52525b', flex: 1, fontFamily: 'monospace' }}>
+            <Typography sx={{ fontSize: 10, color: '#a1a1aa', flex: 1, fontFamily: 'monospace' }}>
               {row.label}
             </Typography>
             <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#a1a1aa' }}>
@@ -252,21 +246,18 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
 
       {/* 필터 구분선 */}
       <Box sx={{ borderTop: '1px solid #1f1f23', px: 1.5, pt: 0.75, pb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography sx={{ fontSize: 9, color: '#3f3f46', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
+        <Typography sx={{ fontSize: 9, color: '#71717a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.25 }}>
           진입 필터
         </Typography>
         {filterRows.map(row => (
           <Box key={row.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontSize: 10, color: '#52525b', flex: 1, fontFamily: 'monospace' }}>
+            <Typography sx={{ fontSize: 10, color: '#a1a1aa', flex: 1, fontFamily: 'monospace' }}>
               {row.label}
             </Typography>
-            <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: '#a1a1aa' }}>
+            <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: row.pass === false ? '#f87171' : row.pass === true ? '#4ade80' : '#52525b' }}>
               {row.value}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <FilterDot pass={row.longPass}  color="#4ade80" />
-              <FilterDot pass={row.shortPass} color="#f87171" />
-            </Box>
+            <Box sx={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: row.pass === null ? '#27272a' : row.pass ? '#4ade80' : '#ef4444', transition: 'background 0.2s' }} />
           </Box>
         ))}
       </Box>
@@ -284,16 +275,6 @@ function Dot({ active, color }: { active: boolean; color: string }) {
   )
 }
 
-function FilterDot({ pass, color }: { pass: boolean | null; color: string }) {
-  const bg = pass === null ? '#27272a' : pass ? color : '#ef4444'
-  return (
-    <Box sx={{
-      width: 7, height: 7, borderRadius: '50%',
-      background: bg,
-      transition: 'background 0.2s',
-    }} />
-  )
-}
 
 function ScoreBadge({ label, score, min, ready, color, blocked }: {
   label: string; score: number; min: number; ready: boolean; color: string; blocked: boolean
