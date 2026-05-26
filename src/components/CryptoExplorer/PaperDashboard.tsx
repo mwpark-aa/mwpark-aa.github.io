@@ -270,7 +270,7 @@ export default function PaperDashboard() {
       />
       <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} latestCandle={latestCandle} fedState={fedState} />
       {openPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
-        <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={config} fedState={fedState} />
+        <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={config} fedState={fedState} symbol={config.symbol} />
       )}
       <ClosedTradeList trades={closedTrades} configs={[config]} />
     </Box>
