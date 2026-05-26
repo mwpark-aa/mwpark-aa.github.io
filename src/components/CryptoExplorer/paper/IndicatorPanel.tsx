@@ -120,22 +120,28 @@ function buildFilterRows(
     })
   }
 
-  // ③ 쿨다운 — 항상 (4캔들)
+  // ③ 쿨다운 — 롱/숏 각각 표시
   const intervalMsMap: Record<string, number> = {
     '1m': 60_000, '3m': 180_000, '5m': 300_000, '15m': 900_000,
     '30m': 1_800_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000,
   }
-  const intervalMs   = intervalMsMap[cfg.interval] ?? 900_000
-  const cooldownMs   = SIGNAL_COOLDOWN * intervalMs
-  const nowMs        = c.timestamp + intervalMs
-  const longCoolOk   = lastLongMs  == null || (nowMs - lastLongMs)  >= cooldownMs
-  const shortCoolOk  = lastShortMs == null || (nowMs - lastShortMs) >= cooldownMs
-  const longRemain   = lastLongMs  != null && !longCoolOk  ? Math.ceil((cooldownMs - (nowMs - lastLongMs))  / 60_000) : 0
-  const shortRemain  = lastShortMs != null && !shortCoolOk ? Math.ceil((cooldownMs - (nowMs - lastShortMs)) / 60_000) : 0
+  const intervalMs  = intervalMsMap[cfg.interval] ?? 900_000
+  const cooldownMs  = SIGNAL_COOLDOWN * intervalMs
+  const nowMs       = c.timestamp + intervalMs
+  const longCoolOk  = lastLongMs  == null || (nowMs - lastLongMs)  >= cooldownMs
+  const shortCoolOk = lastShortMs == null || (nowMs - lastShortMs) >= cooldownMs
+  const longRemain  = lastLongMs  != null && !longCoolOk  ? Math.ceil((cooldownMs - (nowMs - lastLongMs))  / 60_000) : 0
+  const shortRemain = lastShortMs != null && !shortCoolOk ? Math.ceil((cooldownMs - (nowMs - lastShortMs)) / 60_000) : 0
   rows.push({
-    label: `쿨다운 (${SIGNAL_COOLDOWN}캔들)`,
-    value: !longCoolOk ? `롱 ${longRemain}분 남음` : !shortCoolOk ? `숏 ${shortRemain}분 남음` : '통과',
+    label: '쿨다운 롱',
+    value: longCoolOk ? '통과' : `${longRemain}분 남음`,
     longPass:  longCoolOk,
+    shortPass: null,
+  })
+  rows.push({
+    label: '쿨다운 숏',
+    value: shortCoolOk ? '통과' : `${shortRemain}분 남음`,
+    longPass:  null,
     shortPass: shortCoolOk,
   })
 
