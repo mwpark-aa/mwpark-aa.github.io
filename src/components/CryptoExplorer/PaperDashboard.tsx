@@ -12,6 +12,8 @@ import OpenPositions from './paper/OpenPositions'
 import ClosedTradeList from './paper/ClosedTradeList'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
 import type { Candle } from '../../lib/backtest/types'
+import IndicatorPanel from './paper/IndicatorPanel'
+import { useFedState } from '../../hooks/useFedState'
 
 const INITIAL_CAPITAL = 10000
 
@@ -27,6 +29,7 @@ export default function PaperDashboard() {
   const priceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const chartRef = useRef<PaperChartHandle>(null)
   const [latestCandle, setLatestCandle] = useState<Candle | null>(null)
+  const fedState = useFedState()
 
   // ── 데이터 로드 ──────────────────────────────────────────────
 
@@ -261,7 +264,10 @@ export default function PaperDashboard() {
           direction:    openPos[0].direction,
         } : null}
       />
-      <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} latestCandle={latestCandle} />
+      <OpenPositions openPos={openPos} currentPrice={currentPrice} symbol={config.symbol} latestCandle={latestCandle} fedState={fedState} />
+      {openPos.length === 0 && latestCandle && (
+        <IndicatorPanel candle={latestCandle} config={config} fedState={fedState} />
+      )}
       <ClosedTradeList trades={closedTrades} configs={[config]} />
     </Box>
   )

@@ -476,7 +476,7 @@ export default function LiveDashboard() {
                 />
                 <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} />
                 {cfgOpenPos.length === 0 && latestCandle && (
-                  <IndicatorPanel candle={latestCandle} config={cfg} />
+                  <IndicatorPanel candle={latestCandle} config={cfg} fedState={fedState} />
                 )}
               </Box>
             )
