@@ -15,7 +15,7 @@ function parseSignalDetails(signal: string | null | undefined) {
   })
 }
 
-function getFormattedIndicatorValue(label: string, candle: Candle | null): string {
+function getFormattedIndicatorValue(label: string, candle: Candle | null, fedState?: number | null): string {
   if (!candle) return '—'
 
   const trimmed = label.trim()
@@ -38,15 +38,15 @@ function getFormattedIndicatorValue(label: string, candle: Candle | null): strin
   } else if (trimmed.startsWith('MACD')) {
     value = candle.macd_hist != null ? (candle.macd_hist >= 0 ? '양' : '음') : null
   } else if (trimmed.startsWith('연준')) {
-    value = (candle as any).fed_state != null
-      ? ((candle as any).fed_state === 1 ? '확장' : (candle as any).fed_state === -1 ? '수축' : '혼재')
+    value = fedState != null
+      ? (fedState === 1 ? '확장' : fedState === -1 ? '수축' : '혼재')
       : null
   }
 
   return `${indicatorName}: ${value !== null ? value : '—'}`
 }
 
-function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null }) {
+function OpenPositionRow({ pos, currentPrice, latestCandle, fedState }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null; fedState?: number | null }) {
   const isShort   = pos.direction === 'SHORT'
   const refPrice  = currentPrice ?? pos.entry_price
   const unrealPct = isShort
@@ -161,7 +161,7 @@ function OpenPositionRow({ pos, currentPrice, latestCandle }: { pos: PaperPos; c
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
             {parseSignalDetails(pos.signal_details).map((item, i, arr) => (
               <Typography key={`current-${i}`} sx={{ fontSize: 10, fontFamily: 'monospace', color: '#e4e4e7', fontWeight: 600 }}>
-                {getFormattedIndicatorValue(item.label, latestCandle)}{i < arr.length - 1 ? ' |' : ''}
+                {getFormattedIndicatorValue(item.label, latestCandle, fedState)}{i < arr.length - 1 ? ' |' : ''}
               </Typography>
             ))}
           </Box>
@@ -176,9 +176,10 @@ interface Props {
   currentPrice: number | null
   symbol: string
   latestCandle?: Candle | null
+  fedState?: number | null
 }
 
-export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle }: Props) {
+export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle, fedState }: Props) {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -209,6 +210,7 @@ export default function OpenPositions({ openPos, currentPrice, symbol, latestCan
               pos={pos}
               currentPrice={pos.symbol === symbol ? currentPrice ?? undefined : undefined}
               latestCandle={pos.symbol === symbol ? latestCandle : undefined}
+              fedState={fedState}
             />
           ))}
         </Box>

@@ -14,9 +14,11 @@ import ApiKeyManager, { type ApiKey } from './live/ApiKeyManager'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
 import IndicatorPanel from './paper/IndicatorPanel'
 import type { Candle } from '../../lib/backtest/types'
+import { useFedState } from '../../hooks/useFedState'
 
 export default function LiveDashboard() {
   const { user, session } = useAuth()
+  const fedState = useFedState()
 
   const [configs,           setConfigs]           = useState<ActiveConfig[]>([])
   const [history,           setHistory]           = useState<RunHistory[]>([])
@@ -472,7 +474,7 @@ export default function LiveDashboard() {
                   closedCount={cfgClosed.length}
                   currentPrice={price}
                 />
-                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} />
+                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} />
                 {cfgOpenPos.length === 0 && latestCandle && (
                   <IndicatorPanel candle={latestCandle} config={cfg} />
                 )}
