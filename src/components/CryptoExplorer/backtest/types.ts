@@ -87,6 +87,9 @@ export interface RunHistory {
   score_use_golden_cross?: boolean
   score_use_ichi?: boolean
   score_use_fed_liquidity?: boolean
+  score_use_cci?: boolean
+  cci_oversold?: number
+  cci_overbought?: number
   adx_threshold: number
   rvol_threshold: number
   rvol_skip: number

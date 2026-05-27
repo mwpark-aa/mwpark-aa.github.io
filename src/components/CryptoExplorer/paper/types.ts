@@ -24,6 +24,9 @@ export interface ActiveConfig {
   score_use_fed_liquidity: boolean
   use_daily_trend?: boolean | null
   cci_max_entry?: number | null
+  score_use_cci?: boolean | null
+  cci_oversold?: number | null
+  cci_overbought?: number | null
   score_use_rvol?: boolean | null
   rvol_skip?: number | null
 }
