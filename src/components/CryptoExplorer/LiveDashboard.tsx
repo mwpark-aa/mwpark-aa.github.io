@@ -61,7 +61,7 @@ export default function LiveDashboard() {
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id,name,created_at,symbol,interval,leverage,min_score,rsi_oversold,rsi_overbought,score_use_rsi,score_use_adx,score_use_macd,score_use_rvol,score_use_bb,score_use_golden_cross,score_use_ichi,score_use_fed_liquidity,adx_threshold,rvol_threshold,rvol_skip,fixed_tp,fixed_sl,score_exit_threshold,cci_max_entry,total_return_pct,win_rate,max_drawdown_pct,sharpe_ratio,total_trades,paper_trading_enabled')
+      .select('id,name,created_at,symbol,interval,leverage,min_score,rsi_oversold,rsi_overbought,score_use_rsi,score_use_adx,score_use_macd,score_use_rvol,score_use_bb,score_use_golden_cross,score_use_ichi,score_use_fed_liquidity,score_use_cci,cci_oversold,cci_overbought,adx_threshold,rvol_threshold,rvol_skip,fixed_tp,fixed_sl,score_exit_threshold,cci_max_entry,total_return_pct,win_rate,max_drawdown_pct,sharpe_ratio,total_trades,paper_trading_enabled')
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) setHistory(data as RunHistory[])
