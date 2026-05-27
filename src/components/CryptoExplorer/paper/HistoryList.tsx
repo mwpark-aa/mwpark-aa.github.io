@@ -62,6 +62,7 @@ export default function HistoryList({
             run.score_use_golden_cross  && 'MA',
             run.score_use_ichi          && '일목',
             run.score_use_fed_liquidity && '연준',
+            run.score_use_cci           && 'CCI',
           ].filter(Boolean) as string[]
 
           return (
