@@ -1,9 +1,54 @@
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
 import type { PaperPos } from './types'
 import { fmtPrice, fmtPct, fmtTime } from './types'
 import type { Candle } from '../../../lib/backtest/types'
+
+const TIMING_LABELS: Record<string, string> = {
+  klines_ms:  '캔들 로드',
+  fed_ms:     '연준 데이터',
+  daily_ms:   '일봉 로드',
+  balance_ms: '잔액 조회',
+  setup_ms:   '마진/레버리지',
+  order_ms:   '진입 주문',
+  tp_sl_ms:   'TP/SL 주문',
+  total_ms:   '전체',
+}
+const TIMING_ORDER = ['klines_ms', 'fed_ms', 'daily_ms', 'balance_ms', 'setup_ms', 'order_ms', 'tp_sl_ms', 'total_ms']
+const TIMING_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
+
+function TimingBar({ timing }: { timing: Record<string, number> }) {
+  const steps = TIMING_ORDER.filter(k => k !== 'total_ms' && timing[k] != null)
+  const total = timing.total_ms ?? steps.reduce((s, k) => s + (timing[k] ?? 0), 0)
+  return (
+    <Box sx={{ px: 1.5, py: 1.25, background: '#0d0d10', borderTop: '1px solid #1f1f23' }}>
+      <Box sx={{ display: 'flex', height: 6, borderRadius: 1, overflow: 'hidden', mb: 1.25, gap: '1px' }}>
+        {steps.map((k, i) => (
+          <Box key={k} sx={{ width: `${total > 0 ? ((timing[k] ?? 0) / total) * 100 : 0}%`, background: TIMING_COLORS[i % TIMING_COLORS.length], minWidth: timing[k] ? 2 : 0 }} />
+        ))}
+      </Box>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        {steps.map((k, i) => (
+          <Box key={k} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: TIMING_COLORS[i % TIMING_COLORS.length], flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 10, color: '#71717a' }}>{TIMING_LABELS[k] ?? k}</Typography>
+            <Typography sx={{ fontSize: 10, color: '#a1a1aa', fontWeight: 600, fontFamily: 'monospace' }}>{timing[k]}ms</Typography>
+          </Box>
+        ))}
+        {timing.total_ms != null && (
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography sx={{ fontSize: 10, color: '#52525b' }}>총</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: timing.total_ms > 5000 ? '#ef4444' : timing.total_ms > 3000 ? '#f59e0b' : '#10b981' }}>
+              {timing.total_ms}ms
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    </Box>
+  )
+}
 
 // signal_details 파싱 및 현재값 계산
 function parseSignalDetails(signal: string | null | undefined) {
@@ -46,7 +91,7 @@ function getFormattedIndicatorValue(label: string, candle: Candle | null, fedSta
   return `${indicatorName}: ${value !== null ? value : '—'}`
 }
 
-function OpenPositionRow({ pos, currentPrice, latestCandle, fedState }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null; fedState?: number | null }) {
+function OpenPositionRow({ pos, currentPrice, latestCandle, fedState, expanded, onToggle }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null; fedState?: number | null; expanded?: boolean; onToggle?: () => void }) {
   const isShort   = pos.direction === 'SHORT'
   const refPrice  = currentPrice ?? pos.entry_price
   const unrealPct = isShort
@@ -62,11 +107,12 @@ function OpenPositionRow({ pos, currentPrice, latestCandle, fedState }: { pos: P
     : null
 
   return (
+    <>
     <Box sx={{
       display: 'grid',
-      gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: '120px 140px 1fr 1fr 120px 140px' },
+      gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: pos.timing_ms ? '120px 140px 1fr 1fr 120px 140px 68px' : '120px 140px 1fr 1fr 120px 140px' },
       gap: 1.5, px: { xs: 1.5, sm: 2 }, py: 1.5,
-      borderRadius: 2, background: '#111113',
+      borderRadius: expanded ? '8px 8px 0 0' : 2, background: '#111113',
       borderLeft: `3px solid ${isShort ? '#f97316' : '#3b82f6'}`,
       border: `1px solid ${isShort ? '#f9731622' : '#3b82f622'}`,
       alignItems: 'center',
@@ -167,7 +213,29 @@ function OpenPositionRow({ pos, currentPrice, latestCandle, fedState }: { pos: P
           </Box>
         </Box>
       )}
+
+      {pos.timing_ms && onToggle && (
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, justifyContent: 'center', order: { sm: 7 } }}>
+          <Box
+            onClick={onToggle}
+            sx={{
+              display: 'flex', alignItems: 'center',
+              px: 0.75, py: 0.4, borderRadius: 1,
+              bgcolor: expanded ? '#3b82f620' : '#27272a',
+              border: `1px solid ${expanded ? '#3b82f650' : '#3f3f46'}`,
+              cursor: 'pointer', userSelect: 'none',
+              '&:hover': { bgcolor: '#3b82f620', borderColor: '#3b82f650' },
+            }}
+          >
+            <Typography sx={{ fontSize: 9, color: expanded ? '#3b82f6' : '#71717a', fontFamily: 'monospace', fontWeight: 600 }}>
+              {pos.timing_ms.total_ms != null ? `${pos.timing_ms.total_ms}ms` : '—'}
+            </Typography>
+          </Box>
+        </Box>
+      )}
     </Box>
+    {pos.timing_ms && expanded && <TimingBar timing={pos.timing_ms} />}
+    </>
   );
 }
 
@@ -180,6 +248,8 @@ interface Props {
 }
 
 export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle, fedState }: Props) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -211,6 +281,8 @@ export default function OpenPositions({ openPos, currentPrice, symbol, latestCan
               currentPrice={pos.symbol === symbol ? currentPrice ?? undefined : undefined}
               latestCandle={pos.symbol === symbol ? latestCandle : undefined}
               fedState={fedState}
+              expanded={expandedId === pos.id}
+              onToggle={() => setExpandedId(id => id === pos.id ? null : pos.id)}
             />
           ))}
         </Box>

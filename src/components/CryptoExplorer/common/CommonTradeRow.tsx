@@ -24,7 +24,8 @@ const EXIT_REASON_MAP: Record<string, string> = {
   'LIQUIDATED': '청산',
   'DATA_END':   '데이터 종료',
   'SCORE_EXIT': '점수 하락 청산',
-  'MANUAL':     '수동 종료',
+  'MANUAL':        '수동 종료',
+  'MANUAL_OR_SL':  '수동/손절',
 }
 
 interface Props {
@@ -259,7 +260,7 @@ const CommonTradeRow = memo(function CommonTradeRow({
             {isFirst ? (
               <Box>
                 <Typography sx={{ fontSize: 10, color: '#FFF', fontFamily: 'monospace', lineHeight: 1.3, mb: 0.3 }}>
-                  {EXIT_REASON_MAP[trade.exit_reason]}
+                  {EXIT_REASON_MAP[trade.exit_reason] ?? trade.exit_reason}
                 </Typography>
                 {trade.exit_details && (
                   <Typography sx={{ fontSize: 9, fontFamily: 'monospace', lineHeight: 1.4, color: '#fafafa' }}>

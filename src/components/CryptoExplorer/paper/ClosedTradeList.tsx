@@ -101,10 +101,21 @@ export default function ClosedTradeList({ trades }: Props) {
         </Box>
       ) : (
         <Box sx={{ borderRadius: 2, border: '1px solid #1f1f23', overflow: 'hidden' }}>
-          <CommonTradeListHeader
-            columns={['방향', '진입', '시그널', '청산이유', '청산', '손익', '투입']}
-            showCommission={false}
-          />
+          {/* 헤더: row와 동일한 flex 구조로 컬럼 정렬 일치 */}
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, borderBottom: '1px solid #27272a', mb: 0.5, minWidth: 540 }}>
+            <Box sx={{ flex: 1 }}>
+              <CommonTradeListHeader
+                columns={['방향', '진입', '시그널', '청산이유', '청산', '손익', '투입']}
+                showCommission={false}
+                noBorder
+              />
+            </Box>
+            <Box sx={{ width: 68, display: 'flex', alignItems: 'center', px: 0.5 }}>
+              <Typography sx={{ fontSize: 9, color: '#52525b', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.06em' }}>
+                소요시간
+              </Typography>
+            </Box>
+          </Box>
           <Box sx={{
             maxHeight: 480, overflowY: 'auto',
             '&::-webkit-scrollbar': { width: 3 },
@@ -113,17 +124,37 @@ export default function ClosedTradeList({ trades }: Props) {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0.75 }}>
               {trades.map((t, i) => (
                 <Box key={t.id}>
-                  <Box
-                    onClick={() => t.timing_ms ? setExpandedId(id => id === t.id ? null : t.id) : undefined}
-                    sx={{ cursor: t.timing_ms ? 'pointer' : 'default' }}
-                  >
-                    <CommonTradeRow
-                      trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time } as any}
-                      index={i}
-                      showCommission={false}
-                      showAvgEntry={false}
-                      showCapitalBefore={false}
-                    />
+                  <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <CommonTradeRow
+                        trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time } as any}
+                        index={i}
+                        showCommission={false}
+                        showAvgEntry={false}
+                        showCapitalBefore={false}
+                      />
+                    </Box>
+                    <Box sx={{ width: 68, flexShrink: 0, display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>
+                      {t.timing_ms ? (
+                        <Box
+                          onClick={() => setExpandedId(id => id === t.id ? null : t.id)}
+                          sx={{
+                            display: 'flex', alignItems: 'center',
+                            px: 0.75, py: 0.4, borderRadius: 1,
+                            bgcolor: expandedId === t.id ? '#3b82f620' : '#27272a',
+                            border: `1px solid ${expandedId === t.id ? '#3b82f650' : '#3f3f46'}`,
+                            cursor: 'pointer', userSelect: 'none',
+                            '&:hover': { bgcolor: '#3b82f620', borderColor: '#3b82f650' },
+                          }}
+                        >
+                          <Typography sx={{ fontSize: 9, color: expandedId === t.id ? '#3b82f6' : '#71717a', fontFamily: 'monospace', fontWeight: 600 }}>
+                            {t.timing_ms.total_ms != null ? `${t.timing_ms.total_ms}ms` : '—'}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: 9, color: '#3f3f46' }}>—</Typography>
+                      )}
+                    </Box>
                   </Box>
                   {t.timing_ms && expandedId === t.id && (
                     <TimingBar timing={t.timing_ms} />

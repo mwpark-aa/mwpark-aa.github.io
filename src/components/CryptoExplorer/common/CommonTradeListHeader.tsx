@@ -4,9 +4,10 @@ import Typography from '@mui/material/Typography'
 interface Props {
   columns: string[]
   showCommission?: boolean
+  noBorder?: boolean
 }
 
-export default function CommonTradeListHeader({ columns, showCommission = true }: Props) {
+export default function CommonTradeListHeader({ columns, showCommission = true, noBorder }: Props) {
   const gridCols = showCommission
     ? '36px 100px 1.5fr 1.0fr 100px 80px 80px 80px'
     : '36px 100px 1.5fr 1.0fr 100px 80px 80px'
@@ -16,9 +17,10 @@ export default function CommonTradeListHeader({ columns, showCommission = true }
       display: { xs: 'none', sm: 'grid' },
       gridTemplateColumns: gridCols,
       gap: showCommission ? 1 : 0.75,
-      px: 1.5, py: 0.75, mb: 0.5,
-      minWidth: 540,
-      borderBottom: '1px solid #27272a',
+      px: 1.5, py: 0.75,
+      mb: noBorder ? 0 : 0.5,
+      minWidth: noBorder ? 0 : 540,
+      borderBottom: noBorder ? 'none' : '1px solid #27272a',
     }}>
       {columns.map((h) => (
         <Typography
