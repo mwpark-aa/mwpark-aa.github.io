@@ -31,7 +31,7 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
 
   if (cfg.score_use_rsi && c.rsi14 != null) {
     rows.push({
-      label: 'RSI(14)',
+      label: `RSI(14) < ${cfg.rsi_oversold} / > ${cfg.rsi_overbought}`,
       value: c.rsi14.toFixed(1),
       longFiring:  c.rsi14 < cfg.rsi_oversold,
       shortFiring: c.rsi14 > cfg.rsi_overbought,
@@ -40,8 +40,8 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
 
   if (cfg.score_use_macd && c.macd_hist != null) {
     rows.push({
-      label: 'MACD Hist',
-      value: c.macd_hist.toFixed(4),
+      label: 'MACD > 0 / < 0',
+      value: `${c.macd_hist >= 0 ? '+' : ''}${c.macd_hist.toFixed(4)}`,
       longFiring:  c.macd_hist > 0,
       shortFiring: c.macd_hist < 0,
     })
@@ -58,8 +58,8 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
 
   if (cfg.score_use_bb && c.bb_upper != null && c.bb_lower != null) {
     rows.push({
-      label: 'BB',
-      value: `↓${c.bb_lower.toFixed(1)} / ↑${c.bb_upper.toFixed(1)}`,
+      label: `BB ≤ ${c.bb_lower.toFixed(1)} / ≥ ${c.bb_upper.toFixed(1)}`,
+      value: c.close.toFixed(1),
       longFiring:  c.close <= c.bb_lower,
       shortFiring: c.close >= c.bb_upper,
     })
@@ -67,8 +67,8 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
 
   if (cfg.score_use_golden_cross && c.ma20 != null && c.ma60 != null) {
     rows.push({
-      label: 'MA Cross',
-      value: `MA20 ${c.ma20.toFixed(1)} / MA60 ${c.ma60.toFixed(1)}`,
+      label: `MA20 > MA60 / MA20 < MA60`,
+      value: `${c.ma20.toFixed(1)} / ${c.ma60.toFixed(1)}`,
       longFiring:  c.ma20 > c.ma60,
       shortFiring: c.ma20 < c.ma60,
     })
@@ -77,10 +77,21 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
   if (cfg.score_use_fed_liquidity) {
     const state = fedState ?? (c as any).fed_state ?? null
     rows.push({
-      label: 'Fed 유동성',
+      label: 'Fed 확장=롱 / 수축=숏',
       value: state === 1 ? '확장' : state === -1 ? '수축' : state === 0 ? '혼재' : '—',
       longFiring:  state === 1,
       shortFiring: state === -1,
+    })
+  }
+
+  if (cfg.score_use_cci && c.cci20 != null) {
+    const oversold  = cfg.cci_oversold  ?? -100
+    const overbought = cfg.cci_overbought ?? 100
+    rows.push({
+      label: `CCI(20) < ${oversold} / > ${overbought}`,
+      value: `${c.cci20 >= 0 ? '+' : ''}${c.cci20.toFixed(1)}`,
+      longFiring:  c.cci20 < oversold,
+      shortFiring: c.cci20 > overbought,
     })
   }
 
