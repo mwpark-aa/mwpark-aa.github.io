@@ -220,15 +220,15 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
       settings: null,
       svg: (
         <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
-          <line x1="4" y1="8" x2="68" y2="8" stroke="#10b98155" strokeWidth="1" strokeDasharray="2,2" />
-          <line x1="4" y1="34" x2="68" y2="34" stroke="#ef444455" strokeWidth="1" strokeDasharray="2,2" />
+          <line x1="4" y1="8" x2="68" y2="8" stroke="#ef444455" strokeWidth="1" strokeDasharray="2,2" />
+          <line x1="4" y1="34" x2="68" y2="34" stroke="#10b98155" strokeWidth="1" strokeDasharray="2,2" />
           <line x1="4" y1="21" x2="68" y2="21" stroke="#52525b77" strokeWidth="0.8" />
-          <text x="8" y="6" fill="#10b981" fontSize="3" opacity="0.8">롱 +1</text>
-          <text x="8" y="36" fill="#ef4444" fontSize="3" opacity="0.6">숏 +1</text>
+          <text x="8" y="6" fill="#ef4444" fontSize="3" opacity="0.8">숏 +1</text>
+          <text x="8" y="36" fill="#10b981" fontSize="3" opacity="0.6">롱 +1</text>
           <text x="54" y="22" fill="#52525b" fontSize="3" opacity="0.6">20MA</text>
           <path d="M4,21 L12,18 L20,15 L28,17 L36,14 L44,16 L52,18 L60,15 L68,17" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
-          <circle cx="28" cy="8" r="2.5" fill="#10b981" opacity="0.9" />
-          <circle cx="44" cy="34" r="2.5" fill="#ef4444" opacity="0.9" />
+          <circle cx="28" cy="8" r="2.5" fill="#ef4444" opacity="0.9" />
+          <circle cx="44" cy="34" r="2.5" fill="#10b981" opacity="0.9" />
         </svg>
       ),
     },
