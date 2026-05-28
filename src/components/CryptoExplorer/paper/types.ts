@@ -87,11 +87,15 @@ export const fmtPct = (v: number, sign = true) =>
 
 const KST_OFFSET = 9 * 3_600_000
 
-export const fmtTime = (iso: string) => {
+export const fmtTime = (iso: string, withSeconds = false) => {
   const d = new Date(new Date(iso).getTime() + KST_OFFSET)
   const mo = d.getUTCMonth() + 1
   const dd = d.getUTCDate()
   const hh = String(d.getUTCHours()).padStart(2, '0')
   const mm = String(d.getUTCMinutes()).padStart(2, '0')
+  if (withSeconds) {
+    const ss = String(d.getUTCSeconds()).padStart(2, '0')
+    return `${mo}/${dd} ${hh}:${mm}:${ss}`
+  }
   return `${mo}/${dd} ${hh}:${mm}`
 }

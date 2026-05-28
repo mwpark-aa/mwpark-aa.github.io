@@ -409,7 +409,7 @@ export default function LiveDashboard() {
 
       {/* 청산 내역: 활성 전략 유무와 무관하게 항상 표시 */}
       {closedTrades.length > 0 && (
-        <ClosedTradeList trades={closedTrades} configs={configs} />
+        <ClosedTradeList trades={closedTrades} configs={configs} showSeconds />
       )}
 
       {/* 고아 포지션: active config 없는 OPEN 포지션 — 바이낸스에 여전히 살아있을 수 있음 */}
@@ -492,7 +492,7 @@ export default function LiveDashboard() {
                   closedCount={cfgClosed.length}
                   currentPrice={price}
                 />
-                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} />
+                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} showSeconds />
                 {cfgOpenPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
                   <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={fedState} symbol={cfg.symbol} lastLongEntryMs={lastEntries[cfg.id]?.long ?? null} lastShortEntryMs={lastEntries[cfg.id]?.short ?? null} />
                 )}

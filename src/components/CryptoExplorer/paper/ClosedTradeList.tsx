@@ -12,6 +12,7 @@ import { fmtPct } from './types'
 interface Props {
   trades: ClosedTrade[]
   configs: ActiveConfig[]
+  showSeconds?: boolean
 }
 
 const TIMING_LABELS: Record<string, string> = {
@@ -75,7 +76,17 @@ function TimingBar({ timing }: { timing: Record<string, number> }) {
   )
 }
 
-export default function ClosedTradeList({ trades }: Props) {
+const fmtDateWithSeconds = (iso: string) => {
+  const d = new Date(iso)
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${mo}/${dd} ${hh}:${mm}:${ss}`
+}
+
+export default function ClosedTradeList({ trades, showSeconds }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
@@ -132,6 +143,7 @@ export default function ClosedTradeList({ trades }: Props) {
                         showCommission={false}
                         showAvgEntry={false}
                         showCapitalBefore={false}
+                        formatDate={showSeconds ? fmtDateWithSeconds : undefined}
                       />
                     </Box>
                     <Box sx={{ width: 68, flexShrink: 0, display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>

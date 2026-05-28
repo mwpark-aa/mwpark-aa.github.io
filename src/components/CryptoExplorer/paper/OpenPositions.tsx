@@ -91,7 +91,7 @@ function getFormattedIndicatorValue(label: string, candle: Candle | null, fedSta
   return `${indicatorName}: ${value !== null ? value : '—'}`
 }
 
-function OpenPositionRow({ pos, currentPrice, latestCandle, fedState, expanded, onToggle }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null; fedState?: number | null; expanded?: boolean; onToggle?: () => void }) {
+function OpenPositionRow({ pos, currentPrice, latestCandle, fedState, expanded, onToggle, showSeconds }: { pos: PaperPos; currentPrice?: number; latestCandle?: Candle | null; fedState?: number | null; expanded?: boolean; onToggle?: () => void; showSeconds?: boolean }) {
   const isShort   = pos.direction === 'SHORT'
   const refPrice  = currentPrice ?? pos.entry_price
   const unrealPct = isShort
@@ -131,7 +131,7 @@ function OpenPositionRow({ pos, currentPrice, latestCandle, fedState, expanded, 
             '& .MuiChip-label': { px: 0.75 },
           }} />
         </Box>
-        <Typography sx={{ fontSize: 9, color: '#52525b' }}>{fmtTime(pos.entry_time)}</Typography>
+        <Typography sx={{ fontSize: 9, color: '#52525b' }}>{fmtTime(pos.entry_time, showSeconds)}</Typography>
         {pos.score != null && (
           <Typography sx={{ fontSize: 9, color: '#52525b' }}>점수 {pos.score}</Typography>
         )}
@@ -245,9 +245,10 @@ interface Props {
   symbol: string
   latestCandle?: Candle | null
   fedState?: number | null
+  showSeconds?: boolean
 }
 
-export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle, fedState }: Props) {
+export default function OpenPositions({ openPos, currentPrice, symbol, latestCandle, fedState, showSeconds }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
@@ -283,6 +284,7 @@ export default function OpenPositions({ openPos, currentPrice, symbol, latestCan
               fedState={fedState}
               expanded={expandedId === pos.id}
               onToggle={() => setExpandedId(id => id === pos.id ? null : pos.id)}
+              showSeconds={showSeconds}
             />
           ))}
         </Box>
