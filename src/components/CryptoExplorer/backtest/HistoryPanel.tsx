@@ -80,9 +80,25 @@ export default function HistoryPanel({ history, onApply, onDelete }: Props) {
                   <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
                     {run.total_trades}건 · {run.interval}
                   </Typography>
-                  <Typography sx={{ fontSize: 9, color: '#3b82f680', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {run.name ?? `RSI ${run.rsi_oversold}/${run.rsi_overbought} · ${run.leverage}x · 점수${run.min_score}+`}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', flexWrap: 'wrap', overflow: 'hidden' }}>
+                    {[
+                      run.score_use_fed_liquidity && '연준',
+                      (run as any).score_use_ichi && '일목',
+                      (run as any).score_use_golden_cross && 'GC',
+                      (run as any).score_use_cci && 'CCI',
+                      (run as any).use_daily_trend && '일봉',
+                    ].filter(Boolean).map((label) => (
+                      <Box key={label as string} sx={{
+                        px: 0.6, py: 0.1, borderRadius: 0.5, fontSize: 8, fontWeight: 700,
+                        background: '#3b82f620', color: '#60a5fa', lineHeight: 1.4, flexShrink: 0,
+                      }}>
+                        {label}
+                      </Box>
+                    ))}
+                    <Typography sx={{ fontSize: 9, color: '#3b82f680', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
+                      {run.name ?? `RSI ${run.rsi_oversold}/${run.rsi_overbought} · ${run.leverage}x · 점수${run.min_score}+`}
+                    </Typography>
+                  </Box>
                 </Box>
 
                 {/* 삭제 버튼 */}
