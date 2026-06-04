@@ -28,6 +28,7 @@ interface OpenPos {
 
 export interface ChartConfig {
   showMA:    boolean   // scoreUseGoldenCross
+  showMA120: boolean   // MA120 필터선 (항상 표시 권장)
   showBB:    boolean   // scoreUseBB
   showRSI:   boolean   // scoreUseRSI
   showMACD:  boolean   // scoreUseMACD
@@ -130,6 +131,8 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
     if (chartConfig.showMA) {
       ma20Ref.current?.setData(candles.filter(c => c.ma20 != null).map(c => ({ time: toT(c.timestamp), value: c.ma20! })))
       ma60Ref.current?.setData(candles.filter(c => c.ma60 != null).map(c => ({ time: toT(c.timestamp), value: c.ma60! })))
+    }
+    if (chartConfig.showMA120) {
       ma120Ref.current?.setData(candles.filter(c => c.ma120 != null).map(c => ({ time: toT(c.timestamp), value: c.ma120! })))
     }
 
@@ -178,8 +181,8 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
     if (chartConfig.showMA) {
       if (c.ma20  != null) ma20Ref.current?.update({ time: t, value: c.ma20  })
       if (c.ma60  != null) ma60Ref.current?.update({ time: t, value: c.ma60  })
-      if (c.ma120 != null) ma120Ref.current?.update({ time: t, value: c.ma120 })
     }
+    if (chartConfig.showMA120 && c.ma120 != null) ma120Ref.current?.update({ time: t, value: c.ma120 })
     if (chartConfig.showBB && c.bb_upper != null && c.bb_lower != null) {
       bbUpperRef.current?.update({ time: t, value: c.bb_upper })
       bbMidRef.current?.update({ time: t, value: (c.bb_upper + c.bb_lower) / 2 })
@@ -259,6 +262,8 @@ const PaperChart = memo(forwardRef<PaperChartHandle, Props>(function PaperChart(
     if (chartConfig.showMA) {
       ma20Ref.current  = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, 0)
       ma60Ref.current  = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, 0)
+    }
+    if (chartConfig.showMA120) {
       ma120Ref.current = chart.addSeries(LineSeries, { color: '#a855f7', lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, 0)
     }
 
