@@ -54,6 +54,7 @@ export interface PaperPos {
   score?: number | null
   status: string
   timing_ms?: Record<string, number> | null
+  entry_row?: { ma120?: number | null } | null
 }
 
 export interface ClosedTrade {
@@ -73,6 +74,7 @@ export interface ClosedTrade {
   exit_details?: string | null
   capital_used: number
   timing_ms?: Record<string, number> | null
+  entry_row?: { ma120?: number | null } | null
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────

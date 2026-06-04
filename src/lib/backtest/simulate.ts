@@ -35,6 +35,7 @@ interface Position {
   entryTs:           string
   entryRow:          Candle   // 진입 직전 캔들 (SCORE_EXIT 비교용)
   entryScore:        number
+  entryMa120:        number | null
   pendingScoreExit?: boolean  // 다음 봉 시가에 SCORE_EXIT 청산 예약
   scoreExitRow?:     Candle   // SCORE_EXIT 감지 시점 캔들 (exit_details 계산용)
 }
@@ -245,6 +246,7 @@ export function simulate(
           exit_reason:    'LIQUIDATED',
           score:          pos.score,
           entry_ts:       pos.entryTs,
+          entry_ma120:    pos.entryMa120,
           exit_ts:        closeIso(i),   // 캔들 종가 시각 (시가 + intervalMs)
         };
         (trade as any).commission = Math.round(totalComm * 10000) / 10000
@@ -297,6 +299,7 @@ export function simulate(
           exit_reason:    exitReason,
           score:          pos.score,
           entry_ts:       pos.entryTs,
+          entry_ma120:    pos.entryMa120,
           exit_ts:        iso(row.timestamp),
         };
         (trade as any).commission = Math.round(totalComm * 10000) / 10000
@@ -356,6 +359,7 @@ export function simulate(
             exit_reason:    exitReason,
             score:          pos.score,
             entry_ts:       pos.entryTs,
+          entry_ma120:    pos.entryMa120,
             exit_ts:        closeIso(i),  // 캔들 종가 시각 (시가 + intervalMs)
           };
           (trade as any).commission = Math.round(totalComm * 10000) / 10000
@@ -393,14 +397,16 @@ export function simulate(
       const isShort = signal_type === 'SHORT'
 
       // ── MA120 추세 필터 (현재 인터벌 기준) ───────────────────────
-      if (row.ma120 != null) {
-        if (isShort  && row.close > row.ma120) continue   // 상승장 → 숏 스킵
-        if (!isShort && row.close < row.ma120) continue   // 하락장 → 롱 스킵
+      // live-trade와 동일하게 신호 캔들(i-1) 기준으로 체크
+      const sigRow = rows[i - 1]
+      if (sigRow.ma120 != null) {
+        if (isShort  && sigRow.close > sigRow.ma120) continue   // 상승장 → 숏 스킵
+        if (!isShort && sigRow.close < sigRow.ma120) continue   // 하락장 → 롱 스킵
       }
 
       // ── 일봉 추세 필터 (MTF): 일봉 MA120 방향 확인 ──────────────
       if (dailyMap) {
-        const daily = getDailyBar(dailyMap, row.timestamp)
+        const daily = getDailyBar(dailyMap, sigRow.timestamp)
         if (daily && daily.ma120 != null) {
           if (!isShort && daily.close < daily.ma120) continue   // 일봉 하락장 → 롱 스킵
           if (isShort  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
@@ -443,6 +449,7 @@ export function simulate(
         entryTs:        iso(row.timestamp),
         entryRow:       rows[i - 1],
         entryScore:     score,
+        entryMa120:     sigRow.ma120 ?? null,
       }
       break  // 한 봉에서 첫 번째 유효 신호만 사용
     }
@@ -491,6 +498,7 @@ export function simulate(
       score:          pos.score,
       entry_ts:       finalEntry,
       exit_ts:        finalExit,
+      entry_ma120:    pos.entryMa120,
     };
     (trade as any).commission = Math.round(totalComm * 10000) / 10000
     trades.push(trade)

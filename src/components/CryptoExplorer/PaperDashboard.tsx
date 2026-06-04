@@ -253,6 +253,7 @@ export default function PaperDashboard() {
         interval={config.interval}
         chartConfig={{
           showMA:        config.score_use_golden_cross ?? true,
+          showMA120:     true,
           showBB:        config.score_use_bb           ?? false,
           showRSI:       config.score_use_rsi          ?? true,
           showMACD:      config.score_use_macd         ?? true,

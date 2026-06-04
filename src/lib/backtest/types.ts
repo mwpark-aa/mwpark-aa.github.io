@@ -62,6 +62,7 @@ export interface BacktestTrade {
   score: number
   entry_ts: string
   exit_ts: string
+  entry_ma120?: number | null
 }
 
 // ── 백테스트 결과 ────────────────────────────────────────────────

@@ -103,9 +103,19 @@ export function buildSignalDetails(
 ): string {
   const isLong = direction === 'LONG'
 
-  const parts = INDICATORS
-    .map(ind => ind.detail(row, p, isLong))
-    .filter((s): s is string => s != null)
+  const parts: string[] = []
+
+  if (row.ma120 != null) {
+    const fmtP = (v: number) => v >= 1000 ? v.toFixed(1) : v >= 10 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v.toFixed(4)
+    const pass = isLong ? row.close >= row.ma120 : row.close <= row.ma120
+    parts.push(`MA120: ${fmtP(row.ma120)}${pass ? '✓' : ''}`)
+  }
+
+  parts.push(
+    ...INDICATORS
+      .map(ind => ind.detail(row, p, isLong))
+      .filter((s): s is string => s != null)
+  )
 
   if (rr != null && p.fixedTP === 0 && p.fixedSL === 0) {
     parts.push(`RR: ${rr.toFixed(2)}`)

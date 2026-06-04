@@ -512,6 +512,7 @@ export default function LiveDashboard() {
                 onLastClosedCandle={(c) => setLastClosedCandle(c)}
                 chartConfig={{
                   showMA:        firstConfig.score_use_golden_cross ?? true,
+                  showMA120:     true,
                   showBB:        firstConfig.score_use_bb           ?? false,
                   showRSI:       false,
                   showMACD:      false,
