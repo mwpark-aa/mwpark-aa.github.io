@@ -156,6 +156,11 @@ function OpenPositionRow({ pos, currentPrice, latestCandle, fedState, expanded, 
         <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#fafafa', fontFamily: 'monospace' }}>
           ${fmtPrice(pos.entry_price)}
         </Typography>
+        {pos.entry_row?.ma120 != null && (
+          <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace' }}>
+            MA120 ${fmtPrice(pos.entry_row.ma120)}
+          </Typography>
+        )}
       </Box>
 
       {/* TP/SL — mobile: 우하단, desktop: col6 */}

@@ -18,4 +18,5 @@ export interface CommonTrade {
   commission?: number | null
   avg_entry_price?: number | null
   add_entries?: any
+  entry_ma120?: number | null
 }

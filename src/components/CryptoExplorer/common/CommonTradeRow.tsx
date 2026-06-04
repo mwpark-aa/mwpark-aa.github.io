@@ -152,6 +152,11 @@ const CommonTradeRow = memo(function CommonTradeRow({
             <SignalDetails details={trade.signal_details} isShort={isShort} />
           </Box>
         )}
+        {trade.entry_ma120 != null && (
+          <Typography sx={{ fontSize: 9, color: '#52525b', fontFamily: 'monospace', mb: 0.4 }}>
+            진입시 MA120 {fmtPrice(trade.entry_ma120)}
+          </Typography>
+        )}
 
         {/* 청산 이유 + 청산 상세 */}
         <Box sx={{ mb: 0.4 }}>

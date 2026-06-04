@@ -24,6 +24,8 @@ interface FilterRow {
   label: string
   value: string
   pass: boolean | null
+  passLong?: boolean | null
+  passShort?: boolean | null
 }
 
 function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): IndicatorRow[] {
@@ -109,24 +111,30 @@ function buildFilterRows(
   lastShortMs: number | null,
 ): FilterRow[] {
   const rows: FilterRow[] = []
+  const fmtPrice = (v: number) =>
+    v >= 1000 ? v.toFixed(1) : v >= 10 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v.toFixed(4)
 
-  // ① MA120 (15m) — 항상: 위에 있으면 통과
+  // ① MA120 (15m) — 롱: close >= MA, 숏: close <= MA
   if (c.ma120 != null) {
-    const pass = c.close >= c.ma120
     rows.push({
       label: 'MA120 (15m)',
-      value: `${c.close.toFixed(1)} / MA ${c.ma120.toFixed(1)}`,
-      pass,
+      value: `${fmtPrice(c.close)} / MA ${fmtPrice(c.ma120)}`,
+      pass: null,
+      passLong:  c.close >= c.ma120,
+      passShort: c.close <= c.ma120,
     })
   }
 
   // ② MA120 (일봉) — use_daily_trend 시
   if (cfg.use_daily_trend) {
-    const pass = dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null
+    const passLong  = dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null
+    const passShort = dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null
     rows.push({
       label: 'MA120 (일봉)',
-      value: dailyMa120 != null && dailyClose != null ? `${dailyClose.toFixed(1)} / MA ${dailyMa120.toFixed(1)}` : '—',
-      pass,
+      value: dailyMa120 != null && dailyClose != null ? `${fmtPrice(dailyClose)} / MA ${fmtPrice(dailyMa120)}` : '—',
+      pass: null,
+      passLong,
+      passShort,
     })
   }
 
@@ -248,8 +256,8 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
               {row.value}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Dot active={row.longFiring}  color="#4ade80" />
-              <Dot active={row.shortFiring} color="#f87171" />
+              <Box sx={{ width: 7, height: 7, borderRadius: '50%', background: row.longFiring  ? '#4ade80' : '#ef4444' }} />
+              <Box sx={{ width: 7, height: 7, borderRadius: '50%', background: row.shortFiring ? '#4ade80' : '#ef4444' }} />
             </Box>
           </Box>
         ))}
@@ -268,7 +276,14 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
             <Typography sx={{ fontSize: 11, fontFamily: 'monospace', color: row.pass === false ? '#f87171' : row.pass === true ? '#4ade80' : '#52525b' }}>
               {row.value}
             </Typography>
-            <Box sx={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: row.pass === null ? '#27272a' : row.pass ? '#4ade80' : '#ef4444', transition: 'background 0.2s' }} />
+            {row.passLong != null || row.passShort != null ? (
+              <Box sx={{ display: 'flex', gap: 0.4, alignItems: 'center' }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', background: row.passLong === null ? '#27272a' : row.passLong ? '#4ade80' : '#ef4444' }} />
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', background: row.passShort === null ? '#27272a' : row.passShort ? '#4ade80' : '#ef4444' }} />
+              </Box>
+            ) : (
+              <Box sx={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: row.pass === null ? '#27272a' : row.pass ? '#4ade80' : '#ef4444', transition: 'background 0.2s' }} />
+            )}
           </Box>
         ))}
       </Box>

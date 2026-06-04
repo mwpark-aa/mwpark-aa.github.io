@@ -138,7 +138,7 @@ export default function ClosedTradeList({ trades, showSeconds }: Props) {
                   <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <CommonTradeRow
-                        trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time } as any}
+                        trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time, entry_ma120: t.entry_row?.ma120 ?? null } as any}
                         index={i}
                         showCommission={false}
                         showAvgEntry={false}
