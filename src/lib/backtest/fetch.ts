@@ -94,10 +94,10 @@ export async function fetchFedLiquidity(
     if (rows?.length) {
       // net_liquidity 있으면 → maPeriod로 state 동적 계산
       const nlRows = rows.filter(r => r.net_liquidity != null)
-      if (nlRows.length >= maPeriod * 5) {
+      if (nlRows.length >= maPeriod) {
         return computeStates(
           nlRows.map(r => ({ date: String(r.date), nl: Number(r.net_liquidity) })),
-          maPeriod * 5,
+          maPeriod,
           startDate,
         )
       }

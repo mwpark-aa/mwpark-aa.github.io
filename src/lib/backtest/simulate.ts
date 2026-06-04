@@ -393,16 +393,14 @@ export function simulate(
       const isShort = signal_type === 'SHORT'
 
       // ── MA120 추세 필터 (현재 인터벌 기준) ───────────────────────
-      // live-trade와 동일하게 신호 캔들(i-1) 기준으로 체크
-      const sigRow = rows[i - 1]
-      if (sigRow.ma120 != null) {
-        if (isShort  && sigRow.close > sigRow.ma120) continue   // 상승장 → 숏 스킵
-        if (!isShort && sigRow.close < sigRow.ma120) continue   // 하락장 → 롱 스킵
+      if (row.ma120 != null) {
+        if (isShort  && row.close > row.ma120) continue   // 상승장 → 숏 스킵
+        if (!isShort && row.close < row.ma120) continue   // 하락장 → 롱 스킵
       }
 
       // ── 일봉 추세 필터 (MTF): 일봉 MA120 방향 확인 ──────────────
       if (dailyMap) {
-        const daily = getDailyBar(dailyMap, sigRow.timestamp)
+        const daily = getDailyBar(dailyMap, row.timestamp)
         if (daily && daily.ma120 != null) {
           if (!isShort && daily.close < daily.ma120) continue   // 일봉 하락장 → 롱 스킵
           if (isShort  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
