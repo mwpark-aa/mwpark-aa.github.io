@@ -291,17 +291,6 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
   )
 }
 
-function Dot({ active, color }: { active: boolean; color: string }) {
-  return (
-    <Box sx={{
-      width: 7, height: 7, borderRadius: '50%',
-      background: active ? color : '#27272a',
-      transition: 'background 0.2s',
-    }} />
-  )
-}
-
-
 function ScoreBadge({ label, score, min, ready, color, blocked }: {
   label: string; score: number; min: number; ready: boolean; color: string; blocked: boolean
 }) {
