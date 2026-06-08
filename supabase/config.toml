@@ -32,3 +32,12 @@ verify_jwt = false
 
 [functions.local-recommend]
 verify_jwt = false
+
+[functions.sync-positions]
+verify_jwt = false
+
+[functions.stock-klines]
+verify_jwt = false
+
+[functions.stop-live-trade]
+verify_jwt = false

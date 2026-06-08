@@ -131,15 +131,45 @@ export async function fetchFedBarsWithCache(
     }
   }
 
-  // DB에서 요청 범위 반환
+  // MA 워밍업에 필요한 선행 데이터까지 포함해서 읽기
+  const warmupStart = new Date(new Date(startDate).getTime() - (maPeriod + 8) * 7 * 86_400_000)
+    .toISOString().slice(0, 10)
+
   const { data: rows } = await supabase
     .from('fed_liquidity_cache')
-    .select('date, state')
-    .gte('date', startDate)
+    .select('date, net_liquidity, state')
+    .gte('date', warmupStart)
     .lte('date', endDate)
     .order('date')
 
-  return (rows ?? []).map((r: any) => ({ date: String(r.date), state: Number(r.state) }))
+  if (!rows?.length) return []
+
+  // net_liquidity 가 있으면 동적 계산, 없으면 state 컬럼 fallback
+  const nlRows = (rows as any[]).filter(r => r.net_liquidity != null)
+  if (nlRows.length >= maPeriod) {
+    const series = nlRows.map((r: any) => ({ date: String(r.date), nl: Number(r.net_liquidity) }))
+    const LOOKBACK = 4
+    const result = series.map((s: any, i: number) => {
+      const prev   = i >= LOOKBACK ? series[i - LOOKBACK]!.nl : null
+      const rising = prev == null ? null : s.nl > prev ? true : s.nl < prev ? false : null
+      let ma: number | null = null
+      if (i >= maPeriod - 1) {
+        const slice = series.slice(i - maPeriod + 1, i + 1)
+        ma = slice.reduce((a: number, x: any) => a + x.nl, 0) / slice.length
+      }
+      const aboveMA = ma != null ? s.nl > ma : null
+      let state = 0
+      if (aboveMA === true  && rising === true)  state =  1
+      if (aboveMA === false && rising === false) state = -1
+      return { date: s.date, state }
+    })
+    return result.filter((r: any) => r.date >= startDate)
+  }
+
+  // fallback: state 컬럼 직접 사용
+  return (rows as any[])
+    .filter((r: any) => r.date >= startDate && r.state != null)
+    .map((r: any) => ({ date: String(r.date), state: Number(r.state) }))
 }
 
 export function attachFedData(rows: Candle[], fedBars: { date: string; state: number }[]): void {

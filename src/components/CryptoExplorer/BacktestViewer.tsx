@@ -90,7 +90,7 @@ export default function BacktestViewer() {
     fixedTP: 2,
     fixedSL: 1,
     tpslMode: 'fixed' as const,
-    useDailyTrend: false,
+    scoreUseMA120: true,
     scoreExitThreshold: 0,
   })
 
@@ -128,7 +128,7 @@ export default function BacktestViewer() {
       cciOverbought:       parseFloat(draft.cciOverbought)       || 100,
       cciMaxEntry:         parseFloat(draft.cciMaxEntry)         || 0,
       tpslMode:            params.tpslMode,
-      useDailyTrend:       params.useDailyTrend,
+      scoreUseMA120:       params.scoreUseMA120,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)
@@ -217,7 +217,7 @@ export default function BacktestViewer() {
         fixed_tp: lastCommittedParams.fixedTP,
         fixed_sl: lastCommittedParams.fixedSL,
         score_exit_threshold: lastCommittedParams.scoreExitThreshold,
-        use_daily_trend: params.useDailyTrend,
+        score_use_ma120: params.scoreUseMA120,
         total_return_pct: result.total_return_pct,
         win_rate: result.win_rate,
         max_drawdown_pct: result.max_drawdown_pct,
@@ -262,7 +262,7 @@ export default function BacktestViewer() {
       cciMaxEntry: (best as any).cci_max_entry ?? 0,
       fixedTP: (best as any).fixed_tp ?? 0, fixedSL: (best as any).fixed_sl ?? 0,
       scoreExitThreshold: (best as any).score_exit_threshold ?? 0,
-      useDailyTrend: (best as any).use_daily_trend ?? false,
+      scoreUseMA120: (best as any).score_use_ma120 ?? true,
     }))
     setDraft(d => ({
       ...d,
@@ -324,7 +324,7 @@ export default function BacktestViewer() {
       rvolSkip: run.rvol_skip ?? 0.4,
       fixedTP: (run as any).fixed_tp ?? 0, fixedSL: (run as any).fixed_sl ?? 0,
       scoreExitThreshold: (run as any).score_exit_threshold ?? 0,
-      useDailyTrend: (run as any).use_daily_trend ?? false,
+      scoreUseMA120: (run as any).score_use_ma120 ?? true,
     }))
     setDraft({
       leverage: String(run.leverage),
@@ -514,7 +514,7 @@ export default function BacktestViewer() {
                   scoreUseADX: false, scoreUseRSI: false, scoreUseMACD: false,
                   scoreUseRVOL: false, scoreUseBB: false, scoreUseIchi: false,
                   scoreUseGoldenCross: false, scoreUseCCI: false, scoreUseVWMA: false,
-                  scoreUseFedLiquidity: false, useDailyTrend: false,
+                  scoreUseFedLiquidity: false, scoreUseMA120: false,
                 }
                 setParams(p => ({ ...p, ...boolReset, ...newParams }))
                 const newDraft = { ...draft }

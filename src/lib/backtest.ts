@@ -5,7 +5,7 @@ export type { BacktestParams, BacktestResult, BacktestTrade } from './backtest/t
 
 import type { BacktestParams, BacktestResult } from './backtest/types'
 import { WARMUP_CANDLES } from './backtest/types'
-import { fetchKlines, fetchFedLiquidity, attachFedData, buildDailyTrendMap } from './backtest/fetch'
+import { fetchKlines, fetchFedLiquidity, attachFedData } from './backtest/fetch'
 import { computeIndicators } from './backtest/indicators'
 import { simulate } from './backtest/simulate'
 
@@ -48,12 +48,7 @@ export async function runBacktest(p: BacktestParams): Promise<BacktestResult> {
     fedLatest = lastWithFed?.fed_net_liquidity ?? null
   }
 
-  // MTF: 서브 인터벌일 때만 일봉 추세 맵 별도 fetch
-  const dailyMap = (p.useDailyTrend && p.interval !== '1d')
-    ? await buildDailyTrendMap(p.symbol, startMs, endMs)
-    : null
-
-  const result = simulate(rows, p, dailyMap)
+  const result = simulate(rows, p, null)
   result.fed_latest_net_liquidity = fedLatest
   return result
 }

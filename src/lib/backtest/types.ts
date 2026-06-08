@@ -38,7 +38,7 @@ export interface BacktestParams {
   tpslMode: 'auto' | 'fixed'
 
   // 기타 필터
-  useDailyTrend: boolean         // 일봉 MA120 방향과 일치할 때만 진입 (MTF)
+  scoreUseMA120: boolean         // MA120 방향 차단 필터 (상승장=롱만, 하락장=숏만)
   scoreExitThreshold: number     // 점수가 이 값 이하로 떨어지면 청산 (0 = 비활성화)
 }
 

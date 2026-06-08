@@ -63,7 +63,7 @@ export default function StockBacktest() {
     fixedTP: 5,
     fixedSL: 3,
     tpslMode: 'fixed',
-    useDailyTrend: false,
+    scoreUseMA120: true,
     scoreExitThreshold: 1,
   })
 
@@ -104,7 +104,7 @@ export default function StockBacktest() {
       cciOverbought:      parseFloat(draft.cciOverbought)       || 100,
       cciMaxEntry:        parseFloat(draft.cciMaxEntry)         || 0,
       tpslMode:           params.tpslMode,
-      useDailyTrend:      params.useDailyTrend,
+      scoreUseMA120:      params.scoreUseMA120,
     }
     setParams(p => ({ ...p, ...committed }))
     setLoading(true)

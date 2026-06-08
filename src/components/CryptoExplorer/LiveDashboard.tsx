@@ -49,7 +49,7 @@ export default function LiveDashboard() {
     if (activeRunIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, use_daily_trend, cci_max_entry, score_use_cci, cci_oversold, cci_overbought, score_use_rvol, rvol_skip')
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, score_use_ma120, cci_max_entry, score_use_cci, cci_oversold, cci_overbought, score_use_rvol, rvol_skip')
       .in('id', activeRunIds)
     const cfgs = (data ?? []).map(run => ({
       ...run,

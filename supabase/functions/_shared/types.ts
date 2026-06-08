@@ -41,7 +41,7 @@ export interface BaseConfig {
   fixed_tp: number
   fixed_sl: number
   score_exit_threshold: number
-  use_daily_trend: boolean
+  score_use_ma120: boolean
 }
 
 export interface SignalResult {

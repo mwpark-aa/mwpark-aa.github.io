@@ -105,8 +105,8 @@ const SIGNAL_COOLDOWN = 4
 function buildFilterRows(
   c: Candle,
   cfg: ActiveConfig,
-  dailyClose: number | null,
-  dailyMa120: number | null,
+  _dailyClose: number | null,
+  _dailyMa120: number | null,
   lastLongMs: number | null,
   lastShortMs: number | null,
 ): FilterRow[] {
@@ -114,27 +114,14 @@ function buildFilterRows(
   const fmtPrice = (v: number) =>
     v >= 1000 ? v.toFixed(1) : v >= 10 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v.toFixed(4)
 
-  // ① MA120 (15m) — 롱: close >= MA, 숏: close <= MA
-  if (c.ma120 != null) {
+  // MA120 — score_use_ma120 활성화 시에만 표시
+  if (cfg.score_use_ma120 && c.ma120 != null) {
     rows.push({
-      label: 'MA120 (15m)',
+      label: 'MA120',
       value: `${fmtPrice(c.close)} / MA ${fmtPrice(c.ma120)}`,
       pass: null,
       passLong:  c.close >= c.ma120,
       passShort: c.close <= c.ma120,
-    })
-  }
-
-  // ② MA120 (일봉) — use_daily_trend 시
-  if (cfg.use_daily_trend) {
-    const passLong  = dailyClose != null && dailyMa120 != null ? dailyClose >= dailyMa120 : null
-    const passShort = dailyClose != null && dailyMa120 != null ? dailyClose <= dailyMa120 : null
-    rows.push({
-      label: 'MA120 (일봉)',
-      value: dailyMa120 != null && dailyClose != null ? `${fmtPrice(dailyClose)} / MA ${fmtPrice(dailyMa120)}` : '—',
-      pass: null,
-      passLong,
-      passShort,
     })
   }
 

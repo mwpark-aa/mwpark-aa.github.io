@@ -5,7 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Divider from '@mui/material/Divider'
 import type { BacktestParams as LocalBacktestParams, BacktestResult } from './backtest/types'
 import type { BacktestParams } from '../../lib/backtest/types'
-import { fetchKlines, buildDailyTrendMap, fetchFedLiquidity, attachFedData } from '../../lib/backtest/fetch'
+import { fetchKlines, fetchFedLiquidity, attachFedData } from '../../lib/backtest/fetch'
 import { computeIndicators } from '../../lib/backtest/indicators'
 import { fmtPct } from './backtest/utils'
 
@@ -65,8 +65,8 @@ const INDICATOR_DEFS: IndicatorDef[] = [
     numParams: [], isFed: true,
   },
   {
-    key: 'useDailyTrend', label: '일봉 MTF', color: '#34d399', bgColor: '#34d39922',
-    numParams: [], isDailyTrend: true,
+    key: 'scoreUseMA120', label: 'MA120', color: '#f59e0b', bgColor: '#f59e0b22',
+    numParams: [],
   },
 ]
 
@@ -273,13 +273,12 @@ export default function BacktestOptimizer({ symbol, interval, startDate, endDate
       const startMs = startDate.includes('T') ? new Date(startDate).getTime() : new Date(startDate).getTime() - 9 * 3_600_000
       const endMs   = endDate.includes('T')   ? new Date(endDate).getTime()   : new Date(endDate).getTime() + 15 * 3_600_000
 
-      const needFed        = selectedInds.some(ind => ind.def.isFed)
-      const needDailyTrend = selectedInds.some(ind => ind.def.isDailyTrend)
+      const needFed = selectedInds.some(ind => ind.def.isFed)
 
-      const [candles, dailyMap] = await Promise.all([
+      const [candles] = await Promise.all([
         fetchKlines(symbol, interval, startMs - 200 * 3_600_000, endMs),
-        needDailyTrend ? buildDailyTrendMap(symbol, startMs, endMs) : Promise.resolve(null),
       ])
+      const dailyMap = null
       computeIndicators(candles)
 
       if (needFed) {

@@ -86,7 +86,7 @@ export default function HistoryPanel({ history, onApply, onDelete }: Props) {
                       (run as any).score_use_ichi && '일목',
                       (run as any).score_use_golden_cross && 'GC',
                       (run as any).score_use_cci && 'CCI',
-                      (run as any).use_daily_trend && '일봉',
+                      (run as any).score_use_ma120 && 'MA120',
                     ].filter(Boolean).map((label) => (
                       <Box key={label as string} sx={{
                         px: 0.6, py: 0.1, borderRadius: 0.5, fontSize: 8, fontWeight: 700,

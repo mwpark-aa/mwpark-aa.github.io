@@ -274,6 +274,40 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
       ),
     },
     {
+      key: 'scoreUseMA120', label: 'MA120', sub: '추세 방향 차단 필터',
+      hint: '"MA120 기준으로 역방향 진입을 완전 차단"\n\n🚫 가격 > MA120 → 숏 진입 완전 차단 (상승장에서 숏 불가)\n🚫 가격 < MA120 → 롱 진입 완전 차단 (하락장에서 롱 불가)\n\n💡 점수 +1/-1 방식이 아닌 완전 차단(block) 필터\n💡 역추세 진입을 원천 봉쇄하고 싶을 때 사용\n💡 현재 인터벌 기준 MA120 적용 (일봉 X)',
+      desc: 'MA120 상단이면 롱만, 하단이면 숏만 허용. 점수 방식이 아닌 완전 차단 필터.',
+      settings: null,
+      svg: (
+        <svg viewBox="0 0 72 42" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet">
+          {/* 상단 롱존 */}
+          <rect x="4" y="4" width="64" height="17" fill="#10b98110" rx="1" />
+          {/* 하단 숏존 */}
+          <rect x="4" y="21" width="64" height="17" fill="#ef444410" rx="1" />
+          {/* MA120 선 */}
+          <line x1="4" y1="21" x2="68" y2="21" stroke="#f59e0b" strokeWidth="1.2" strokeDasharray="4,2" />
+          <text x="50" y="19.5" fill="#f59e0b" fontSize="3.2" fontWeight="bold">MA120</text>
+          {/* 상단: 롱만 허용 */}
+          <text x="7" y="12" fill="#10b981" fontSize="3.5" fontWeight="bold">롱만 허용</text>
+          {/* 숏 차단 표시 */}
+          <line x1="55" y1="8" x2="63" y2="16" stroke="#ef4444" strokeWidth="1.2" />
+          <line x1="63" y1="8" x2="55" y2="16" stroke="#ef4444" strokeWidth="1.2" />
+          <rect x="54" y="7" width="10" height="10" rx="1.5" fill="none" stroke="#ef444466" strokeWidth="0.8" />
+          <text x="52" y="20" fill="#ef444488" fontSize="2.8">숏 차단</text>
+          {/* 하단: 숏만 허용 */}
+          <text x="7" y="32" fill="#ef4444" fontSize="3.5" fontWeight="bold">숏만 허용</text>
+          {/* 롱 차단 표시 */}
+          <line x1="55" y1="25" x2="63" y2="33" stroke="#10b981" strokeWidth="1.2" />
+          <line x1="63" y1="25" x2="55" y2="33" stroke="#10b981" strokeWidth="1.2" />
+          <rect x="54" y="24" width="10" height="10" rx="1.5" fill="none" stroke="#10b98166" strokeWidth="0.8" />
+          <text x="52" y="37" fill="#10b98188" fontSize="2.8">롱 차단</text>
+          {/* 가격선 */}
+          <polyline points="4,28 14,25 24,22 36,15 50,10 64,8" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
+          <circle cx="24" cy="21" r="2" fill="#f59e0b" opacity="0.9" />
+        </svg>
+      ),
+    },
+    {
       key: 'scoreUseFedLiquidity', label: '연준 유동성', sub: '대차대조표·TGA·역레포',
       hint: '"연준이 시중에 유동성을 공급 중인가, 회수 중인가?"\n순유동성 = Fed 대차대조표(WALCL) − TGA(재무부 계좌) − 역레포(RRP)\n\n📊 판단 기준 (MA 기준선)\n  ✅ 순유동성이 MA 위 + 상승 중 → 확실한 유동성 확장 → 롱 +1\n  ✅ 순유동성이 MA 아래 + 하락 중 → 확실한 유동성 수축 → 숏 +1\n  ⬜ 한쪽만 해당 → 혼재 → 0점\n\n💡 MA 기간 설정으로 기준선 민감도 조절 가능 (기본 13주 ≈ 분기)\n💡 FRED API 키 필요: Supabase secrets에 FRED_API_KEY 설정',
       desc: '순유동성이 MA 기준선 대비 높고 상승 중일 때 롱 +1. 낮고 하락 중일 때 숏 +1. 혼재 시 0.',
@@ -491,35 +525,6 @@ export default function ParamsPanel({ params, setParams, draft, setDraft, result
                 </Box>
             </Box>
         </Box>
-      {/* ── MTF 일봉 추세 필터 ── */}
-      <Box
-        sx={{
-          p: 1.5, borderRadius: 2, border: '1px solid',
-          borderColor: params.useDailyTrend ? '#f59e0b44' : '#27272a',
-          background: params.useDailyTrend ? '#f59e0b08' : 'transparent',
-          cursor: 'pointer', userSelect: 'none', transition: 'all 0.15s',
-        }}
-        onClick={() => setParams(p => ({ ...p, useDailyTrend: !p.useDailyTrend }))}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: params.useDailyTrend ? '#f59e0b' : '#3f3f46', boxShadow: params.useDailyTrend ? '0 0 8px #f59e0baa' : 'none' }} />
-          <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: params.useDailyTrend ? '#fcd34d' : '#71717a' }}>
-                일봉 추세 필터 (MTF)
-              </Typography>
-              <HintTooltip id="useDailyTrend" text={'"거시 방향과 맞는 진입만 허용"\n일봉 MA120 기준: 일봉 종가 > MA120이면 롱만, < MA120이면 숏만 허용.\n1d 인터벌에서는 자동으로 비활성화.'} />
-            </Box>
-            <Typography sx={{ fontSize: 10, color: params.useDailyTrend ? '#f59e0b88' : '#52525b', mt: 0.25 }}>
-              일봉 MA120 방향과 일치하는 신호만 진입 · 캔들 단위가 1d면 무효
-            </Typography>
-          </Box>
-          <Typography sx={{ fontSize: 10, fontWeight: 700, color: params.useDailyTrend ? '#fcd34d' : '#3f3f46' }}>
-            {params.useDailyTrend ? 'ON' : 'OFF'}
-          </Typography>
-        </Box>
-      </Box>
-
       {/* ── 지표 선택 + 점수 ── */}
       <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, justifyContent: 'space-between', flexWrap: 'wrap' }}>

@@ -14,7 +14,6 @@ import {
   buildSignalDetails,
   calcPositionSize,
 } from './scoring'
-import { getDailyBar } from './fetch'
 
 // ── 포지션 내부 상태 ─────────────────────────────────────────────
 
@@ -169,9 +168,9 @@ function buildExitDetails(
 // ── 메인 시뮬레이션 ───────────────────────────────────────────────
 
 export function simulate(
-  rows:     Candle[],
-  p:        BacktestParams,
-  dailyMap: Map<number, DailyBar> | null = null,
+  rows: Candle[],
+  p:    BacktestParams,
+  _dailyMap: Map<number, DailyBar> | null = null,
 ): BacktestResult {
   const n = rows.length
   let capital  = p.initialCapital
@@ -396,21 +395,11 @@ export function simulate(
 
       const isShort = signal_type === 'SHORT'
 
-      // ── MA120 추세 필터 (현재 인터벌 기준) ───────────────────────
-      // live-trade와 동일하게 신호 캔들(i-1) 기준으로 체크
+      // ── MA120 추세 차단 필터 (현재 인터벌 기준) ─────────────────
       const sigRow = rows[i - 1]
-      if (sigRow.ma120 != null) {
-        if (isShort  && sigRow.close > sigRow.ma120) continue   // 상승장 → 숏 스킵
-        if (!isShort && sigRow.close < sigRow.ma120) continue   // 하락장 → 롱 스킵
-      }
-
-      // ── 일봉 추세 필터 (MTF): 일봉 MA120 방향 확인 ──────────────
-      if (dailyMap) {
-        const daily = getDailyBar(dailyMap, sigRow.timestamp)
-        if (daily && daily.ma120 != null) {
-          if (!isShort && daily.close < daily.ma120) continue   // 일봉 하락장 → 롱 스킵
-          if (isShort  && daily.close > daily.ma120) continue   // 일봉 상승장 → 숏 스킵
-        }
+      if (p.scoreUseMA120 && sigRow.ma120 != null) {
+        if (isShort  && sigRow.close > sigRow.ma120) continue   // 상승장 → 숏 완전 차단
+        if (!isShort && sigRow.close < sigRow.ma120) continue   // 하락장 → 롱 완전 차단
       }
 
       // ── 진입: 현재 봉 시가 기준 ──────────────────────────────────

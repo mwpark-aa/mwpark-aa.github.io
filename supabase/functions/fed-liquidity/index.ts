@@ -35,7 +35,9 @@ serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
     try {
-        const { startDate, endDate, maPeriod: maPeriodRaw } = await req.json();
+        const { startDate: rawStart, endDate: rawEnd, maPeriod: maPeriodRaw } = await req.json();
+        const startDate = (rawStart as string)?.slice(0, 10);
+        const endDate   = (rawEnd   as string)?.slice(0, 10);
         const MA_PERIOD: number = typeof maPeriodRaw === "number" && maPeriodRaw > 0 ? maPeriodRaw : 13;
         if (!startDate || !endDate) {
             return new Response(JSON.stringify({ error: "startDate, endDate required" }),

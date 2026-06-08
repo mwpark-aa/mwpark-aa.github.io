@@ -61,11 +61,28 @@ CREATE INDEX IF NOT EXISTS idx_live_positions_status          ON live_positions(
 CREATE INDEX IF NOT EXISTS idx_live_positions_backtest_run_id ON live_positions(backtest_run_id);
 CREATE INDEX IF NOT EXISTS idx_live_positions_entry_time      ON live_positions(entry_time DESC);
 
--- ── 크론 설정 예시 (pg_cron + pg_net 필요) ──────────────────
--- backtest_runs의 interval에 맞춰 호출 간격 조정 필요.
--- 예: 15분봉 → '*/15 * * * *'
+-- ── 크론 설정 (pg_cron + pg_net 필요) ───────────────────────
+--
+-- [1] sync-positions (14분) — live-trade 실행 직전에 바이낸스와 DB 동기화
+--     TP/SL로 청산된 포지션을 미리 반영해 live-trade가 정확한 상태를 보도록 함
+--
+-- [2] live-trade (15분) — 신호 감지 및 주문 실행
+--
+-- YOUR_PROJECT_REF, YOUR_ANON_KEY 를 실제 값으로 교체 후 실행
 
 /*
+SELECT cron.schedule(
+  'sync-positions-14m',
+  '14,29,44,59 * * * *',
+  $$
+  SELECT net.http_post(
+    url     := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/sync-positions',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer YOUR_ANON_KEY"}'::jsonb,
+    body    := '{}'::jsonb
+  );
+  $$
+);
+
 SELECT cron.schedule(
   'live-trade-15m',
   '*/15 * * * *',

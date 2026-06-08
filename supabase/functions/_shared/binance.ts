@@ -56,7 +56,7 @@ export async function binanceDelete(path: string, params: Record<string, string 
 }
 
 export async function getBinanceBalance(apiKey: string, apiSecret: string, isTestnet: boolean): Promise<number> {
-  const account = await binanceGet('/fapi/v2/account', {}, apiKey, apiSecret, isTestnet) as { assets: { asset: string; walletBalance: string }[] }
-  const usdt = account.assets?.find(a => a.asset === 'USDT')
-  return usdt ? parseFloat(usdt.walletBalance) : 0
+  const balances = await binanceGet('/fapi/v2/balance', {}, apiKey, apiSecret, isTestnet) as { asset: string; balance: string }[]
+  const usdt = balances?.find(a => a.asset === 'USDT')
+  return usdt ? parseFloat(usdt.balance) : 0
 }

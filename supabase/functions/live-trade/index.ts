@@ -7,12 +7,12 @@
 // Binance API Key/Secret 은 user_api_keys 테이블에서 api_key_id로 조회
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import type { Candle, BaseConfig, DailyBar } from '../_shared/types.ts'
+import type { Candle, BaseConfig } from '../_shared/types.ts'
 import { COMMISSION_TAKER, COMMISSION_MAKER, WARMUP_CANDLES, SIGNAL_COOLDOWN } from '../_shared/constants.ts'
 import { intervalToMs, fetchKlines } from '../_shared/klines.ts'
 import { computeIndicators } from '../_shared/indicators.ts'
 import { fetchFedBarsWithCache, attachFedData } from '../_shared/fed.ts'
-import { scoreLong, scoreShort, getDailyBar, detectSignal } from '../_shared/scoring.ts'
+import { scoreLong, scoreShort, detectSignal } from '../_shared/scoring.ts'
 import { buildSignalDetails, buildExitDetails } from '../_shared/details.ts'
 import { calcTPSL, calcPositionSize } from '../_shared/position.ts'
 
@@ -27,6 +27,7 @@ const corsHeaders = {
 
 interface BinanceOrder {
   orderId: number
+  algoOrderId?: number  // /fapi/v1/algoOrder POST 응답 필드
   clientOrderId: string
   symbol: string
   status: 'NEW' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELED' | 'EXPIRED' | 'REJECTED'
@@ -292,8 +293,7 @@ interface SymbolGroupData {
   rows: Candle[]
   lastCandleEnd: number
   intervalMs: number
-  dailyMap: Map<number, DailyBar> | null
-  fetchTimingMs: { klines_ms: number; fed_ms?: number; daily_ms?: number }
+  fetchTimingMs: { klines_ms: number; fed_ms?: number }
 }
 
 async function fetchGroupData(
@@ -329,19 +329,7 @@ async function fetchGroupData(
     fetchTimingMs.fed_ms = Date.now() - t
   }
 
-  // 일봉 추세 — 그룹 내 어느 config라도 사용 시 한 번만 fetch
-  let dailyMap: Map<number, DailyBar> | null = null
-  if (configs.some(c => c.use_daily_trend)) {
-    t = Date.now()
-    try {
-      const dailyRows = await fetchKlines(symbol, '1d', warmupStart - 220 * 86_400_000, lastCandleEnd)
-      computeIndicators(dailyRows)
-      dailyMap = new Map(dailyRows.map(r => [r.timestamp, { close: r.close, ma120: r.ma120 ?? null }]))
-    } catch (err) { console.error(`[live-trade][${symbol}:${interval}] daily klines error:`, err) }
-    fetchTimingMs.daily_ms = Date.now() - t
-  }
-
-  return { rows, lastCandleEnd, intervalMs, dailyMap, fetchTimingMs }
+  return { rows, lastCandleEnd, intervalMs, fetchTimingMs }
 }
 
 // ── 단일 config 처리 ─────────────────────────────────────────
@@ -355,7 +343,7 @@ async function processConfig(
   groupData: SymbolGroupData,
 ): Promise<Record<string, unknown>> {
   const iso = (ts: number) => new Date(ts).toISOString()
-  const { rows, lastCandleEnd, intervalMs, dailyMap } = groupData
+  const { rows, lastCandleEnd, intervalMs } = groupData
 
   const timing: Record<string, number> = { ...groupData.fetchTimingMs }
   const T = { start: Date.now() }
@@ -520,27 +508,23 @@ async function processConfig(
     const longReady  = !lastLong  || (lastCandleEnd - new Date(lastLong.entry_time).getTime())  >= cooldownMs
     const shortReady = !lastShort || (lastCandleEnd - new Date(lastShort.entry_time).getTime()) >= cooldownMs
 
-    const signal = detectSignal(rows, n - 1, c, longReady, shortReady)
+    // MA120 필터: score_use_ma120 활성화 시에만 방향 차단
+    const ma120 = latestRow.ma120
+    const longBlockedByFilter  = c.score_use_ma120 && ma120 != null && latestRow.close < ma120
+    const shortBlockedByFilter = c.score_use_ma120 && ma120 != null && latestRow.close > ma120
+
+    const signal = detectSignal(
+      rows, n - 1, c,
+      longReady  && !longBlockedByFilter,
+      shortReady && !shortBlockedByFilter,
+    )
     debugInfo.signal = signal ? { type: signal.type, score: signal.score } : null
 
     if (signal) {
       const { type: signalType, score } = signal
       const isShort = signalType === 'SHORT'
 
-      const ma120Blocked = latestRow.ma120 != null && (
-        (isShort && latestRow.close > latestRow.ma120) || (!isShort && latestRow.close < latestRow.ma120)
-      )
-      let mtfBlocked = false
-      if (dailyMap) {
-        const daily = getDailyBar(dailyMap, latestRow.timestamp)
-        if (daily?.ma120 != null) {
-          if (!isShort && daily.close < daily.ma120) mtfBlocked = true
-          if ( isShort && daily.close > daily.ma120) mtfBlocked = true
-        }
-      }
-
-      if (!ma120Blocked && !mtfBlocked) {
-        let entryPrice = latestRow.close
+      let entryPrice = latestRow.close
         try {
           const nextRows = await fetchKlines(c.symbol, c.interval, lastCandleEnd, lastCandleEnd + intervalMs)
           if (nextRows.length > 0) entryPrice = nextRows[0]!.open
@@ -611,8 +595,8 @@ async function processConfig(
               score,
               status:                 'OPEN',
               binance_entry_order_id: String(entryOrder.orderId),
-              binance_tp_order_id:    String(tpOrder.orderId),
-              binance_sl_order_id:    String(slOrder.orderId),
+              binance_tp_order_id:    String(tpOrder.algoOrderId ?? tpOrder.orderId),
+              binance_sl_order_id:    String(slOrder.algoOrderId ?? slOrder.orderId),
               last_candle_ts:         iso(lastCandleEnd),
               timing_ms:              timing,
             }
@@ -620,8 +604,8 @@ async function processConfig(
             const { error: insertErr } = await supabase.from('live_positions').insert(newPosition)
             if (insertErr) {
               console.error(`[live-trade][${c.id}] insert error:`, insertErr.message)
-              await cancelOrder(c.symbol, String(tpOrder.orderId), apiKey, apiSecret, isTestnet)
-              await cancelOrder(c.symbol, String(slOrder.orderId), apiKey, apiSecret, isTestnet)
+              await cancelOrder(c.symbol, String(tpOrder.algoOrderId ?? tpOrder.orderId), apiKey, apiSecret, isTestnet)
+              await cancelOrder(c.symbol, String(slOrder.algoOrderId ?? slOrder.orderId), apiKey, apiSecret, isTestnet)
             } else {
               opened = 1
             }
@@ -629,8 +613,6 @@ async function processConfig(
         }
       }
     }
-  }
-
   // 잔액 업데이트 (live_accounts)
   let currentBalance = liveAccount?.balance ?? 0
   try { currentBalance = await getBinanceBalance(apiKey, apiSecret, isTestnet) } catch { /* 유지 */ }
@@ -686,6 +668,8 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
+
+  await new Promise(r => setTimeout(r, 500))
 
   try {
     // active_run_id 가 설정된 키 목록 조회
