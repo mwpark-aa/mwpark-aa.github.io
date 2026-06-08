@@ -212,8 +212,8 @@ export default function IndicatorPanel({ candle, config, fedState, symbol, lastL
 
   const longReady   = longScore  >= minScore
   const shortReady  = shortScore >= minScore
-  const longBlocked  = filterRows.some(r => r.pass === false)
-  const shortBlocked = filterRows.some(r => r.pass === false)
+  const longBlocked  = filterRows.some(r => r.pass === false || r.passLong  === false)
+  const shortBlocked = filterRows.some(r => r.pass === false || r.passShort === false)
 
   return (
     <Box sx={{ borderRadius: 2, border: '1px solid #1f1f23', background: '#0a0a0b', overflow: 'hidden' }}>
