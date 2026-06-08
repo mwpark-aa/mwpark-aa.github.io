@@ -92,19 +92,25 @@ export async function fetchFedLiquidity(
       .order('date')
 
     if (rows?.length) {
-      // net_liquidity 있으면 → maPeriod로 state 동적 계산
-      const nlRows = rows.filter(r => r.net_liquidity != null)
-      if (nlRows.length >= maPeriod) {
-        return computeStates(
-          nlRows.map(r => ({ date: String(r.date), nl: Number(r.net_liquidity) })),
-          maPeriod,
-          startDate,
-        )
-      }
-      // 구버전 캐시 (state만 있음) → 그대로 사용
-      const stateRows = rows.filter(r => r.state != null && r.date >= startDate)
-      if (stateRows.length) {
-        return stateRows.map(r => ({ date: String(r.date), netLiquidity: 0, ma: null, state: Number(r.state) }))
+      // 캐시의 가장 오래된 날짜가 warmupStart보다 7일 이상 늦으면 Edge Function으로 fallback
+      const oldestCached = String(rows[0].date)
+      const cacheCoversStart = oldestCached <= new Date(new Date(warmupStart).getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+
+      if (cacheCoversStart) {
+        // net_liquidity 있으면 → maPeriod로 state 동적 계산
+        const nlRows = rows.filter(r => r.net_liquidity != null)
+        if (nlRows.length >= maPeriod) {
+          return computeStates(
+            nlRows.map(r => ({ date: String(r.date), nl: Number(r.net_liquidity) })),
+            maPeriod,
+            startDate,
+          )
+        }
+        // 구버전 캐시 (state만 있음) → 그대로 사용
+        const stateRows = rows.filter(r => r.state != null && r.date >= startDate)
+        if (stateRows.length) {
+          return stateRows.map(r => ({ date: String(r.date), netLiquidity: 0, ma: null, state: Number(r.state) }))
+        }
       }
     }
   } catch (e) {
