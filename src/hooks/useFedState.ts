@@ -28,23 +28,18 @@ export function useFedState(): number | null {
   useEffect(() => {
     supabase
       .from('fed_liquidity_cache')
-      .select('date, net_liquidity, state')
+      .select('date, net_liquidity')
       .order('date', { ascending: false })
       .limit(MA_PERIOD + LOOKBACK + 2)
       .then(({ data }) => {
         if (!data?.length) return
 
-        // net_liquidity 있으면 직접 계산 (배포된 _shared/fed.ts 신규 방식)
         const withNl = data.filter(r => r.net_liquidity != null)
-        if (withNl.length >= MA_PERIOD + LOOKBACK) {
-          const series = [...withNl].reverse().map(r => ({ nl: Number(r.net_liquidity) }))
-          const state = computeLatestState(series)
-          if (state != null) { setFedState(state); return }
-        }
+        if (withNl.length < MA_PERIOD + LOOKBACK) return
 
-        // fallback: 구버전 캐시 (state 컬럼 직접)
-        const latest = data.find(r => r.state != null)
-        if (latest) setFedState(latest.state as number)
+        const series = [...withNl].reverse().map(r => ({ nl: Number(r.net_liquidity) }))
+        const state = computeLatestState(series)
+        if (state != null) setFedState(state)
       })
   }, [])
 

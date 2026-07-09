@@ -86,7 +86,7 @@ export async function fetchFedLiquidity(
   try {
     const { data: rows } = await supabase
       .from('fed_liquidity_cache')
-      .select('date, net_liquidity, state')
+      .select('date, net_liquidity')
       .gte('date', warmupStart)
       .lte('date', endDate)
       .order('date')
@@ -97,7 +97,6 @@ export async function fetchFedLiquidity(
       const cacheCoversStart = oldestCached <= new Date(new Date(warmupStart).getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
 
       if (cacheCoversStart) {
-        // net_liquidity 있으면 → maPeriod로 state 동적 계산
         const nlRows = rows.filter(r => r.net_liquidity != null)
         if (nlRows.length >= maPeriod) {
           return computeStates(
@@ -105,11 +104,6 @@ export async function fetchFedLiquidity(
             maPeriod,
             startDate,
           )
-        }
-        // 구버전 캐시 (state만 있음) → 그대로 사용
-        const stateRows = rows.filter(r => r.state != null && r.date >= startDate)
-        if (stateRows.length) {
-          return stateRows.map(r => ({ date: String(r.date), netLiquidity: 0, ma: null, state: Number(r.state) }))
         }
       }
     }

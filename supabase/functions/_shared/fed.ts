@@ -98,39 +98,31 @@ export async function fetchFedBarsWithCache(
 
   const { data: rows } = await supabase
     .from('fed_liquidity_cache')
-    .select('date, net_liquidity, state')
+    .select('date, net_liquidity')
     .gte('date', warmupStart)
     .lte('date', endDate)
     .order('date')
 
-  if (!rows?.length) return []
+  const nlRows = (rows as any[] ?? []).filter(r => r.net_liquidity != null)
+  if (nlRows.length < maPeriod) return []
 
-  // net_liquidity 가 있으면 동적 계산, 없으면 state 컬럼 fallback
-  const nlRows = (rows as any[]).filter(r => r.net_liquidity != null)
-  if (nlRows.length >= maPeriod) {
-    const series = nlRows.map((r: any) => ({ date: String(r.date), nl: Number(r.net_liquidity) }))
-    const LOOKBACK = 4
-    const result = series.map((s: any, i: number) => {
-      const prev   = i >= LOOKBACK ? series[i - LOOKBACK]!.nl : null
-      const rising = prev == null ? null : s.nl > prev ? true : s.nl < prev ? false : null
-      let ma: number | null = null
-      if (i >= maPeriod - 1) {
-        const slice = series.slice(i - maPeriod + 1, i + 1)
-        ma = slice.reduce((a: number, x: any) => a + x.nl, 0) / slice.length
-      }
-      const aboveMA = ma != null ? s.nl > ma : null
-      let state = 0
-      if (aboveMA === true  && rising === true)  state =  1
-      if (aboveMA === false && rising === false) state = -1
-      return { date: s.date, state }
-    })
-    return result.filter((r: any) => r.date >= startDate)
-  }
-
-  // fallback: state 컬럼 직접 사용
-  return (rows as any[])
-    .filter((r: any) => r.date >= startDate && r.state != null)
-    .map((r: any) => ({ date: String(r.date), state: Number(r.state) }))
+  const series = nlRows.map((r: any) => ({ date: String(r.date), nl: Number(r.net_liquidity) }))
+  const LOOKBACK = 4
+  const result = series.map((s: any, i: number) => {
+    const prev   = i >= LOOKBACK ? series[i - LOOKBACK]!.nl : null
+    const rising = prev == null ? null : s.nl > prev ? true : s.nl < prev ? false : null
+    let ma: number | null = null
+    if (i >= maPeriod - 1) {
+      const slice = series.slice(i - maPeriod + 1, i + 1)
+      ma = slice.reduce((a: number, x: any) => a + x.nl, 0) / slice.length
+    }
+    const aboveMA = ma != null ? s.nl > ma : null
+    let state = 0
+    if (aboveMA === true  && rising === true)  state =  1
+    if (aboveMA === false && rising === false) state = -1
+    return { date: s.date, state }
+  })
+  return result.filter((r: any) => r.date >= startDate)
 }
 
 export function attachFedData(rows: Candle[], fedBars: { date: string; state: number }[]): void {
