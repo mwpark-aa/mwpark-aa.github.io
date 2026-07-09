@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
@@ -86,8 +86,29 @@ const fmtDateWithSeconds = (iso: string) => {
   return `${mo}/${dd} ${hh}:${mm}:${ss}`
 }
 
-export default function ClosedTradeList({ trades, showSeconds }: Props) {
+const GROUP_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#fbbf24']
+
+export default function ClosedTradeList({ trades, configs, showSeconds }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // 포지션(전략)별로 묶어서 표시 — trades는 이미 exit_time 내림차순이므로 그룹 내 순서도 그대로 유지됨
+  const groups = useMemo(() => {
+    const map = new Map<string, ClosedTrade[]>()
+    trades.forEach(t => {
+      const key = t.backtest_run_id ?? t.symbol
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(t)
+    })
+    return Array.from(map.entries()).map(([runId, list]) => {
+      const cfg = configs.find(c => c.id === runId)
+      return {
+        runId,
+        list,
+        label: cfg ? (cfg.name?.trim() || `${cfg.symbol} ${cfg.interval}`) : list[0].symbol,
+        isActive: !!cfg,
+      }
+    })
+  }, [trades, configs])
 
   return (
     <Box>
@@ -133,44 +154,66 @@ export default function ClosedTradeList({ trades, showSeconds }: Props) {
             '&::-webkit-scrollbar-thumb': { background: '#3f3f46', borderRadius: 99 },
           }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0.75 }}>
-              {trades.map((t, i) => (
-                <Box key={t.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <CommonTradeRow
-                        trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time, entry_ma120: t.entry_row?.ma120 ?? null } as any}
-                        index={i}
-                        showCommission={false}
-                        showAvgEntry={false}
-                        showCapitalBefore={false}
-                        formatDate={showSeconds ? fmtDateWithSeconds : undefined}
-                      />
-                    </Box>
-                    <Box sx={{ width: 68, flexShrink: 0, display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>
-                      {t.timing_ms ? (
-                        <Box
-                          onClick={() => setExpandedId(id => id === t.id ? null : t.id)}
-                          sx={{
-                            display: 'flex', alignItems: 'center',
-                            px: 0.75, py: 0.4, borderRadius: 1,
-                            bgcolor: expandedId === t.id ? '#3b82f620' : '#27272a',
-                            border: `1px solid ${expandedId === t.id ? '#3b82f650' : '#3f3f46'}`,
-                            cursor: 'pointer', userSelect: 'none',
-                            '&:hover': { bgcolor: '#3b82f620', borderColor: '#3b82f650' },
-                          }}
-                        >
-                          <Typography sx={{ fontSize: 9, color: expandedId === t.id ? '#3b82f6' : '#71717a', fontFamily: 'monospace', fontWeight: 600 }}>
-                            {t.timing_ms.total_ms != null ? `${t.timing_ms.total_ms}ms` : '—'}
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Typography sx={{ fontSize: 9, color: '#3f3f46' }}>—</Typography>
+              {groups.map((group, gi) => (
+                <Box key={group.runId} sx={{ borderTop: gi > 0 ? '1px solid #1f1f23' : 'none', pt: gi > 0 ? 0.75 : 0 }}>
+                  {groups.length > 1 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 0.5, pb: 0.5 }}>
+                      <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: GROUP_COLORS[gi % GROUP_COLORS.length] }} />
+                      <Typography sx={{ fontSize: 10, fontWeight: 700, color: GROUP_COLORS[gi % GROUP_COLORS.length], fontFamily: 'monospace' }}>
+                        {group.label}
+                      </Typography>
+                      {!group.isActive && (
+                        <Typography sx={{ fontSize: 8, color: '#52525b', border: '1px solid #3f3f46', borderRadius: 0.5, px: 0.5, lineHeight: '14px' }}>
+                          비활성
+                        </Typography>
                       )}
+                      <Box sx={{ ml: 'auto' }}>
+                        <CommonTradeStats trades={group.list} compact formatPct={fmtPct} />
+                      </Box>
                     </Box>
-                  </Box>
-                  {t.timing_ms && expandedId === t.id && (
-                    <TimingBar timing={t.timing_ms} />
                   )}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {group.list.map((t, i) => (
+                      <Box key={t.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <CommonTradeRow
+                              trade={{ ...t, entry_ts: t.entry_time, exit_ts: t.exit_time, entry_ma120: t.entry_row?.ma120 ?? null } as any}
+                              index={i}
+                              showCommission={false}
+                              showAvgEntry={false}
+                              showCapitalBefore={false}
+                              formatDate={showSeconds ? fmtDateWithSeconds : undefined}
+                            />
+                          </Box>
+                          <Box sx={{ width: 68, flexShrink: 0, display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center' }}>
+                            {t.timing_ms ? (
+                              <Box
+                                onClick={() => setExpandedId(id => id === t.id ? null : t.id)}
+                                sx={{
+                                  display: 'flex', alignItems: 'center',
+                                  px: 0.75, py: 0.4, borderRadius: 1,
+                                  bgcolor: expandedId === t.id ? '#3b82f620' : '#27272a',
+                                  border: `1px solid ${expandedId === t.id ? '#3b82f650' : '#3f3f46'}`,
+                                  cursor: 'pointer', userSelect: 'none',
+                                  '&:hover': { bgcolor: '#3b82f620', borderColor: '#3b82f650' },
+                                }}
+                              >
+                                <Typography sx={{ fontSize: 9, color: expandedId === t.id ? '#3b82f6' : '#71717a', fontFamily: 'monospace', fontWeight: 600 }}>
+                                  {t.timing_ms.total_ms != null ? `${t.timing_ms.total_ms}ms` : '—'}
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Typography sx={{ fontSize: 9, color: '#3f3f46' }}>—</Typography>
+                            )}
+                          </Box>
+                        </Box>
+                        {t.timing_ms && expandedId === t.id && (
+                          <TimingBar timing={t.timing_ms} />
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
                 </Box>
               ))}
             </Box>

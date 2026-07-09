@@ -30,7 +30,7 @@ export async function fetchFedBars(
   startDate: string,
   endDate: string,
   maPeriod: number,
-): Promise<{ date: string; state: number }[]> {
+): Promise<{ date: string; nl: number; state: number }[]> {
   if (!FRED_KEY) {
     console.warn('[fed] FRED_API_KEY 미설정 — 연준 유동성 비활성화')
     return []
@@ -78,22 +78,13 @@ export async function fetchFedBars(
     let state = 0
     if (aboveMA === true  && rising === true)  state =  1
     if (aboveMA === false && rising === false) state = -1
-    return { date: s.date, state }
+    return { date: s.date, nl: s.nl, state }
   })
 
   return result.filter(r => r.date >= startDate)
 }
 
-// FRED는 매주 목요일에 WALCL 릴리즈 → 가장 최근 목요일 00:00 UTC 반환
-function lastFredThursday(): Date {
-  const now = new Date()
-  const day = now.getUTCDay() // 0=일 ... 4=목
-  const daysBack = day >= 4 ? day - 4 : day + 3
-  const thu = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack))
-  return thu
-}
-
-// DB 캐시를 사용하는 버전 — 이번 주 목요일 이후 갱신됐으면 FRED API 미호출
+// DB 캐시 읽기 전용 — 갱신은 refresh-fed-cache 크론이 전담 (매시 정각)
 // deno-lint-ignore no-explicit-any
 export async function fetchFedBarsWithCache(
   startDate: string,
@@ -101,36 +92,6 @@ export async function fetchFedBarsWithCache(
   maPeriod: number,
   supabase: any,
 ): Promise<{ date: string; state: number }[]> {
-  // 캐시 신선도 확인 — 마지막 목요일 이후에 갱신됐는지
-  const { data: freshCheck } = await supabase
-    .from('fed_liquidity_cache')
-    .select('updated_at')
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const lastThursday = lastFredThursday()
-  const lastUpdated  = freshCheck ? new Date(freshCheck.updated_at as string) : null
-  const isStale      = !lastUpdated || lastUpdated < lastThursday
-
-  if (isStale) {
-    // FRED에서 6개월치 fetch 후 DB에 upsert
-    const fetchStart = new Date(Date.now() - 180 * 86_400_000).toISOString().slice(0, 10)
-    const fetchEnd   = new Date().toISOString().slice(0, 10)
-    try {
-      const freshBars = await fetchFedBars(fetchStart, fetchEnd, maPeriod)
-      if (freshBars.length > 0) {
-        const now = new Date().toISOString()
-        await supabase
-          .from('fed_liquidity_cache')
-          .upsert(freshBars.map(b => ({ date: b.date, state: b.state, updated_at: now })), { onConflict: 'date' })
-        console.log(`[fed] FRED 갱신 완료 — ${freshBars.length}건 upsert`)
-      }
-    } catch (err) {
-      console.warn('[fed] FRED fetch 실패, DB 기존 캐시 사용:', err)
-    }
-  }
-
   // MA 워밍업에 필요한 선행 데이터까지 포함해서 읽기
   const warmupStart = new Date(new Date(startDate).getTime() - (maPeriod + 8) * 7 * 86_400_000)
     .toISOString().slice(0, 10)

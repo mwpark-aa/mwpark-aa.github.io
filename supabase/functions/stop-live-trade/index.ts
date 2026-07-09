@@ -141,14 +141,6 @@ Deno.serve(async (req) => {
       .maybeSingle()
     const runSymbol = runRow?.symbol as string | null
 
-    // run 심볼 조회 — positions 없을 때도 알고 주문 취소에 필요
-    const { data: runRow } = await supabase
-      .from('backtest_runs')
-      .select('symbol')
-      .eq('id', run_id)
-      .maybeSingle()
-    const runSymbol = runRow?.symbol as string | null
-
     // OPEN 포지션 조회
     const { data: openPositions } = await supabase
       .from('live_positions')
@@ -172,6 +164,7 @@ Deno.serve(async (req) => {
 
       // 1. 시장가 청산 — 실패하면 TP/SL 건드리지 않고 다음 포지션으로
       let exitPrice = 0
+      let alreadyClosed = false
       try {
         const closeOrder = await binancePost('/fapi/v1/order', {
           symbol: `${pos.symbol}USDT`, side: closeSide,
@@ -188,8 +181,20 @@ Deno.serve(async (req) => {
           } catch { /* 무시 */ }
         }
       } catch (err) {
-        errors.push(`${pos.id}: ${String(err)}`)
-        continue // TP/SL 유지 — 포지션이 여전히 바이낸스에서 보호됨
+        const msg = String(err)
+        // -2022: 바이낸스에 포지션이 없음 (이미 TP/SL 체결 또는 수동 청산)
+        // → mark price로 DB만 CLOSED 처리
+        if (msg.includes('-2022')) {
+          alreadyClosed = true
+          try {
+            const risks = await binanceGet('/fapi/v2/positionRisk', { symbol: `${pos.symbol}USDT` }, api_key, api_secret, is_testnet) as unknown as { markPrice: string }[]
+            const mark = parseFloat(risks[0]?.markPrice ?? '0')
+            if (mark > 0) exitPrice = mark
+          } catch { /* 무시 */ }
+        } else {
+          errors.push(`${pos.id}: ${msg}`)
+          continue // TP/SL 유지 — 포지션이 여전히 바이낸스에서 보호됨
+        }
       }
 
       // exitPrice 확보 실패 시 DB 오염 방지
@@ -214,7 +219,7 @@ Deno.serve(async (req) => {
         status:      'CLOSED',
         exit_price:  Math.round(exitPrice * 1e6) / 1e6,
         exit_time:   iso(Date.now()),
-        exit_reason: 'MANUAL',
+        exit_reason: alreadyClosed ? 'ALREADY_CLOSED' : 'MANUAL',
         net_pnl:     Math.round(netPnl  * 10000) / 10000,
         pnl_pct:     Math.round(pnlPct  * 10000) / 10000,
       }).eq('id', pos.id)

@@ -77,7 +77,7 @@ function buildRows(c: Candle, cfg: ActiveConfig, fedState?: number | null): Indi
   }
 
   if (cfg.score_use_fed_liquidity) {
-    const state = fedState ?? (c as any).fed_state ?? null
+    const state = (c as any).fed_state ?? fedState ?? null
     rows.push({
       label: 'Fed 확장=롱 / 수축=숏',
       value: state === 1 ? '확장' : state === -1 ? '수축' : state === 0 ? '혼재' : '—',
