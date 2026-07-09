@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
-import BacktestViewer from './BacktestViewer'
-import LiveDashboard from './LiveDashboard'
-import TradeOverview from './TradeOverview'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import { useAuth } from '../../contexts/AuthContext'
+
+const BacktestViewer = lazy(() => import('./BacktestViewer'))
+const LiveDashboard   = lazy(() => import('./LiveDashboard'))
+const TradeOverview   = lazy(() => import('./TradeOverview'))
 
 // ─────────────────────────────────────────────────────────────
 // Main Page
@@ -166,13 +167,15 @@ export default function CryptoExplorer() {
         })}
       </Box>
 
-      {tab === 'backtest' ? (
-        <BacktestViewer />
-      ) : tab === 'live' ? (
-        <LiveDashboard />
-      ) : (
-        <TradeOverview />
-      )}
+      <Suspense fallback={null}>
+        {tab === 'backtest' ? (
+          <BacktestViewer />
+        ) : tab === 'live' ? (
+          <LiveDashboard />
+        ) : (
+          <TradeOverview />
+        )}
+      </Suspense>
 
       {/* ── 로그인/회원가입 모달 ── */}
       {showModal && (

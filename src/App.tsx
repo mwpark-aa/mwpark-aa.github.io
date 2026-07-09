@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import Navigation from './components/Navigation/Navigation'
-import Dashboard from './components/Dashboard/Dashboard'
-import LocalExplorer from './components/LocalExplorer/LocalExplorer'
-import StockExplorer from './components/StockExplorer/StockExplorer'
-import CryptoExplorer from './components/CryptoExplorer/CryptoExplorer'
 import { AuthProvider } from './contexts/AuthContext'
 import type { Category, AppPage } from './types'
+
+const Dashboard      = lazy(() => import('./components/Dashboard/Dashboard'))
+const LocalExplorer  = lazy(() => import('./components/LocalExplorer/LocalExplorer'))
+const StockExplorer  = lazy(() => import('./components/StockExplorer/StockExplorer'))
+const CryptoExplorer = lazy(() => import('./components/CryptoExplorer/CryptoExplorer'))
 
 export default function App() {
   const [activePage, setActivePage] = useState<AppPage>('crypto')
@@ -19,14 +20,16 @@ export default function App() {
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       />
-      {activePage === 'feed'
-        ? <Dashboard activeCategory={activeCategory} />
-        : activePage === 'stock'
-          ? <StockExplorer />
-          : activePage === 'crypto'
-            ? <CryptoExplorer />
-            : <LocalExplorer />
-      }
+      <Suspense fallback={null}>
+        {activePage === 'feed'
+          ? <Dashboard activeCategory={activeCategory} />
+          : activePage === 'stock'
+            ? <StockExplorer />
+            : activePage === 'crypto'
+              ? <CryptoExplorer />
+              : <LocalExplorer />
+        }
+      </Suspense>
     </AuthProvider>
   )
 }
