@@ -22,6 +22,7 @@ export interface ActiveConfig {
   score_use_bb: boolean
   score_use_golden_cross: boolean
   score_use_fed_liquidity: boolean
+  fed_liquidity_ma_period?: number | null
   score_use_ma120?: boolean | null
   cci_max_entry?: number | null
   score_use_cci?: boolean | null

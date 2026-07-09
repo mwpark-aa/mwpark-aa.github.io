@@ -14,11 +14,12 @@ import ApiKeyManager, { type ApiKey } from './live/ApiKeyManager'
 import type { ActiveConfig, PaperAccount, PaperPos, ClosedTrade } from './paper/types'
 import IndicatorPanel from './paper/IndicatorPanel'
 import type { Candle } from '../../lib/backtest/types'
-import { useFedState } from '../../hooks/useFedState'
+import { useFedStateByPeriod } from '../../hooks/useFedState'
+
+const DEFAULT_FED_MA_PERIOD = 13
 
 export default function LiveDashboard() {
   const { user, session } = useAuth()
-  const fedState = useFedState()
 
   const [configs,           setConfigs]           = useState<ActiveConfig[]>([])
   const [history,           setHistory]           = useState<RunHistory[]>([])
@@ -40,6 +41,8 @@ export default function LiveDashboard() {
   const [latestCandle,     setLatestCandle]     = useState<Candle | null>(null)
   const [lastClosedCandle, setLastClosedCandle] = useState<Candle | null>(null)
 
+  const fedStateMap = useFedStateByPeriod(configs.map(c => c.fed_liquidity_ma_period ?? DEFAULT_FED_MA_PERIOD))
+
   // ── 데이터 로드 ──────────────────────────────────────────────
 
   const loadConfigs = useCallback(async (keys?: ApiKey[]) => {
@@ -49,7 +52,7 @@ export default function LiveDashboard() {
     if (activeRunIds.length === 0) { setConfigs([]); return }
     const { data } = await supabase
       .from('backtest_runs')
-      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, score_use_ma120, cci_max_entry, score_use_cci, cci_oversold, cci_overbought, score_use_rvol, rvol_skip')
+      .select('id, name, symbol, interval, leverage, min_score, rsi_oversold, rsi_overbought, fixed_tp, fixed_sl, initial_capital, score_exit_threshold, adx_threshold, score_use_adx, score_use_rsi, score_use_macd, score_use_bb, score_use_golden_cross, score_use_fed_liquidity, fed_liquidity_ma_period, score_use_ma120, cci_max_entry, score_use_cci, cci_oversold, cci_overbought, score_use_rvol, rvol_skip')
       .in('id', activeRunIds)
     const cfgs = (data ?? []).map(run => ({
       ...run,
@@ -465,6 +468,7 @@ export default function LiveDashboard() {
             const winCount  = cfgClosed.filter(t => t.net_pnl > 0).length
             const loseCount = cfgClosed.filter(t => t.net_pnl <= 0).length
             const winRate   = cfgClosed.length > 0 ? winCount / cfgClosed.length * 100 : null
+            const cfgFedState = fedStateMap[cfg.fed_liquidity_ma_period ?? DEFAULT_FED_MA_PERIOD] ?? null
 
             return (
               <Box key={cfg.id} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -492,9 +496,9 @@ export default function LiveDashboard() {
                   closedCount={cfgClosed.length}
                   currentPrice={price}
                 />
-                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={fedState} showSeconds />
+                <OpenPositions openPos={cfgOpenPos} currentPrice={price} symbol={cfg.symbol} latestCandle={latestCandle} fedState={cfgFedState} showSeconds />
                 {cfgOpenPos.length === 0 && (lastClosedCandle ?? latestCandle) && (
-                  <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={fedState} symbol={cfg.symbol} lastLongEntryMs={lastEntries[cfg.id]?.long ?? null} lastShortEntryMs={lastEntries[cfg.id]?.short ?? null} />
+                  <IndicatorPanel candle={lastClosedCandle ?? latestCandle!} config={cfg} fedState={cfgFedState} symbol={cfg.symbol} lastLongEntryMs={lastEntries[cfg.id]?.long ?? null} lastShortEntryMs={lastEntries[cfg.id]?.short ?? null} />
                 )}
               </Box>
             )
